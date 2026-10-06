@@ -1,0 +1,72 @@
+/* Estilos compartidos de las páginas de cotizaciones (usa los tokens de ../index.css) */
+
+.page {
+    padding: 4rem max(1.25rem, calc((100% - var(--max)) / 2)) 5rem;
+}
+
+.back { display: inline-block; margin-bottom: 2rem; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: .85rem; letter-spacing: .06em; }
+.back:hover { color: var(--red); }
+
+/* ---------- Listado ---------- */
+.quote-list { list-style: none; margin: 3rem 0 0; padding: 0; display: grid; gap: 1rem; }
+.quote-list a {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem 1.75rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--red);
+    transition: background .2s, transform .2s;
+}
+.quote-list a:hover { background: #1E1E1E; transform: translateX(4px); }
+.quote-list__num { font-family: var(--font-display); color: var(--red); font-size: 2rem; line-height: 1; }
+.quote-list__title { font-family: var(--font-display); text-transform: uppercase; font-size: 1.15rem; display: block; }
+.quote-list__desc { color: var(--muted); font-size: .95rem; }
+.quote-list__meta { text-align: right; font-size: .85rem; color: var(--muted); white-space: nowrap; }
+
+.status { display: inline-block; padding: .2em .7em; font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; background: var(--line); color: var(--white); }
+.status--pendiente { background: #3A2F00; color: #FFD23F; }
+.status--aprobada { background: #0B3A1A; color: #4ADE80; }
+.status--borrador { background: var(--line); color: var(--muted); }
+
+/* ---------- Detalle ---------- */
+.quote-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--line);
+}
+.quote-head dl { display: grid; grid-template-columns: auto auto; gap: .35rem 1.25rem; margin: 0; font-size: .95rem; }
+.quote-head dt { color: var(--muted); }
+.quote-head dd { margin: 0; font-weight: 600; }
+
+.quote-block { margin-top: 3rem; }
+.quote-block h2 { font-size: 1.4rem; margin-bottom: 1rem; }
+.quote-block p, .quote-block li { color: var(--muted); }
+
+.table-wrap { overflow-x: auto; }
+.quote-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.quote-table th, .quote-table td { padding: .9rem 1rem; text-align: left; border-bottom: 1px solid var(--line); }
+.quote-table th { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: .8rem; letter-spacing: .06em; color: var(--red); }
+.quote-table td:last-child, .quote-table th:last-child { text-align: right; white-space: nowrap; }
+.quote-table td small { display: block; color: var(--muted); }
+.quote-table tfoot td { font-family: var(--font-display); font-size: 1.15rem; border-bottom: 0; background: var(--red); }
+
+.quote-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 3rem; }
+
+@media (max-width: 640px) {
+    .quote-list a { grid-template-columns: auto 1fr; }
+    .quote-list__meta { grid-column: 1 / -1; text-align: left; }
+}
+
+@media print {
+    .nav, .back, .quote-actions, .footer { display: none !important; }
+    body { background: #fff; color: #000; }
+    .quote-block p, .quote-block li, .quote-head dt { color: #333; }
+    .quote-table tfoot td { background: #000; color: #fff; }
+}
