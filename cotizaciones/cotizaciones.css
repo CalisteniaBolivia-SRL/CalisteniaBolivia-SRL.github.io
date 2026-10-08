@@ -1,8 +1,10 @@
 /* Estilos compartidos de las páginas de cotizaciones (usa los tokens de ../index.css) */
 
 /* Paleta sobria para documentos: grafito en lugar de negro puro, el rojo del logo
-   (#E30613) como acento y tonos apagados para estados y descuentos. */
+   (#E30613, la portada usa uno más oscuro) como acento y tonos apagados para estados y descuentos. */
 :root {
+    --red: #E30613;
+    --red-dark: #B8050F;
     --black: #0D0E10;
     --panel: #16181B;
     --panel-2: #1D2024;
