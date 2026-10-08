@@ -1,5 +1,21 @@
 /* Estilos compartidos de las páginas de cotizaciones (usa los tokens de ../index.css) */
 
+/* Paleta sobria para documentos: grafito en lugar de negro puro, el rojo del logo
+   (#E30613) como acento y tonos apagados para estados y descuentos. */
+:root {
+    --black: #0D0E10;
+    --panel: #16181B;
+    --panel-2: #1D2024;
+    --line: #2B2E33;
+    --muted: #A4A8AF;
+    --text-soft: #D6D8DC;
+    --red-tint: rgba(227, 6, 19, .12);
+    --ok: #6FBF95;
+    --ok-bg: rgba(111, 191, 149, .12);
+    --warn: #D9AE5B;
+    --warn-bg: rgba(217, 174, 91, .12);
+}
+
 .page {
     padding: 4rem max(1.25rem, calc((100% - var(--max)) / 2)) 5rem;
 }
@@ -20,15 +36,15 @@
     border-left: 4px solid var(--red);
     transition: background .2s, transform .2s;
 }
-.quote-list a:hover { background: #1E1E1E; transform: translateX(4px); }
+.quote-list a:hover { background: var(--panel-2); transform: translateX(4px); }
 .quote-list__num { font-family: var(--font-display); color: var(--red); font-size: 2rem; line-height: 1; }
 .quote-list__title { font-family: var(--font-display); text-transform: uppercase; font-size: 1.15rem; display: block; }
 .quote-list__desc { color: var(--muted); font-size: .95rem; }
 .quote-list__meta { text-align: right; font-size: .85rem; color: var(--muted); white-space: nowrap; }
 
 .status { display: inline-block; padding: .2em .7em; font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; background: var(--line); color: var(--white); }
-.status--pendiente { background: #3A2F00; color: #FFD23F; }
-.status--aprobada { background: #0B3A1A; color: #4ADE80; }
+.status--pendiente { background: var(--warn-bg); color: var(--warn); }
+.status--aprobada { background: var(--ok-bg); color: var(--ok); }
 .status--borrador { background: var(--line); color: var(--muted); }
 
 /* ---------- Detalle ---------- */
@@ -52,10 +68,12 @@
 .table-wrap { overflow-x: auto; }
 .quote-table { width: 100%; border-collapse: collapse; min-width: 560px; }
 .quote-table th, .quote-table td { padding: .9rem 1rem; text-align: left; border-bottom: 1px solid var(--line); }
-.quote-table th { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: .8rem; letter-spacing: .06em; color: var(--red); }
+.quote-table th { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: .8rem; letter-spacing: .06em; color: var(--muted); border-bottom: 2px solid var(--red); }
+.quote-table td:first-child { color: var(--red); font-weight: 600; }
 .quote-table td:last-child, .quote-table th:last-child { text-align: right; white-space: nowrap; }
 .quote-table td small { display: block; color: var(--muted); }
-.quote-table tfoot td { font-family: var(--font-display); font-size: 1.15rem; border-bottom: 0; background: var(--red); }
+.quote-table tfoot td { font-family: var(--font-display); font-size: 1.15rem; border-bottom: 0; background: var(--panel-2); border-top: 2px solid var(--red); }
+.quote-table tfoot tr:not(.row-sub):not(.row-disc) td:last-child { color: var(--red); }
 
 .quote-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 3rem; }
 
