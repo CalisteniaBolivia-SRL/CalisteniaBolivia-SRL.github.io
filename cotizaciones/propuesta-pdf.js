@@ -353,8 +353,8 @@
                     const tr = footTrs[data.row.index];
                     if (tr.classList.contains("row-disc")) data.cell.styles.textColor = [22, 140, 70];
                     else if (!tr.classList.contains("row-sub")) {
-                        data.cell.styles.fillColor = RED;
-                        data.cell.styles.textColor = [255, 255, 255];
+                        data.cell.styles.fillColor = INK;
+                        data.cell.styles.textColor = data.column.index === cols - 1 ? [255, 90, 98] : [255, 255, 255];
                         data.cell.styles.fontSize = 10;
                     }
                 },

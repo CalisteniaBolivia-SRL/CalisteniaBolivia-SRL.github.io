@@ -15,7 +15,7 @@
     font-size: 1.1rem;
 }
 .quote-block b { color: var(--white); }
-.quote-block code { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--white); background: #1E1E1E; padding: .1em .4em; font-size: .9em; }
+.quote-block code { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--white); background: var(--panel-2); padding: .1em .4em; font-size: .9em; }
 .note { color: var(--muted); font-size: .85rem; }
 .sub { font-size: 1rem; margin: 2.5rem 0 1rem; color: var(--white); }
 
@@ -61,8 +61,8 @@
 .flow__node:nth-of-type(3) { animation-delay: 2s; }
 .flow__node:nth-of-type(4) { animation-delay: 3s; }
 .flow__node:nth-of-type(5) { animation-delay: 4s; }
-.flow__node--red { background: var(--red); border-color: var(--red); }
-.flow__node--red small { color: var(--white) !important; }
+.flow__node--red { background: var(--red-tint); border-color: var(--red); }
+.flow__node--red small { color: var(--text-soft) !important; }
 .flow__node b { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; font-size: .95rem; }
 .flow__node small { color: var(--muted); font-size: .8rem; line-height: 1.3; }
 .flow__icon { font-size: 1.6rem; line-height: 1; }
@@ -89,7 +89,7 @@
 .chat__body { padding: 1.25rem; min-height: 420px; display: flex; flex-direction: column; gap: .9rem; }
 .msg { max-width: 85%; padding: .8rem 1rem; font-size: .95rem; line-height: 1.5; animation: pop .35s ease; }
 .msg--user { align-self: flex-end; background: var(--red); color: var(--white); }
-.msg--ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); color: #DDD; }
+.msg--ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); color: var(--text-soft); }
 .msg--tool { align-self: flex-start; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .78rem; color: var(--muted); background: transparent; border: 1px dashed var(--line); padding: .45rem .8rem; }
 .msg--tool::before { content: "⚙ "; color: var(--red); }
 .msg table { border-collapse: collapse; margin-top: .6rem; width: 100%; font-size: .88rem; }
@@ -254,9 +254,9 @@
 /* ---------- Descuento ---------- */
 .old { color: var(--muted); font-weight: 400; }
 .quote-table tfoot tr.row-sub td,
-.quote-table tfoot tr.row-disc td { background: transparent; font-family: var(--font-body); font-size: 1rem; border-bottom: 1px solid var(--line); }
-.quote-table tfoot tr.row-disc td { color: #4ADE80; font-weight: 700; }
-.free { color: #4ADE80; font-weight: 700; text-transform: uppercase; font-size: .85rem; letter-spacing: .05em; }
+.quote-table tfoot tr.row-disc td { background: transparent; border-top: 0; font-family: var(--font-body); font-size: 1rem; border-bottom: 1px solid var(--line); }
+.quote-table tfoot tr.row-disc td { color: var(--ok); font-weight: 700; }
+.free { color: var(--ok); font-weight: 700; text-transform: uppercase; font-size: .85rem; letter-spacing: .05em; }
 @media print {
     .quote-table tfoot tr.row-sub td, .quote-table tfoot tr.row-disc td { background: #fff; color: #000; }
 }
