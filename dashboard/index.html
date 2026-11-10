@@ -17,13 +17,32 @@
 <body>
     <header class="nav">
         <a href="../" class="nav__brand"><img src="../images/132458707.png" alt="Calistenia Company"><span>Calistenia <b>Company</b></span></a>
-        <nav class="nav__links nav__links--static">
+        <nav class="nav__links nav__links--static" id="nav-portal" hidden>
             <a href="#muro">Muro</a>
             <a href="#equipo">Equipo</a>
+            <span class="cm-hola" id="hola"></span>
+            <button type="button" class="cm-salir" id="salir">Salir</button>
         </nav>
     </header>
 
-    <main class="cm">
+    <main class="cm cm-login" id="acceso">
+        <section class="cm-login__box" aria-labelledby="acceso-titulo">
+            <p class="cm-eyebrow">Gestión interna</p>
+            <h1 id="acceso-titulo">Centro de <span class="red">mando</span></h1>
+            <p class="cm-lead">Ingresa con tu usuario y contraseña del ERP (serp.servisofts.com).</p>
+            <form id="f-acceso" class="cm-form" novalidate>
+                <label for="acc-usuario">Usuario</label>
+                <input id="acc-usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                <label for="acc-pass">Contraseña</label>
+                <input id="acc-pass" name="password" type="password" autocomplete="current-password" required>
+                <p class="cm-error" id="acc-error" role="alert"></p>
+                <button type="submit" class="btn" id="acc-btn">Ingresar</button>
+            </form>
+            <p class="cm-nota">La contraseña se valida directo con el ERP y no se guarda en esta página.</p>
+        </section>
+    </main>
+
+    <main class="cm" id="portal" hidden>
         <section class="cm-hero">
             <p class="cm-eyebrow">Gestión interna</p>
             <h1>Centro de <span class="red">mando</span></h1>
@@ -110,5 +129,6 @@
     </main>
 
     <footer class="cm-foot">Calistenia Company · Uso interno</footer>
+    <script src="acceso.js"></script>
 </body>
 </html>

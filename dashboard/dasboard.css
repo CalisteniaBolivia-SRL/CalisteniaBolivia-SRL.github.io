@@ -44,3 +44,20 @@
 .cm-help ul { margin: 0; padding-left: 1.2rem; color: var(--muted); display: flex; flex-direction: column; gap: .4rem; }
 
 .cm-foot { text-align: center; color: var(--muted); font-size: .85rem; padding: 2rem 1rem 3rem; border-top: 1px solid var(--line); }
+
+/* ---------- Ingreso con usuario del ERP ---------- */
+[hidden] { display: none !important; }
+.cm-login { min-height: calc(100vh - 160px); justify-content: center; }
+.cm-login__box { width: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: .75rem; }
+.cm-login__box h1 { font-size: clamp(2rem, 6vw, 3rem); }
+.cm-form { display: flex; flex-direction: column; gap: .45rem; margin-top: .75rem; padding: 1.5rem; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--red); }
+.cm-form label { font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-top: .4rem; }
+.cm-form input { font: inherit; color: var(--white); background: var(--ink); border: 1px solid var(--line); padding: .7rem .85rem; border-radius: 0; }
+.cm-form input:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; border-color: var(--red); }
+.cm-form .btn { margin-top: .9rem; align-self: flex-start; }
+.cm-form .btn:disabled { opacity: .6; cursor: wait; }
+.cm-error { min-height: 1.4em; margin: .3rem 0 0; color: #E8857D; font-size: .9rem; }
+.cm-nota { margin: 0; color: var(--muted); font-size: .8rem; }
+.cm-hola { color: var(--muted); text-transform: none; font-weight: 500; }
+.cm-salir { font: inherit; font-weight: 600; text-transform: uppercase; font-size: .85rem; letter-spacing: .04em; color: var(--white); background: none; border: 1px solid var(--line); padding: .3rem .8rem; cursor: pointer; }
+.cm-salir:hover, .cm-salir:focus-visible { border-color: var(--red); color: var(--red); outline: none; }
