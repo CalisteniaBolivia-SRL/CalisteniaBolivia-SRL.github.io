@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../index.css">
-    <link rel="stylesheet" href="dasboard.css?v=7">
+    <link rel="stylesheet" href="dasboard.css?v=9">
 </head>
 <body>
     <header class="nav">
@@ -49,41 +49,6 @@
             <p class="cm-lead">Pantallas y tableros con datos en vivo de las 11 sucursales. Cada enlace abre un tablero privado en Claude: solo lo ven las personas con quienes se compartió, con su propia cuenta y permisos del sistema.</p>
         </section>
 
-        <section class="cm-block cm-admin" id="admin-accesos" hidden>
-            <div class="cm-head">
-                <h2>Accesos del <span class="red">equipo</span></h2>
-                <p>Solo lo ves tú como Director. Asigna a cada usuario del ERP su cargo: al ingresar, cada uno verá solo los tableros de su cargo. Escribe el usuario tal como lo escribe esa persona en el ERP.</p>
-                <p class="cm-nota" id="adm-origen"></p>
-            </div>
-            <div class="cm-tablewrap">
-                <table class="cm-tabla">
-                    <thead><tr><th>Usuario del ERP</th><th>Nombre (referencia)</th><th>Cargo</th><th></th></tr></thead>
-                    <tbody id="adm-filas"></tbody>
-                </table>
-            </div>
-            <form id="adm-nuevo" class="cm-admin__nuevo" novalidate>
-                <label for="adm-usuario">Usuario del ERP</label>
-                <input id="adm-usuario" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ej. luis.dorado">
-                <label for="adm-nombre">Nombre</label>
-                <input id="adm-nombre" autocomplete="off" placeholder="ej. Luis Rodrigo Dorado">
-                <label for="adm-cargo">Cargo</label>
-                <select id="adm-cargo"></select>
-                <button type="submit" class="cm-salir">Agregar</button>
-            </form>
-            <div class="cm-admin__guardar">
-                <button type="button" class="btn" id="adm-guardar">Guardar cambios</button>
-                <span class="cm-nota" id="adm-estado"></span>
-            </div>
-            <details class="cm-admin__token" id="adm-token-box">
-                <summary>Llave de GitHub para guardar (se pide una sola vez)</summary>
-                <p class="cm-nota">Los cargos se guardan en el archivo <b>dashboard/accesos.json</b> de este sitio. Para escribirlo hace falta una llave de GitHub con permiso solo sobre este repositorio: en GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token → Repository access: <b>CalisteniaBolivia-SRL.github.io</b> → Permissions: <b>Contents: Read and write</b>. Pégala aquí: queda guardada solo en este navegador.</p>
-                <label for="adm-token">Llave (token)</label>
-                <input id="adm-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
-                <button type="button" class="cm-salir" id="adm-token-guardar">Guardar llave en este navegador</button>
-                <button type="button" class="cm-salir" id="adm-token-borrar">Borrar llave</button>
-            </details>
-        </section>
-
         <section class="cm-block" id="muro" data-tablero="muro">
             <div class="cm-head">
                 <h2>Muro de <span class="red">9 pantallas</span></h2>
@@ -104,7 +69,8 @@
 
         <section class="cm-block cm-sinacceso" id="sin-acceso" hidden>
             <h2>Sin tableros <span class="red">asignados</span></h2>
-            <p>Tu usuario del ERP <b id="mi-usuario"></b> todavía no tiene un cargo asignado en el centro de mando. Pídele a Dirección que te lo asigne.</p>
+            <p id="sin-rol">Tu usuario del ERP <b id="mi-usuario"></b> no tiene un rol del Centro de mando. Pídele a Dirección que te asigne uno en los roles del ERP (CM Administrador, CM Contabilidad, CM Atención, CM Supervisión o CM RRHH).</p>
+            <p id="sin-permisos-erp" hidden>No se pudieron leer tus permisos del ERP. Presiona Salir y vuelve a ingresar.</p>
         </section>
 
         <section class="cm-block" id="equipo">
@@ -169,6 +135,6 @@
     </main>
 
     <footer class="cm-foot">Calistenia Company · Uso interno</footer>
-    <script src="acceso.js?v=8"></script>
+    <script src="acceso.js?v=9"></script>
 </body>
 </html>

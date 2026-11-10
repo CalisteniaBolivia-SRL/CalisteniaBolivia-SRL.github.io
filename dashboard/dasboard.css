@@ -61,30 +61,3 @@
 .cm-hola { color: var(--muted); text-transform: none; font-weight: 500; }
 .cm-salir { font: inherit; font-weight: 600; text-transform: uppercase; font-size: .85rem; letter-spacing: .04em; color: var(--white); background: none; border: 1px solid var(--line); padding: .3rem .8rem; cursor: pointer; }
 .cm-salir:hover, .cm-salir:focus-visible { border-color: var(--red); color: var(--red); outline: none; }
-
-/* ---------- Módulo de accesos (Director) ---------- */
-.cm-admin { padding: 1.5rem; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--red); gap: 1.1rem; }
-.cm-tablewrap { overflow-x: auto; }
-.cm-tabla { width: 100%; border-collapse: collapse; font-size: .95rem; }
-.cm-tabla th { text-align: left; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
-.cm-tabla td { padding: .5rem .6rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.cm-tabla select, .cm-admin__nuevo select, .cm-admin__nuevo input, .cm-admin__token input { font: inherit; color: var(--white); background: var(--ink); border: 1px solid var(--line); padding: .45rem .6rem; border-radius: 0; }
-.cm-tabla select:focus-visible, .cm-admin input:focus-visible, .cm-admin select:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
-.cm-vacio { color: var(--muted); font-style: italic; }
-.cm-quitar { font: inherit; font-size: .8rem; color: var(--muted); background: none; border: 1px solid var(--line); padding: .25rem .6rem; cursor: pointer; }
-.cm-quitar:hover, .cm-quitar:focus-visible { color: var(--red); border-color: var(--red); outline: none; }
-.cm-admin__nuevo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: .4rem .8rem; align-items: end; }
-.cm-admin__nuevo label { grid-row: 1; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
-.cm-admin__nuevo input, .cm-admin__nuevo select, .cm-admin__nuevo button { grid-row: 2; }
-.cm-admin__guardar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem; }
-.cm-admin__token { border-top: 1px solid var(--line); padding-top: .9rem; display: flex; flex-direction: column; gap: .5rem; }
-.cm-admin__token summary { cursor: pointer; color: var(--muted); font-weight: 600; }
-.cm-admin__token label { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-top: .5rem; display: block; }
-.cm-admin__token .cm-salir { margin: .5rem .5rem 0 0; }
-.cm-nota.cm-ok { color: #6FBF95; }
-.cm-nota.cm-aviso { color: #D9AE5B; }
-.cm-nota.cm-error { color: #E8857D; }
-@media (max-width: 800px) {
-    .cm-admin__nuevo { grid-template-columns: 1fr; }
-    .cm-admin__nuevo label, .cm-admin__nuevo input, .cm-admin__nuevo select, .cm-admin__nuevo button { grid-row: auto; }
-}
