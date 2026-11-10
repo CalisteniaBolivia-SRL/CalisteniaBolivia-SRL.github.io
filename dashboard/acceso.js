@@ -26,6 +26,8 @@
     var FIJOS = { "8f44fa04-0d56-453d-98a9-7af3fc13862d": "director" };   // Jose Miguel Parada
     /* El resto se asigna desde el módulo "Accesos del equipo" y se guarda en accesos.json. */
     var ACCESOS = [];
+    var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
+    var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
     var REPO = "CalisteniaBolivia-SRL/CalisteniaBolivia-SRL.github.io";
     var ARCHIVO = "dashboard/accesos.json";
 
@@ -57,10 +59,27 @@
             .catch(function () { ACCESOS = []; });
     }
 
-    function mostrarPortal(nombre, usuario, clave) {
+    /* Permisos del ERP para el Centro de mando: página PAGINA_CM con un permiso por tablero
+       (muro, direccion, administracion, contabilidad, atencion, supervision, marketing, rrhh)
+       o "todo". Devuelve null si esa página todavía no existe en el ERP. */
+    function permisosERP(paginas) {
+        if (!paginas) return null;
+        var p = null;
+        Object.keys(paginas).forEach(function (k) { var v = paginas[k]; if (v && (v.url === PAGINA_CM || k === PAGINA_CM)) p = v; });
+        if (!p) return null;
+        var permisos = p.permisos || {};
+        var lista = permisos.todo ? CARGOS.director.slice() : CARGOS.director.filter(function (t) { return !!permisos[t]; });
+        return { tableros: lista };
+    }
+
+    function mostrarPortal(nombre, usuario, clave, erp) {
         sesion = { nombre: nombre, usuario: usuario, clave: clave };
         var cargo = cargoDe(usuario, clave);
-        var permitidos = CARGOS[cargo] || [];
+        /* Si los permisos vienen del ERP, mandan ellos; si no, el cargo asignado en el portal. */
+        var permitidos = cargo === "director" ? CARGOS.director : erp ? erp.tableros : (CARGOS[cargo] || []);
+        document.getElementById("adm-origen").textContent = erp
+            ? "Los permisos de este usuario vienen de los roles del ERP (página " + PAGINA_CM + ")."
+            : "La página " + PAGINA_CM + " todavía no existe en los roles del ERP: se usan los cargos asignados aquí.";
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
             el.hidden = permitidos.indexOf(el.getAttribute("data-tablero")) < 0;
         });
@@ -86,7 +105,7 @@
 
     try {
         var s = JSON.parse(sessionStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now()) cargarAccesos().then(function () { mostrarPortal(s.nombre, s.usuario, s.clave); });
+        if (s && s.vence > Date.now()) cargarAccesos().then(function () { mostrarPortal(s.nombre, s.usuario, s.clave, s.erp); });
     } catch (e) {}
 
     /* ===== Módulo de accesos (solo Director) ===== */
@@ -256,6 +275,22 @@
                 rechazar(e);
             }
             var reloj = setTimeout(function () { fallar("tiempo"); }, 45000);
+            /* Tras ingresar, en la misma conexión se piden los permisos del usuario en el ERP
+               (servicio roles_permisos). Si no llegan en 10 s, se entra igual sin ellos. */
+            var pidiendo = false, idPermisos = idUnico(), loginOk = null;
+            function pedirPermisos(m) {
+                loginOk = m;
+                var key = m.data && (m.data.key || m.data.key_usuario);
+                if (!key) { fin(); return resolver({ login: m, paginas: null }); }
+                pidiendo = true;
+                paso = "leyendo permisos del ERP";
+                clearTimeout(reloj);
+                reloj = setTimeout(function () { if (!terminado) { fin(); resolver({ login: m, paginas: null }); } }, 10000);
+                ws.send(JSON.stringify({
+                    version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
+                    key_usuario: key, key_empresa: KEY_EMPRESA, _ssocket_promise: idPermisos
+                }) + "\n");
+            }
             try { ws = new WebSocket(WS_URL); } catch (e) { return fallar("conexion"); }
             ws.onopen = function () { paso = "conectado, esperando saludo del ERP"; };
             ws.onerror = function () { fallar("conexion"); };
@@ -277,8 +312,11 @@
                         }) + "\n");
                     } else if (enviado && (m._ssocket_promise === id || (m.component === "usuario" && m.type === "login"))) {
                         /* La respuesta del ingreso: la reconoce por su identificador o, si el ERP no lo devuelve, por su tipo. */
-                        if (m.estado === "exito") { fin(); resolver(m); }
+                        if (m.estado === "exito") { pedirPermisos(m); }
                         else if (m.estado === "error") { fin(); rechazar(new Error(m.error || "error_login")); }
+                    } else if (pidiendo && (m._ssocket_promise === idPermisos || (m.component === "usuarioPage" && m.type === "getAll"))) {
+                        fin();
+                        resolver({ login: loginOk, paginas: m.estado === "exito" ? (m.data || {}) : null });
                     }
                 }
             };
@@ -300,13 +338,15 @@
         error.textContent = "";
         boton.disabled = true;
         boton.textContent = "Conectando con el ERP…";
-        loginERP(usuario, password).then(function (r) {
+        loginERP(usuario, password).then(function (res) {
+            var r = res.login;
             var nombre = nombreDe(r, usuario);
             var datos = (r && r.data) || {};
             var clave = datos.key || datos.key_usuario || "";
-            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, clave: clave, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+            var erp = permisosERP(res.paginas);
+            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, clave: clave, erp: erp, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             form.reset();
-            return cargarAccesos().then(function () { mostrarPortal(nombre, usuario, clave); });
+            return cargarAccesos().then(function () { mostrarPortal(nombre, usuario, clave, erp); });
         }).catch(function (err) {
             form.password.value = "";
             var detalle = err.paso ? " (paso: " + err.paso + ")" : "";
