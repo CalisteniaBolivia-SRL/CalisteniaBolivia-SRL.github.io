@@ -18,10 +18,12 @@
         supervision:    ["muro", "supervision", "marketing"],
         rrhh:           ["rrhh"]
     };
-    /* Usuario del ERP (tal como se escribe al ingresar, sin importar mayúsculas) → cargo.
-       Quien no esté en esta lista entra pero no ve tableros hasta que se le asigne un cargo. */
+    /* Usuario del ERP → cargo. Sirve el usuario tal como se escribe al ingresar (sin importar
+       mayúsculas) o la clave interna del usuario en el ERP.
+       Quien no esté en esta lista entra pero no ve tableros: la página le muestra su usuario
+       para que Dirección le asigne el cargo. */
     var USUARIOS = {
-        // "usuario.del.erp": "director",
+        "8f44fa04-0d56-453d-98a9-7af3fc13862d": "director"   // Jose Miguel Parada
     };
 
     var acceso = document.getElementById("acceso");
@@ -33,22 +35,20 @@
     var hola = document.getElementById("hola");
     var salir = document.getElementById("salir");
 
-    function tablerosDe(usuario) {
-        /* Mientras no haya usuarios cargados, el reparto por cargo está apagado y se ve todo. */
-        if (Object.keys(USUARIOS).length === 0) return CARGOS.director;
-        var cargo = USUARIOS[String(usuario || "").trim().toLowerCase()];
+    function tablerosDe(usuario, clave) {
+        var cargo = USUARIOS[String(clave || "")] || USUARIOS[String(usuario || "").trim().toLowerCase()];
         return CARGOS[cargo] || [];
     }
 
-    function mostrarPortal(nombre, usuario) {
-        var permitidos = tablerosDe(usuario);
+    function mostrarPortal(nombre, usuario, clave) {
+        var permitidos = tablerosDe(usuario, clave);
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
             el.hidden = permitidos.indexOf(el.getAttribute("data-tablero")) < 0;
         });
         var hayTarjetas = permitidos.some(function (t) { return t !== "muro"; });
         document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
         document.getElementById("sin-acceso").hidden = permitidos.length > 0;
-        document.getElementById("mi-usuario").textContent = usuario ? "«" + usuario + "»" : "";
+        document.getElementById("mi-usuario").textContent = (usuario ? "«" + usuario + "»" : "") + (clave ? " (clave " + clave + ")" : "");
         acceso.hidden = true;
         portal.hidden = false;
         nav.hidden = false;
@@ -64,7 +64,7 @@
 
     try {
         var s = JSON.parse(sessionStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now()) mostrarPortal(s.nombre, s.usuario);
+        if (s && s.vence > Date.now()) mostrarPortal(s.nombre, s.usuario, s.clave);
     } catch (e) {}
 
     /* El ERP espera la contraseña cifrada con MD5 (hexadecimal en minúsculas), igual que su web. */
@@ -187,9 +187,11 @@
         boton.textContent = "Conectando con el ERP…";
         loginERP(usuario, password).then(function (r) {
             var nombre = nombreDe(r, usuario);
-            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+            var datos = (r && r.data) || {};
+            var clave = datos.key || datos.key_usuario || "";
+            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, clave: clave, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             form.reset();
-            mostrarPortal(nombre, usuario);
+            mostrarPortal(nombre, usuario, clave);
         }).catch(function (err) {
             form.password.value = "";
             var detalle = err.paso ? " (paso: " + err.paso + ")" : "";
