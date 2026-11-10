@@ -8,14 +8,14 @@
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="cm-mcp.js?v=1"></script>
+<script src="cm-mcp.js?v=2"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
    y la sesión de datos de Calistenia. */
 (function () {
     var TABLERO = "administracion";
     var s = null;
-    try { s = JSON.parse(sessionStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
     if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
     if (s.tableros.indexOf(TABLERO) < 0) { location.replace("./?sin=" + TABLERO); return; }
     window.CM_USUARIO = s;
@@ -1172,7 +1172,7 @@ dash.draw('tareas_supervision', (ul) => CB.tareas(ul, ['molinetes', 'c_acceso', 
     var q = document.getElementById("cm-quien");
     if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
     var salir = document.getElementById("cm-salir");
-    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { sessionStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
+    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
     var re = document.getElementById("cm-reingresar");
     if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
 })();

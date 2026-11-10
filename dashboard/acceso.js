@@ -1,12 +1,13 @@
 /* Ingreso al centro de mando con el usuario y la contraseña del ERP (serp.servisofts.com).
    Usa el mismo pedido que la web del ERP: servicio "usuario", tipo "login", por su conexión segura.
    Qué tableros ve cada persona lo deciden sus roles en el ERP (página /centro_mando).
-   La contraseña no se guarda: solo se recuerda el nombre durante la sesión del navegador (8 horas). */
+   La contraseña no se guarda: se recuerda el nombre y los tableros permitidos por 30 días en
+   este navegador (localStorage), para no volver a ingresar. */
 (function () {
     var WS_URL = "wss://serp.servisofts.com/ws/";
     var MARCA = "---SSofts---";
     var CLAVE = "cb_centro_mando";
-    var HORAS = 8;
+    var HORAS = 24 * 30;
     var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
     var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
@@ -48,7 +49,7 @@
         hola.textContent = nombre ? "Hola, " + nombre : "";
     }
     function mostrarAcceso() {
-        try { sessionStorage.removeItem(CLAVE); } catch (e) {}
+        try { localStorage.removeItem(CLAVE); } catch (e) {}
         portal.hidden = true;
         nav.hidden = true;
         acceso.hidden = false;
@@ -56,7 +57,7 @@
     }
 
     try {
-        var s = JSON.parse(sessionStorage.getItem(CLAVE) || "null");
+        var s = JSON.parse(localStorage.getItem(CLAVE) || "null");
         if (s && s.vence > Date.now() && "tableros" in s) mostrarPortal(s.nombre, s.usuario, s.tableros);
     } catch (e) {}
 
@@ -203,10 +204,15 @@
             var tableros = permisosERP(res.paginas);
             /* Si no se pudieron leer los permisos, no se recuerda la sesión: al reingresar se vuelven a pedir. */
             if (tableros !== null) {
-                try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+                try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             }
             form.reset();
             mostrarPortal(nombre, usuario, tableros);
+            /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
+            if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
+                boton.textContent = "Conectando los datos de Calistenia…";
+                window.CM.iniciarSesion("./");
+            }
         }).catch(function (err) {
             form.password.value = "";
             var detalle = err.paso ? " (paso: " + err.paso + ")" : "";

@@ -1,8 +1,10 @@
 /* Conexión del centro de mando con el MCP de Calistenia Bolivia (https://calistenia.servisofts.com/mcp).
    - Inicio de sesión OAuth con PKCE: cada persona entra con su usuario de Calistenia.
    - Solo se piden permisos de lectura.
-   - Los tokens se guardan en sessionStorage (no en localStorage): duran lo que la pestaña.
-   - El refresh token cambia en cada uso; esta pestaña es la única que lo renueva. */
+   - La sesión se guarda en localStorage (decisión de Dirección) para no volver a ingresar:
+     dura mientras se use al menos una vez cada 30 días.
+   - El refresh token cambia en cada uso: las pestañas se turnan para renovarlo (navigator.locks),
+     porque si dos lo renuevan a la vez Calistenia anula la sesión. */
 (function () {
     var BASE = "https://calistenia.servisofts.com";
     var MCP = BASE + "/mcp";
@@ -14,8 +16,8 @@
     var PROTOCOLO = "2025-06-18";
     var K = { cliente: "cm_cliente", tokens: "cm_tokens", pkce: "cm_pkce" };
 
-    function leer(k) { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch (e) { return null; } }
-    function guardar(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+    function leer(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+    function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
     function azar(n) { var a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a); }
     function b64url(bytes) {
         var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
@@ -73,20 +75,30 @@
     }
 
     var renovando = null;
-    function acceso() {
+    function sinSesion() { return Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
+    function renovar(tVieja) {
+        /* Ya dentro del turno: si otra pestaña renovó mientras esperábamos, usar ese token. */
         var t = leer(K.tokens);
-        if (!t) return Promise.reject(Object.assign(new Error("sin_sesion"), { sinSesion: true }));
-        if (t.vence - Date.now() > 30000) return Promise.resolve(t.access);
-        if (renovando) return renovando;
+        if (!t) return Promise.reject(sinSesion());
+        if (t.refresh !== tVieja.refresh || t.vence - Date.now() > 30000) return Promise.resolve(t.access);
         var c = leer(K.cliente);
-        renovando = fetch(TOKEN, {
+        return fetch(TOKEN, {
             method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: formulario({ grant_type: "refresh_token", refresh_token: t.refresh, client_id: c && c.client_id, resource: MCP })
         }).then(function (r) {
-            if (!r.ok) { guardar(K.tokens, null); throw Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
+            if (!r.ok) { guardar(K.tokens, null); throw sinSesion(); }
             return r.json();
-        }).then(function (d) { return guardarTokens(d).access; })
-          .then(function (a) { renovando = null; return a; }, function (e) { renovando = null; throw e; });
+        }).then(function (d) { return guardarTokens(d).access; });
+    }
+    function acceso() {
+        var t = leer(K.tokens);
+        if (!t) return Promise.reject(sinSesion());
+        if (t.vence - Date.now() > 30000) return Promise.resolve(t.access);
+        if (renovando) return renovando;
+        var turno = (navigator.locks && navigator.locks.request)
+            ? navigator.locks.request("cm-renovar-sesion", function () { return renovar(t); })
+            : renovar(t);
+        renovando = Promise.resolve(turno).then(function (a) { renovando = null; return a; }, function (e) { renovando = null; throw e; });
         return renovando;
     }
 
