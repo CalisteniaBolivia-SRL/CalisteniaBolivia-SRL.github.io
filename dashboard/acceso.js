@@ -40,11 +40,27 @@
         return Date.now().toString(36) + Math.random().toString(36).slice(2);
     }
 
+    /* serp.servisofts.com tiene dos direcciones y una no responde: el navegador puede tardar
+       hasta ~30 s en pasar a la que sí funciona. Por eso se espera más y se reintenta. */
     function loginERP(usuario, password) {
+        var intentos = 3;
+        function intentar(n) {
+            return loginUnaVez(usuario, password).catch(function (err) {
+                if ((err.message === "conexion" || err.message === "tiempo") && n < intentos) {
+                    boton.textContent = "Reintentando conexión (" + (n + 1) + " de " + intentos + ")…";
+                    return intentar(n + 1);
+                }
+                throw err;
+            });
+        }
+        return intentar(1);
+    }
+
+    function loginUnaVez(usuario, password) {
         return new Promise(function (resolver, rechazar) {
             var ws, buffer = "", enviado = false, id = idUnico(), terminado = false;
             function fin() { terminado = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} }
-            var reloj = setTimeout(function () { if (!terminado) { fin(); rechazar(new Error("tiempo")); } }, 20000);
+            var reloj = setTimeout(function () { if (!terminado) { fin(); rechazar(new Error("tiempo")); } }, 45000);
             try { ws = new WebSocket(WS_URL); } catch (e) { fin(); return rechazar(new Error("conexion")); }
             ws.onerror = function () { if (!terminado) { fin(); rechazar(new Error("conexion")); } };
             ws.onmessage = function (ev) {
@@ -84,7 +100,7 @@
         if (!usuario || !password) { error.textContent = "Escribe tu usuario y tu contraseña."; return; }
         error.textContent = "";
         boton.disabled = true;
-        boton.textContent = "Verificando…";
+        boton.textContent = "Conectando con el ERP…";
         loginERP(usuario, password).then(function (r) {
             var nombre = nombreDe(r, usuario);
             try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
@@ -94,7 +110,7 @@
             form.password.value = "";
             error.textContent = err.message === "error_login" ? "Usuario o contraseña incorrectos."
                 : err.message === "tiempo" ? "El ERP no respondió a tiempo. Intenta de nuevo."
-                : "No se pudo conectar con el ERP. Revisa tu conexión e intenta de nuevo.";
+                : "No se pudo conectar con el ERP después de 3 intentos. Uno de sus servidores no está respondiendo; intenta de nuevo en un momento.";
         }).then(function () {
             boton.disabled = false;
             boton.textContent = "Ingresar";
