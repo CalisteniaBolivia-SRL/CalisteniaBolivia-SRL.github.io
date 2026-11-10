@@ -1,0 +1,40 @@
+/* Base de los tableros del centro de mando (valores que antes daba el entorno de Claude). */
+:root {
+    color-scheme: dark;
+    --cds-font-size-caption: 12px; --cds-font-size-body: 14px; --cds-font-size-heading: 18px; --cds-font-size-title: 26px;
+    --cds-font-weight-medium: 600;
+    --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 18px; --cds-gap-xl: 28px;
+    --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px; --cds-pad-xl: 24px;
+    --cds-radius: 2px; --cds-dur-slow: 240ms; --cds-ease-out: cubic-bezier(.2, .7, .2, 1);
+    --color-bg: #0D0E10; --color-panel: #16181B; --color-border-line: #2B2E33; --color-fg: #FFFFFF; --color-fg-muted: #A4A8AF;
+    --color-ok: #6FBF95; --color-warn: #D9AE5B; --color-bad: #D9776F;
+    --cds-text-secondary: #A4A8AF; --cds-chart-grid: #202327; --cds-chart-axis: #3A3E44; --cds-chart-muted: #4A4F56; --cds-chart-reference: #5B6068;
+    --cds-surface-popover: #1D2024; --cds-border: #2B2E33; --cds-shadow-popover: 0 8px 24px rgba(0, 0, 0, .5);
+    --font-anthropic-sans: "Segoe UI", Roboto, Arial, sans-serif; --font-anthropic-serif: "Arial Black", Impact, sans-serif;
+}
+html, body { margin: 0; background: #0D0E10; color: #FFFFFF; font-family: "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.45; }
+[hidden] { display: none !important; }
+#dash-root { padding: 0; }
+.dash-select {
+    font: inherit; color: var(--color-fg); background-color: var(--color-panel); border: 1px solid var(--color-border-line);
+    padding: 6px 30px 6px 10px; border-radius: 0; appearance: none; -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #A4A8AF 50%), linear-gradient(135deg, #A4A8AF 50%, transparent 50%);
+    background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.dash-skeleton { position: relative; color: transparent !important; }
+.dash-skeleton:empty { min-height: 1.2em; }
+.dash-skeleton::after {
+    content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: min(100%, 6em); height: .8em;
+    background: linear-gradient(90deg, #1D2024, #2B2E33, #1D2024); background-size: 200% 100%; border-radius: 2px;
+}
+@media (prefers-reduced-motion: no-preference) { .dash-skeleton::after { animation: cm-brillo 1.4s linear infinite; } }
+@keyframes cm-brillo { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* Barra superior de los tableros: volver al portal */
+.cm-barra { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid #2B2E33; background: #0D0E10; font-size: 13px; }
+.cm-barra a, .cm-barra button { color: #D6D8DC; text-decoration: none; font: inherit; background: none; border: 1px solid #2B2E33; padding: 4px 10px; cursor: pointer; }
+.cm-barra a:hover, .cm-barra button:hover { border-color: #E30613; color: #FFFFFF; }
+.cm-barra .cm-quien { color: #A4A8AF; }
+.cm-aviso-sesion { margin: 16px; padding: 14px 16px; border: 1px solid #D9AE5B; background: #1D2024; color: #FFFFFF; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.cm-aviso-sesion button { font: inherit; font-weight: 600; color: #FFFFFF; background: #B8050F; border: 0; padding: 8px 14px; cursor: pointer; }
+body.cm-muro .cm-barra { display: none; }

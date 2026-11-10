@@ -221,5 +221,15 @@
         });
     });
 
-    salir.addEventListener("click", mostrarAcceso);
+    salir.addEventListener("click", function () { if (window.CM) window.CM.cerrarSesion(); mostrarAcceso(); });
+
+    /* Vuelta del inicio de sesión de Calistenia (datos de los tableros): canjea el código y
+       abre el tablero desde el que se pidió. */
+    if (window.CM && /[?&](code|error)=/.test(location.search)) {
+        window.CM.atenderVuelta().then(function (volverA) {
+            if (volverA) location.replace(volverA);
+        }).catch(function (err) {
+            error.textContent = "No se pudo conectar los datos de Calistenia: " + err.message;
+        });
+    }
 })();
