@@ -18,13 +18,16 @@
         supervision:    ["muro", "supervision", "marketing"],
         rrhh:           ["rrhh"]
     };
-    /* Usuario del ERP → cargo. Sirve el usuario tal como se escribe al ingresar (sin importar
-       mayúsculas) o la clave interna del usuario en el ERP.
-       Quien no esté en esta lista entra pero no ve tableros: la página le muestra su usuario
-       para que Dirección le asigne el cargo. */
-    var USUARIOS = {
-        "8f44fa04-0d56-453d-98a9-7af3fc13862d": "director"   // Jose Miguel Parada
+    var NOMBRE_CARGO = {
+        director: "Director (ve todo)", administrador: "Administrador", contabilidad: "Contabilidad",
+        atencion: "Atención al cliente", supervision: "Supervisión y marketing", rrhh: "Recursos humanos"
     };
+    /* Siempre Director, aunque el archivo de accesos falle: así Dirección nunca queda afuera. */
+    var FIJOS = { "8f44fa04-0d56-453d-98a9-7af3fc13862d": "director" };   // Jose Miguel Parada
+    /* El resto se asigna desde el módulo "Accesos del equipo" y se guarda en accesos.json. */
+    var ACCESOS = [];
+    var REPO = "CalisteniaBolivia-SRL/CalisteniaBolivia-SRL.github.io";
+    var ARCHIVO = "dashboard/accesos.json";
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
@@ -34,14 +37,30 @@
     var boton = document.getElementById("acc-btn");
     var hola = document.getElementById("hola");
     var salir = document.getElementById("salir");
+    var sesion = null;
 
-    function tablerosDe(usuario, clave) {
-        var cargo = USUARIOS[String(clave || "")] || USUARIOS[String(usuario || "").trim().toLowerCase()];
-        return CARGOS[cargo] || [];
+    function normal(u) { return String(u || "").trim().toLowerCase(); }
+
+    function cargoDe(usuario, clave) {
+        if (clave && FIJOS[clave]) return FIJOS[clave];
+        for (var i = 0; i < ACCESOS.length; i++) {
+            var a = ACCESOS[i];
+            if ((a.usuario && normal(a.usuario) === normal(usuario)) || (clave && a.usuario === clave)) return a.cargo;
+        }
+        return null;
+    }
+
+    function cargarAccesos() {
+        return fetch("accesos.json?t=" + Date.now(), { cache: "no-store" })
+            .then(function (r) { return r.ok ? r.json() : { usuarios: [] }; })
+            .then(function (d) { ACCESOS = Array.isArray(d.usuarios) ? d.usuarios : []; })
+            .catch(function () { ACCESOS = []; });
     }
 
     function mostrarPortal(nombre, usuario, clave) {
-        var permitidos = tablerosDe(usuario, clave);
+        sesion = { nombre: nombre, usuario: usuario, clave: clave };
+        var cargo = cargoDe(usuario, clave);
+        var permitidos = CARGOS[cargo] || [];
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
             el.hidden = permitidos.indexOf(el.getAttribute("data-tablero")) < 0;
         });
@@ -49,13 +68,16 @@
         document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
         document.getElementById("sin-acceso").hidden = permitidos.length > 0;
         document.getElementById("mi-usuario").textContent = (usuario ? "«" + usuario + "»" : "") + (clave ? " (clave " + clave + ")" : "");
+        document.getElementById("admin-accesos").hidden = cargo !== "director";
+        if (cargo === "director") pintarAdmin();
         acceso.hidden = true;
         portal.hidden = false;
         nav.hidden = false;
-        hola.textContent = nombre ? "Hola, " + nombre : "";
+        hola.textContent = nombre ? "Hola, " + nombre + (cargo ? " · " + NOMBRE_CARGO[cargo] : "") : "";
     }
     function mostrarAcceso() {
         try { sessionStorage.removeItem(CLAVE); } catch (e) {}
+        sesion = null;
         portal.hidden = true;
         nav.hidden = true;
         acceso.hidden = false;
@@ -64,8 +86,101 @@
 
     try {
         var s = JSON.parse(sessionStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now()) mostrarPortal(s.nombre, s.usuario, s.clave);
+        if (s && s.vence > Date.now()) cargarAccesos().then(function () { mostrarPortal(s.nombre, s.usuario, s.clave); });
     } catch (e) {}
+
+    /* ===== Módulo de accesos (solo Director) ===== */
+    var admFilas = document.getElementById("adm-filas");
+    var admEstado = document.getElementById("adm-estado");
+    var admCargo = document.getElementById("adm-cargo");
+    var admToken = document.getElementById("adm-token");
+    var LLAVE_TOKEN = "cb_admin_token";
+    var cambios = false;
+
+    Object.keys(NOMBRE_CARGO).forEach(function (k) { admCargo.add(new Option(NOMBRE_CARGO[k], k)); });
+
+    function leerToken() { try { return localStorage.getItem(LLAVE_TOKEN) || ""; } catch (e) { return ""; } }
+    function avisar(texto, tipo) { admEstado.textContent = texto; admEstado.className = "cm-nota" + (tipo ? " cm-" + tipo : ""); }
+
+    function pintarAdmin() {
+        admFilas.replaceChildren();
+        if (!ACCESOS.length) {
+            var tr0 = document.createElement("tr"), td0 = document.createElement("td");
+            td0.colSpan = 4; td0.className = "cm-vacio"; td0.textContent = "Todavía no asignaste a nadie. Agrega el primer usuario abajo.";
+            tr0.append(td0); admFilas.append(tr0);
+        }
+        ACCESOS.forEach(function (a, i) {
+            var tr = document.createElement("tr");
+            var t1 = document.createElement("td"); t1.textContent = a.usuario;
+            var t2 = document.createElement("td"); t2.textContent = a.nombre || "";
+            var t3 = document.createElement("td"), sel = document.createElement("select");
+            sel.setAttribute("aria-label", "Cargo de " + a.usuario);
+            Object.keys(NOMBRE_CARGO).forEach(function (k) { sel.add(new Option(NOMBRE_CARGO[k], k)); });
+            sel.value = a.cargo;
+            sel.addEventListener("change", function () { ACCESOS[i].cargo = sel.value; marcarCambios(); });
+            t3.append(sel);
+            var t4 = document.createElement("td"), quitar = document.createElement("button");
+            quitar.type = "button"; quitar.className = "cm-quitar"; quitar.textContent = "Quitar";
+            quitar.addEventListener("click", function () { ACCESOS.splice(i, 1); marcarCambios(); pintarAdmin(); });
+            t4.append(quitar);
+            tr.append(t1, t2, t3, t4);
+            admFilas.append(tr);
+        });
+        document.getElementById("adm-token-box").open = !leerToken();
+        if (!cambios) avisar(leerToken() ? "" : "Para guardar, primero pega la llave de GitHub (abajo).");
+    }
+    function marcarCambios() { cambios = true; avisar("Hay cambios sin guardar.", "aviso"); }
+
+    document.getElementById("adm-nuevo").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var u = document.getElementById("adm-usuario").value.trim();
+        var n = document.getElementById("adm-nombre").value.trim();
+        if (!u) { avisar("Escribe el usuario del ERP.", "error"); return; }
+        var existe = ACCESOS.filter(function (a) { return normal(a.usuario) === normal(u); })[0];
+        if (existe) { existe.cargo = admCargo.value; if (n) existe.nombre = n; }
+        else ACCESOS.push({ usuario: u, nombre: n, cargo: admCargo.value });
+        e.target.reset();
+        marcarCambios();
+        pintarAdmin();
+    });
+
+    document.getElementById("adm-token-guardar").addEventListener("click", function () {
+        var t = admToken.value.trim();
+        if (!t) { avisar("Pega la llave antes de guardarla.", "error"); return; }
+        try { localStorage.setItem(LLAVE_TOKEN, t); } catch (e) {}
+        admToken.value = "";
+        document.getElementById("adm-token-box").open = false;
+        avisar("Llave guardada en este navegador." + (cambios ? " Ahora presiona Guardar cambios." : ""), "ok");
+    });
+    document.getElementById("adm-token-borrar").addEventListener("click", function () {
+        try { localStorage.removeItem(LLAVE_TOKEN); } catch (e) {}
+        avisar("Llave borrada de este navegador.", "ok");
+    });
+
+    function base64(texto) { return btoa(unescape(encodeURIComponent(texto))); }
+
+    document.getElementById("adm-guardar").addEventListener("click", function () {
+        var token = leerToken();
+        if (!token) { document.getElementById("adm-token-box").open = true; avisar("Falta la llave de GitHub para guardar.", "error"); return; }
+        var api = "https://api.github.com/repos/" + REPO + "/contents/" + ARCHIVO;
+        var cab = { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" };
+        var cuerpo = JSON.stringify({ actualizado: new Date().toISOString(), por: sesion ? sesion.nombre : "", usuarios: ACCESOS }, null, 2) + "\n";
+        var btn = this; btn.disabled = true; avisar("Guardando…");
+        fetch(api + "?ref=main", { headers: cab, cache: "no-store" })
+            .then(function (r) { return r.status === 404 ? {} : r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function (actual) {
+                return fetch(api, { method: "PUT", headers: cab, body: JSON.stringify({
+                    message: "Accesos del centro de mando: actualizado por " + (sesion ? sesion.nombre : "Dirección"),
+                    content: base64(cuerpo), sha: actual.sha, branch: "main" }) });
+            })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function () { cambios = false; avisar("Guardado. En 1 o 2 minutos los cambios rigen para todos.", "ok"); })
+            .catch(function (st) {
+                avisar(st === 401 || st === 403 ? "GitHub rechazó la llave: revisa que tenga permiso Contents: Read and write sobre este repositorio."
+                    : "No se pudo guardar (" + st + "). Intenta de nuevo.", "error");
+            })
+            .then(function () { btn.disabled = false; });
+    });
 
     /* El ERP espera la contraseña cifrada con MD5 (hexadecimal en minúsculas), igual que su web. */
     function md5(texto) {
@@ -191,7 +306,7 @@
             var clave = datos.key || datos.key_usuario || "";
             try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, clave: clave, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             form.reset();
-            mostrarPortal(nombre, usuario, clave);
+            return cargarAccesos().then(function () { mostrarPortal(nombre, usuario, clave); });
         }).catch(function (err) {
             form.password.value = "";
             var detalle = err.paso ? " (paso: " + err.paso + ")" : "";
