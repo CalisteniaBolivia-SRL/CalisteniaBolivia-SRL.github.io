@@ -12,13 +12,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../index.css">
-    <link rel="stylesheet" href="dasboard.css">
+    <link rel="stylesheet" href="dasboard.css?v=4">
 </head>
 <body>
     <header class="nav">
         <a href="../" class="nav__brand"><img src="../images/132458707.png" alt="Calistenia Company"><span>Calistenia <b>Company</b></span></a>
         <nav class="nav__links nav__links--static" id="nav-portal" hidden>
-            <a href="#muro">Muro</a>
+            <a href="#muro" data-tablero="muro">Muro</a>
             <a href="#equipo">Equipo</a>
             <span class="cm-hola" id="hola"></span>
             <button type="button" class="cm-salir" id="salir">Salir</button>
@@ -49,7 +49,7 @@
             <p class="cm-lead">Pantallas y tableros con datos en vivo de las 11 sucursales. Cada enlace abre un tablero privado en Claude: solo lo ven las personas con quienes se compartió, con su propia cuenta y permisos del sistema.</p>
         </section>
 
-        <section class="cm-block" id="muro">
+        <section class="cm-block" id="muro" data-tablero="muro">
             <div class="cm-head">
                 <h2>Muro de <span class="red">9 pantallas</span></h2>
                 <p>Abre cada pantalla en su monitor y presiona <b>Pantalla completa</b>. Se ajusta al monitor sin scroll y se actualiza cada 8 segundos.</p>
@@ -67,49 +67,54 @@
             </ol>
         </section>
 
+        <section class="cm-block cm-sinacceso" id="sin-acceso" hidden>
+            <h2>Sin tableros <span class="red">asignados</span></h2>
+            <p>Tu usuario del ERP <b id="mi-usuario"></b> todavía no tiene un cargo asignado en el centro de mando. Pídele a Dirección que te lo asigne.</p>
+        </section>
+
         <section class="cm-block" id="equipo">
             <div class="cm-head">
-                <h2>Tableros del <span class="red">equipo</span></h2>
+                <h2>Tus <span class="red">tableros</span></h2>
                 <p>Cada responsable tiene su tablero con indicadores, controles de fiscalización y su lista de trabajo del día.</p>
             </div>
             <div class="cm-team">
-                <a class="cm-card" href="https://claude.ai/artifact/BHsQhrfscUgyrXrsgKzG3N" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="direccion" href="https://claude.ai/artifact/BHsQhrfscUgyrXrsgKzG3N" target="_blank" rel="noopener">
                     <span class="cm-area">Dirección General</span>
                     <span class="cm-who">Jose Miguel Parada</span>
                     <span class="cm-role">Director</span>
                     <span class="cm-what">Semáforo por área y de fiscalización, proyección del mes</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/4UmkZDA8YMHzELX3WbMr59" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="administracion" href="https://claude.ai/artifact/4UmkZDA8YMHzELX3WbMr59" target="_blank" rel="noopener">
                     <span class="cm-area">Administración</span>
                     <span class="cm-who">Luis Rodrigo Dorado</span>
                     <span class="cm-role">Administrador</span>
                     <span class="cm-what">Cajas, control de ingreso, molinetes y sucursales</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/WKxM4URdJRJLRf28U8kvC2" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="contabilidad" href="https://claude.ai/artifact/WKxM4URdJRJLRf28U8kvC2" target="_blank" rel="noopener">
                     <span class="cm-area">Contabilidad y Fiscalización</span>
                     <span class="cm-who">Rodrigo Gomucio</span>
                     <span class="cm-role">Contabilidad</span>
                     <span class="cm-what">Caja contra banco, precios, NIT, convenios y prórrogas</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/UpvpFYH41njai2UFABe21d" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="atencion" href="https://claude.ai/artifact/UpvpFYH41njai2UFABe21d" target="_blank" rel="noopener">
                     <span class="cm-area">Atención al Cliente</span>
                     <span class="cm-who">Mauricio Mestanza · Eliana Aguilera</span>
                     <span class="cm-role">Encargado de atención · Call center</span>
                     <span class="cm-what">Renovaciones, clientes en riesgo y recuperación por WhatsApp</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/Tz8rhtRqT9zr4g9At4L1Uq" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="supervision" href="https://claude.ai/artifact/Tz8rhtRqT9zr4g9At4L1Uq" target="_blank" rel="noopener">
                     <span class="cm-area">Supervisión</span>
                     <span class="cm-who">Michell Riobo · Marco Paz</span>
                     <span class="cm-role">Entrenadores, supervisión y marketing</span>
                     <span class="cm-what">Sucursales, molinetes, entrenadores y clientes en riesgo</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/UsMgm67wMYzkVm65am78gB" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="marketing" href="https://claude.ai/artifact/UsMgm67wMYzkVm65am78gB" target="_blank" rel="noopener">
                     <span class="cm-area">Marketing y Ventas</span>
                     <span class="cm-who">Michell Riobo · Marco Paz</span>
                     <span class="cm-role">Entrenadores, supervisión y marketing</span>
                     <span class="cm-what">Proyección, paquetes, campañas y horas vacías</span>
                 </a>
-                <a class="cm-card" href="https://claude.ai/artifact/FuK7mEZjeKduQrfquRoAS4?sk=Bg0Fk0MNYD0zvuCoUzG2Cw" target="_blank" rel="noopener">
+                <a class="cm-card" data-tablero="rrhh" href="https://claude.ai/artifact/FuK7mEZjeKduQrfquRoAS4?sk=Bg0Fk0MNYD0zvuCoUzG2Cw" target="_blank" rel="noopener">
                     <span class="cm-area">Recursos Humanos</span>
                     <span class="cm-who">German Gallardo</span>
                     <span class="cm-role">Recursos Humanos</span>
@@ -129,6 +134,6 @@
     </main>
 
     <footer class="cm-foot">Calistenia Company · Uso interno</footer>
-    <script src="acceso.js"></script>
+    <script src="acceso.js?v=4"></script>
 </body>
 </html>

@@ -7,6 +7,23 @@
     var CLAVE = "cb_centro_mando";
     var HORAS = 8;
 
+    /* ===== Accesos por cargo =====
+       Qué ve cada cargo después de ingresar. Claves de tablero:
+       muro, direccion, administracion, contabilidad, atencion, supervision, marketing, rrhh */
+    var CARGOS = {
+        director:       ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh"],
+        administrador:  ["muro", "administracion"],
+        contabilidad:   ["contabilidad"],
+        atencion:       ["atencion"],
+        supervision:    ["muro", "supervision", "marketing"],
+        rrhh:           ["rrhh"]
+    };
+    /* Usuario del ERP (tal como se escribe al ingresar, sin importar mayúsculas) → cargo.
+       Quien no esté en esta lista entra pero no ve tableros hasta que se le asigne un cargo. */
+    var USUARIOS = {
+        // "usuario.del.erp": "director",
+    };
+
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
     var nav = document.getElementById("nav-portal");
@@ -16,7 +33,22 @@
     var hola = document.getElementById("hola");
     var salir = document.getElementById("salir");
 
-    function mostrarPortal(nombre) {
+    function tablerosDe(usuario) {
+        /* Mientras no haya usuarios cargados, el reparto por cargo está apagado y se ve todo. */
+        if (Object.keys(USUARIOS).length === 0) return CARGOS.director;
+        var cargo = USUARIOS[String(usuario || "").trim().toLowerCase()];
+        return CARGOS[cargo] || [];
+    }
+
+    function mostrarPortal(nombre, usuario) {
+        var permitidos = tablerosDe(usuario);
+        document.querySelectorAll("[data-tablero]").forEach(function (el) {
+            el.hidden = permitidos.indexOf(el.getAttribute("data-tablero")) < 0;
+        });
+        var hayTarjetas = permitidos.some(function (t) { return t !== "muro"; });
+        document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
+        document.getElementById("sin-acceso").hidden = permitidos.length > 0;
+        document.getElementById("mi-usuario").textContent = usuario ? "«" + usuario + "»" : "";
         acceso.hidden = true;
         portal.hidden = false;
         nav.hidden = false;
@@ -32,7 +64,7 @@
 
     try {
         var s = JSON.parse(sessionStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now()) mostrarPortal(s.nombre);
+        if (s && s.vence > Date.now()) mostrarPortal(s.nombre, s.usuario);
     } catch (e) {}
 
     function idUnico() {
@@ -46,7 +78,8 @@
         var intentos = 3;
         function intentar(n) {
             return loginUnaVez(usuario, password).catch(function (err) {
-                if ((err.message === "conexion" || err.message === "tiempo") && n < intentos) {
+                /* Solo se reintenta si no se llegó a enviar el ingreso (problema de conexión). */
+                if ((err.message === "conexion" || err.message === "tiempo") && !err.enviado && n < intentos) {
                     boton.textContent = "Reintentando conexión (" + (n + 1) + " de " + intentos + ")…";
                     return intentar(n + 1);
                 }
@@ -58,11 +91,19 @@
 
     function loginUnaVez(usuario, password) {
         return new Promise(function (resolver, rechazar) {
-            var ws, buffer = "", enviado = false, id = idUnico(), terminado = false;
+            var ws, buffer = "", enviado = false, id = idUnico(), terminado = false, paso = "conectando";
             function fin() { terminado = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} }
-            var reloj = setTimeout(function () { if (!terminado) { fin(); rechazar(new Error("tiempo")); } }, 45000);
-            try { ws = new WebSocket(WS_URL); } catch (e) { fin(); return rechazar(new Error("conexion")); }
-            ws.onerror = function () { if (!terminado) { fin(); rechazar(new Error("conexion")); } };
+            function fallar(motivo) {
+                if (terminado) return;
+                fin();
+                var e = new Error(motivo); e.paso = paso; e.enviado = enviado;
+                rechazar(e);
+            }
+            var reloj = setTimeout(function () { fallar("tiempo"); }, 45000);
+            try { ws = new WebSocket(WS_URL); } catch (e) { return fallar("conexion"); }
+            ws.onopen = function () { paso = "conectado, esperando saludo del ERP"; };
+            ws.onerror = function () { fallar("conexion"); };
+            ws.onclose = function (ev) { if (!terminado) { paso += " (cerrado " + ev.code + ")"; fallar("conexion"); } };
             ws.onmessage = function (ev) {
                 buffer += ev.data;
                 var i;
@@ -73,13 +114,15 @@
                     try { m = JSON.parse(crudo); } catch (e) { continue; }
                     if (!enviado && m.component === "servicio" && m.type === "init") {
                         enviado = true;
+                        paso = "usuario enviado, esperando respuesta";
                         ws.send(JSON.stringify({
                             service: "usuario", component: "usuario", version: "2.0", type: "login", estado: "cargando",
                             data: { usuario: usuario, password: password }, _ssocket_promise: id
                         }) + "\n");
-                    } else if (m._ssocket_promise === id) {
-                        fin();
-                        if (m.estado === "exito") resolver(m); else rechazar(new Error(m.error || "error_login"));
+                    } else if (enviado && (m._ssocket_promise === id || (m.component === "usuario" && m.type === "login"))) {
+                        /* La respuesta del ingreso: la reconoce por su identificador o, si el ERP no lo devuelve, por su tipo. */
+                        if (m.estado === "exito") { fin(); resolver(m); }
+                        else if (m.estado === "error") { fin(); rechazar(new Error(m.error || "error_login")); }
                     }
                 }
             };
@@ -103,14 +146,17 @@
         boton.textContent = "Conectando con el ERP…";
         loginERP(usuario, password).then(function (r) {
             var nombre = nombreDe(r, usuario);
-            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+            try { sessionStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             form.reset();
-            mostrarPortal(nombre);
+            mostrarPortal(nombre, usuario);
         }).catch(function (err) {
             form.password.value = "";
+            var detalle = err.paso ? " (paso: " + err.paso + ")" : "";
             error.textContent = err.message === "error_login" ? "Usuario o contraseña incorrectos."
-                : err.message === "tiempo" ? "El ERP no respondió a tiempo. Intenta de nuevo."
-                : "No se pudo conectar con el ERP después de 3 intentos. Uno de sus servidores no está respondiendo; intenta de nuevo en un momento.";
+                : err.enviado ? "El ERP recibió tu usuario pero no respondió a tiempo. Intenta de nuevo" + detalle + "."
+                : err.message === "tiempo" ? "El ERP no respondió a tiempo. Intenta de nuevo" + detalle + "."
+                : err.message === "conexion" ? "No se pudo conectar con el ERP" + detalle + ". Intenta de nuevo en un momento."
+                : "El ERP rechazó el ingreso: " + err.message + ".";
         }).then(function () {
             boton.disabled = false;
             boton.textContent = "Ingresar";
