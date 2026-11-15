@@ -11,7 +11,7 @@
     var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
     var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
-    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes"];
+    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "comercial", "ventas"];
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
