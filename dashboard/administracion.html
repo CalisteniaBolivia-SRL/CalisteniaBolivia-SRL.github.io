@@ -7,8 +7,15 @@
 <title>Administración · Calistenia Company</title>
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="cuentas-pagar.css?v=1">
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <script src="cm-mcp.js?v=2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=1"></script>
+<script src="cm-firebase.js?v=1"></script>
+<script src="fb-cxp.js?v=1"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
    y la sesión de datos de Calistenia. */
@@ -196,12 +203,70 @@
       <div class="cb-card" id="a-movs"><h3 class="cb-h3">Movimientos de caja · este mes</h3><div class="cb-tablewrap"><table class="cb-table" data-source="movs_caja" data-row-key="grupo"><thead><tr><th data-field="grupo">Tipo de movimiento</th><th data-field="movimientos" class="cb-num">Cantidad</th><th data-field="monto" class="cb-num">Monto</th></tr></thead><tbody data-draw="t_movs"></tbody></table></div></div>
     </div>
   </section>
+    <section class="cb-page" id="a-cxp" aria-labelledby="cxp-titulo">
+      <div class="cb-head cxp-head">
+        <div>
+          <h2 class="cb-h2" id="cxp-titulo">Cuentas por pagar y punto de equilibrio</h2>
+          <p class="cb-lede">Registra lo que se debe a proveedores, alquileres, servicios y sueldos, anota los pagos y mira cuánto tiene que vender cada sucursal para cubrir sus gastos.</p>
+        </div>
+        <div class="cxp-tools">
+          <label>Mes <input type="month" id="cxp-mes" aria-label="Mes del punto de equilibrio"></label>
+          <button type="button" class="cb-btn" id="cxp-actualizar">Actualizar</button>
+        </div>
+      </div>
+      <p class="cxp-msg" id="cxp-estado" role="status" aria-live="polite">Cargando…</p>
+      <p class="cxp-msg" id="cxp-aviso" role="status" aria-live="polite"></p>
+      <div class="cxp-datos">
+      <div class="cb-kpis">
+        <article class="cb-kpi"><h3 class="cb-kpi-l">Total por pagar</h3><p class="cb-kpi-v" id="cxp-k-total">—</p><p class="cb-kpi-s" id="cxp-k-total-s"></p></article>
+        <article class="cb-kpi"><h3 class="cb-kpi-l">Vencido</h3><p class="cb-kpi-v" id="cxp-k-venc">—</p><p class="cb-kpi-s" id="cxp-k-venc-s"></p></article>
+        <article class="cb-kpi"><h3 class="cb-kpi-l">Vence en 7 días</h3><p class="cb-kpi-v" id="cxp-k-sem">—</p><p class="cb-kpi-s" id="cxp-k-sem-s"></p></article>
+        <article class="cb-kpi"><h3 class="cb-kpi-l">Punto de equilibrio del mes</h3><p class="cb-kpi-v" id="cxp-k-pe">—</p><p class="cb-kpi-s" id="cxp-k-pe-s"></p></article>
+      </div>
+      </div>
+      <details class="cb-card cxp-registro" id="cxp-registro">
+        <summary><h3 class="cb-h3">Registrar cuenta por pagar</h3></summary>
+        <form class="cxp-form" id="cxp-form" novalidate>
+          <label>Proveedor<input name="proveedor" maxlength="200" required autocomplete="organization"></label>
+          <label>NIT<input name="nit" maxlength="40" inputmode="numeric"></label>
+          <label class="cxp-ancho">Concepto<input name="concepto" maxlength="300" required placeholder="Ej.: Alquiler noviembre"></label>
+          <label>Categoría<select name="categoria" class="dash-select"></select></label>
+          <label>Tipo de costo<select name="tipo_costo" class="dash-select"><option value="fijo">Fijo (no cambia con las ventas)</option><option value="variable">Variable (sube con las ventas)</option></select></label>
+          <label>Se repite<select name="recurrencia" class="dash-select"><option value="unica">Una sola vez</option><option value="mensual">Todos los meses</option></select></label>
+          <label>Sucursal<select name="key_sucursal" id="cxp-f-suc" class="dash-select"></select></label>
+          <label>Monto (Bs)<input name="monto" type="number" min="0.01" step="0.01" required inputmode="decimal"></label>
+          <label>Mes del gasto (emisión)<input name="fecha_emision" type="date" required></label>
+          <label>Vence<input name="fecha_vencimiento" type="date" required></label>
+          <label>Nº factura o documento<input name="nro_documento" maxlength="60"></label>
+          <label class="cxp-ancho">Observación<input name="observacion" maxlength="1000"></label>
+          <div class="cxp-acciones"><button type="submit" class="cxp-primario">Guardar cuenta</button><p class="cxp-msg" id="cxp-f-msg" role="status" aria-live="polite"></p></div>
+        </form>
+      </details>
+      <div class="cb-card cb-card-wide">
+        <div class="cxp-head"><h3 class="cb-h3">Cuentas</h3>
+          <div class="cxp-tools">
+            <select id="cxp-filtro" class="dash-select" aria-label="Qué cuentas mostrar"><option value="pendiente">Pendientes</option><option value="vencida">Solo vencidas</option><option value="pagada">Pagadas del mes</option><option value="todas">Todas las del mes</option></select>
+            <select id="cxp-filtro-suc" class="dash-select" aria-label="Sucursal"></select>
+          </div>
+        </div>
+        <p class="cb-note" id="cxp-tabla-total"></p>
+        <div class="cb-tablewrap"><table class="cb-table" id="cxp-tabla"><thead><tr><th>Proveedor y concepto</th><th>Sucursal</th><th class="cb-num">Vence</th><th class="cb-num">Monto</th><th class="cb-num">Pagado</th><th class="cb-num">Saldo</th><th>Estado</th><th><span class="cb-muted">Acciones</span></th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="cb-card cb-card-wide">
+        <h3 class="cb-h3">Punto de equilibrio por sucursal</h3>
+        <p class="cb-note">Punto de equilibrio = gastos fijos ÷ (1 − gastos variables ÷ ventas). Es lo que la sucursal tiene que vender en el mes para no perder plata.</p>
+        <div class="cb-tablewrap"><table class="cb-table" id="cxp-pe"><thead><tr><th>Sucursal</th><th class="cb-num">Ventas</th><th class="cb-num">Gastos fijos</th><th class="cb-num">Gastos variables</th><th class="cb-num">Punto de equilibrio</th><th class="cb-num">Avance</th><th class="cb-num">Margen de seguridad</th><th>Estado</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+        <p class="cb-note" id="cxp-pe-nota"></p>
+      </div>
+    </section>
   <details class="cb-foot" id="definiciones">
     <summary>Cómo se calculan las cifras</summary>
     <ul>
       <li>Ingresos: lo efectivamente cobrado en caja por venta de paquetes, en bolivianos. Es la misma cifra que el reporte general del panel.</li>
       <li>Mes anterior: los mismos días del mes anterior (del 1 al día de hoy), para comparar períodos iguales. La proyección de cierre reparte lo vendido entre los días transcurridos y lo extiende al mes completo.</li>
       <li>Visitas: un cliente distinto por día y sucursal.</li>
+      <li>Cuentas por pagar: se guardan en el servidor de Calistenia. "Vencida" = con saldo y fecha de vencimiento pasada.</li>
+      <li>Punto de equilibrio: gastos fijos ÷ (1 − gastos variables ÷ ventas) del mes, por la fecha de emisión de cada cuenta. Los gastos sin sucursal se reparten según la parte de ventas de cada sucursal. Si un gasto fijo mensual del mes anterior todavía no se cargó este mes, se cuenta como estimado con el mismo monto.</li>
       <li>En juego: clientes por renovar o recuperar multiplicados por el ticket promedio del mes. Es una referencia, no un ingreso asegurado.</li>
       <li>Las listas traen hasta 1.200 clientes cada una. El botón de WhatsApp abre el chat con un mensaje sugerido; nada se envía hasta que la persona lo envíe.</li>
     </ul>
@@ -1177,5 +1242,6 @@ dash.draw('tareas_supervision', (ul) => CB.tareas(ul, ['molinetes', 'c_acceso', 
     if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
 })();
 </script>
+<script src="cuentas-pagar.js?v=2"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@
     var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
     var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
-    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh"];
+    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "comercial", "ventas", "legal"];
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
@@ -34,10 +34,11 @@
 
     function mostrarPortal(nombre, usuario, permitidos) {
         var lista = permitidos || [];
+        /* Los módulos nuevos (data-libre) se ven siempre: el acceso a sus datos lo decide el rol de Firebase. */
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
-            el.hidden = lista.indexOf(el.getAttribute("data-tablero")) < 0;
+            el.hidden = !el.hasAttribute("data-libre") && lista.indexOf(el.getAttribute("data-tablero")) < 0;
         });
-        var hayTarjetas = lista.some(function (t) { return t !== "muro"; });
+        var hayTarjetas = true;
         document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
         document.getElementById("sin-acceso").hidden = lista.length > 0;
         document.getElementById("sin-permisos-erp").hidden = permitidos !== null;
