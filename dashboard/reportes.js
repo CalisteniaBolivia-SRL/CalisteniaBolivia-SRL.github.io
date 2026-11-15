@@ -15,6 +15,7 @@
         fechas: "reporte_cambios_fecha",
         convenios: "reporte_convenios",
         duplicados: "reporte_usuarios_eliminados",
+        cumpleanos: "clientes_cumpleanos",
         prorrogas: "listar_prorrogas",
         ventas: "listar_ventas"
     };
@@ -92,7 +93,61 @@
             .join("\r\n");
     }
 
-    window.REP_calc = { rangoRapido: rangoRapido, empresaConvenio: empresaConvenio, resumenConvenios: resumenConvenios, persona: persona, csv: csv };
+    /* ----- Cumpleañeros ----- */
+    /* Fecha de nacimiento en AAAA-MM-DD, AAAA-MM-DDThh… o DD/MM/AAAA. Devuelve { y, m, d } o null. */
+    function leerNacimiento(v) {
+        var s = texto(v), m;
+        if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return { y: +m[1], m: +m[2], d: +m[3] };
+        if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s))) return { y: +m[3], m: +m[2], d: +m[1] };
+        return null;
+    }
+    /* Cumpleañeros del mes "AAAA-MM": día, edad que cumplen, si es hoy o cuántos días faltan. */
+    function cumpleanerosDelMes(lista, mes, hoyIso) {
+        var y = +mes.slice(0, 4), m = +mes.slice(5, 7);
+        var bisiesto = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+        var vistos = {};
+        return lista.map(function (r) {
+            var n = leerNacimiento(r.fecha_nacimiento);
+            if (!n || n.m !== m || n.d < 1 || n.d > 31) return null;
+            var k = texto(r.key_usuario || r.key_cliente || (r.cliente + r.telefono));
+            if (vistos[k]) return null;
+            vistos[k] = true;
+            var dia = n.m === 2 && n.d === 29 && !bisiesto ? 28 : n.d;
+            var fechaCumple = mes + "-" + pad(dia);
+            var faltan = Math.round((new Date(fechaCumple + "T00:00:00") - new Date(hoyIso + "T00:00:00")) / 86400000);
+            var edad = n.y >= 1900 && n.y < y ? y - n.y : null;
+            return Object.assign({}, r, { dia: dia, fecha_cumple: fechaCumple, edad: edad, faltan: faltan, cuando: faltan === 0 ? "hoy" : faltan < 0 ? "paso" : faltan <= 7 ? "semana" : "mes" });
+        }).filter(Boolean).sort(function (a, b) { return a.dia - b.dia || texto(a.cliente).localeCompare(texto(b.cliente)); });
+    }
+    var MENSAJES_CUMPLE = [
+        "¡Feliz cumpleaños, {nombre}! 🎉 De parte de toda la familia de Calistenia Bolivia te deseamos un año lleno de fuerza, salud y nuevas metas cumplidas. ¡Cada repetición cuenta y este año va a ser el mejor! 💪",
+        "¡{nombre}, feliz cumpleaños! 🥳 Que este nuevo año de vida venga con más energía, más disciplina y muchos logros. Gracias por entrenar con nosotros: tu esfuerzo inspira. ¡A celebrar a lo grande! 💪🔥",
+        "¡Feliz cumple, {nombre}! 🎂 Hoy celebramos tu vida y todo lo que has logrado. Recuerda: el cuerpo logra lo que la mente cree. Te deseamos un año increíble. ¡Un abrazo de todo el equipo de Calistenia Bolivia! 💪",
+        "¡Muchas felicidades, {nombre}! 🎉 Un año más para ser más fuerte que ayer. Que la vida te regale salud, alegría y muchas metas cumplidas dentro y fuera del entrenamiento. ¡Feliz cumpleaños! 💪",
+        "¡Feliz cumpleaños, {nombre}! 🌟 Gracias por ser parte de Calistenia Bolivia. Que este año sea de progreso, constancia y momentos felices. ¡Te mereces lo mejor! 🎂💪",
+        "¡{nombre}, que tengas un cumpleaños espectacular! 🥳 Nuevo año, nuevas metas: seguimos entrenando juntos para que sea el más fuerte de todos. ¡Felicidades de parte de todo el equipo! 💪🔥"
+    ];
+    var INVITACION_REGRESO = " Y como regalo, te esperamos de vuelta: escríbenos y te reservamos tu clase de regreso. 🎁";
+    function hashTexto(s) { var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+    /* Mensaje de felicitación: plantilla elegida o, en "auto", una distinta por cliente (siempre la misma para el mismo cliente).
+       A quien no tiene plan vigente se le suma una invitación a volver. */
+    function mensajeCumple(r, plantilla) {
+        var i = plantilla === "auto" || plantilla == null ? hashTexto(texto(r.key_usuario || r.cliente)) % MENSAJES_CUMPLE.length : +plantilla;
+        var nombre = texto(r.cliente).split(/\s+/)[0] || "";
+        var msg = MENSAJES_CUMPLE[i] || MENSAJES_CUMPLE[0];
+        msg = msg.replace(/\{nombre\}/g, nombre).replace(/,\s*!/g, "!").replace(/^¡\s*,\s*(\S)/, function (_, c) { return "¡" + c.toUpperCase(); }).replace(/\s+([,!])/g, "$1");
+        if (r.activo === false) msg += INVITACION_REGRESO;
+        return msg;
+    }
+    function linkWhatsApp(tel, msg) {
+        var d = texto(tel).replace(/\D/g, "");
+        if (d.length < 8) return null;
+        if (d.length === 8) d = "591" + d;
+        return "https://wa.me/" + d + "?text=" + encodeURIComponent(msg);
+    }
+
+    window.REP_calc = { rangoRapido: rangoRapido, empresaConvenio: empresaConvenio, resumenConvenios: resumenConvenios, persona: persona, csv: csv,
+        cumpleanerosDelMes: cumpleanerosDelMes, mensajeCumple: mensajeCumple, leerNacimiento: leerNacimiento, MENSAJES_CUMPLE: MENSAJES_CUMPLE };
 
     /* ---------------- Interfaz ---------------- */
     var raiz = document.getElementById("reportes");
@@ -114,7 +169,7 @@
     var fechaHora = function (s) { if (!s) return "—"; var t = texto(s).replace(" ", "T"); return fecha(t) + (t.length > 15 ? " " + t.slice(11, 16) : ""); };
     var muted = function (t) { return el("div", { class: "rp-muted", text: t }); };
 
-    var estado = { tab: "traspasos", desde: "", hasta: "", buscar: "", datos: {}, avisos: {}, cargando: {} };
+    var estado = { tab: "traspasos", desde: "", hasta: "", buscar: "", datos: {}, avisos: {}, cargando: {}, mesCumple: "", plantilla: "auto", soloCumple: "" };
 
     function esNoDisponible(e) { return /unknown tool|tool not found|not found|no existe|desconocid|no encontrad|-32601/i.test(String((e && e.message) || e)); }
     function llamar(tool, args) {
@@ -247,6 +302,38 @@
             numericas: ["monto"],
             vacio: "No hubo ventas de paquetes CONVENIO en este período."
         },
+        cumpleanos: {
+            titulo: "Cumpleañeros del mes",
+            porMes: true,
+            cargar: function () {
+                return llamar(TOOLS.cumpleanos, { mes: estado.mesCumple }).then(function (r) {
+                    return { filas: cumpleanerosDelMes(filas(r), estado.mesCumple, iso(new Date())) };
+                });
+            },
+            kpis: function (l) {
+                return [["Cumpleañeros del mes", l.length], ["Cumplen hoy", l.filter(function (r) { return r.cuando === "hoy"; }).length],
+                    ["Próximos 7 días", l.filter(function (r) { return r.cuando === "semana"; }).length], ["Con plan vigente", l.filter(function (r) { return r.activo !== false; }).length]];
+            },
+            columnas: [
+                ["dia", "Día", function (r) { return pad(r.dia) + "/" + estado.mesCumple.slice(5, 7); }],
+                ["cuando", "Cuándo", function (r) { return r.cuando === "hoy" ? "¡Hoy!" : r.faltan < 0 ? "Hace " + (-r.faltan) + (r.faltan === -1 ? " día" : " días") : "En " + r.faltan + (r.faltan === 1 ? " día" : " días"); }],
+                ["cliente", "Cliente", function (r) { return persona(r.cliente, r.key_usuario); }],
+                ["edad", "Cumple", function (r) { return r.edad ? r.edad + " años" : "—"; }],
+                ["telefono", "Teléfono", function (r) { return texto(r.telefono) || "—"; }],
+                ["sucursal", "Sucursal", function (r) { return texto(r.sucursal) || "—"; }],
+                ["estado", "Estado", function (r) { return r.activo === false ? "Sin plan vigente" + (r.fecha_fin ? " (venció " + fecha(r.fecha_fin) + ")" : "") : "Activo"; }],
+                ["mensaje", "Mensaje de felicitación", function (r) { return mensajeCumple(r, estado.plantilla); }, function (r) {
+                    var msg = mensajeCumple(r, estado.plantilla), wa = linkWhatsApp(r.telefono, msg);
+                    return el("div", { class: "rp-cumple-msg" }, [el("p", { text: msg }),
+                        wa ? el("a", { class: "rp-btn rp-wa", href: wa, target: "_blank", rel: "noopener", text: "Felicitar por WhatsApp" }) : el("span", { class: "rp-muted", text: "Sin teléfono válido" })]);
+                }]
+            ],
+            numericas: [],
+            filaClase: function (r) { return r.cuando === "hoy" ? "is-hoy" : r.cuando === "paso" ? "is-paso" : null; },
+            vacio: "No hay clientes que cumplan años en este mes.",
+            nota: "El botón abre WhatsApp con el mensaje listo; nada se envía hasta que la persona lo manda. A quien no tiene plan vigente se le suma una invitación a volver.",
+            pendiente: "El MCP de Calistenia todavía no tiene la herramienta de cumpleaños (clientes_cumpleanos). La fecha de nacimiento está en el servicio de usuarios de Servisofts: cuando Capital Corp la exponga, aquí aparecen los cumpleañeros con su mensaje."
+        },
         duplicados: {
             titulo: "Eliminación de usuarios duplicados",
             cargar: function (a) { return llamar(TOOLS.duplicados, a).then(function (r) { return { filas: filas(r) }; }); },
@@ -264,7 +351,7 @@
     };
 
     function cargar(tab, forzar) {
-        var R = REPORTES[tab], clave = estado.desde + "|" + estado.hasta;
+        var R = REPORTES[tab], clave = R.porMes ? "mes|" + estado.mesCumple : estado.desde + "|" + estado.hasta;
         if (!forzar && estado.datos[tab] && estado.datos[tab].clave === clave) { pintar(); return; }
         estado.cargando[tab] = true;
         pintar();
@@ -298,7 +385,15 @@
         var R = REPORTES[estado.tab], d = estado.datos[estado.tab];
         var cont = $("#rp-contenido"); cont.textContent = "";
         cont.appendChild(el("h2", { class: "rp-h2", id: "rp-titulo", text: R.titulo }));
-        cont.appendChild(el("p", { class: "rp-muted", text: "Del " + fecha(estado.desde) + " al " + fecha(estado.hasta) + "." }));
+        if (R.porMes) {
+            var mesInput = el("input", { type: "month", value: estado.mesCumple, "aria-label": "Mes de los cumpleaños", onchange: function (e) { if (/^\d{4}-\d{2}$/.test(e.target.value)) { estado.mesCumple = e.target.value; cargar(estado.tab); } } });
+            var plantillas = [["auto", "Automático (uno distinto por cliente)"]].concat(MENSAJES_CUMPLE.map(function (m, i) { return [String(i), "Mensaje " + (i + 1) + ": " + m.slice(0, 48).replace("{nombre}", "…") + "…"]; }));
+            var sel = el("select", { class: "dash-select", "aria-label": "Mensaje", onchange: function (e) { estado.plantilla = e.target.value; pintar(); } },
+                plantillas.map(function (o) { return el("option", { value: o[0], text: o[1], selected: o[0] === estado.plantilla }); }));
+            var cuando = el("select", { class: "dash-select", "aria-label": "Mostrar", onchange: function (e) { estado.soloCumple = e.target.value; pintar(); } },
+                [["", "Todo el mes"], ["hoy", "Solo hoy"], ["semana", "Hoy y próximos 7 días"], ["pendientes", "Los que faltan"]].map(function (o) { return el("option", { value: o[0], text: o[1], selected: o[0] === estado.soloCumple }); }));
+            cont.appendChild(el("div", { class: "rp-cumple-barra" }, [el("label", {}, ["Mes", mesInput]), el("label", {}, ["Mostrar", cuando]), el("label", { class: "rp-cumple-plantilla" }, ["Mensaje", sel])]));
+        } else cont.appendChild(el("p", { class: "rp-muted", text: "Del " + fecha(estado.desde) + " al " + fecha(estado.hasta) + "." }));
         if (estado.cargando[estado.tab] || !d) { cont.appendChild(el("p", { class: "rp-msg", role: "status", text: "Cargando…" })); return; }
         if (d.error) {
             cont.appendChild(el("div", { class: "rp-aviso " + (d.pendiente ? "is-warn" : "is-bad"), role: "status" }, [
@@ -320,6 +415,9 @@
                 resumen, ["ventas", "clientes", "recargas", "monto"], "")]));
         }
         var visibles = filtrar(lista, R);
+        if (R.porMes && estado.soloCumple) visibles = visibles.filter(function (r) {
+            return estado.soloCumple === "hoy" ? r.cuando === "hoy" : estado.soloCumple === "semana" ? (r.cuando === "hoy" || r.cuando === "semana") : r.faltan >= 0;
+        });
         var botonCsv = el("button", { type: "button", class: "rp-btn", text: "Descargar CSV", disabled: !visibles.length, onclick: function () {
             var blob = new Blob([csv(R.columnas, visibles)], { type: "text/csv;charset=utf-8" });
             var a = el("a", { href: URL.createObjectURL(blob), download: "reporte-" + estado.tab + "-" + estado.desde + "-a-" + estado.hasta + ".csv" });
@@ -327,16 +425,17 @@
         } });
         cont.appendChild(el("div", { class: "rp-card" }, [
             el("div", { class: "rp-fila" }, [el("h3", { class: "rp-h3", text: "Detalle" }), el("span", { class: "rp-muted", text: visibles.length === lista.length ? lista.length + " registros" : visibles.length + " de " + lista.length + " registros" }), botonCsv]),
-            tabla(R.columnas, visibles, R.numericas || [], estado.buscar ? "Nada coincide con la búsqueda." : R.vacio)
+            tabla(R.columnas, visibles, R.numericas || [], estado.buscar || estado.soloCumple ? "Nada coincide con el filtro." : R.vacio, R.filaClase)
         ]));
         if (R.nota) cont.appendChild(el("p", { class: "rp-muted", text: R.nota }));
     }
 
-    function tabla(cols, lista, numericas, vacio) {
+    function tabla(cols, lista, numericas, vacio, filaClase) {
         var tb = el("tbody");
         if (!lista.length) tb.appendChild(el("tr", {}, [el("td", { colspan: cols.length, class: "rp-vacio", text: vacio })]));
         lista.slice(0, 1500).forEach(function (r) {
-            tb.appendChild(el("tr", {}, cols.map(function (c) {
+            tb.appendChild(el("tr", { class: filaClase ? filaClase(r) : null }, cols.map(function (c) {
+                if (typeof c[3] === "function") return el("td", {}, [c[3](r)]);
                 var v = typeof c[2] === "function" ? c[2](r) : r[c[0]];
                 return el("td", { class: numericas.indexOf(c[0]) >= 0 ? "rp-num" : null, text: v == null || v === "" ? "—" : String(v) });
             })));
@@ -373,6 +472,7 @@
     });
     $("#rp-buscar").addEventListener("input", function (e) { estado.buscar = e.target.value; pintar(); });
     $("#rp-actualizar").addEventListener("click", function () { cargar(estado.tab, true); });
+    estado.mesCumple = iso(new Date()).slice(0, 7);
     var inicial = (location.hash || "").slice(1);
     if (REPORTES[inicial]) estado.tab = inicial;
     pintarTabs();

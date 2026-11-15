@@ -7,7 +7,7 @@
 <title>Reportes · Calistenia Company</title>
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
-<link rel="stylesheet" href="reportes.css?v=1">
+<link rel="stylesheet" href="reportes.css?v=2">
 <script src="cm-mcp.js?v=2"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
@@ -32,7 +32,7 @@
     <div>
       <span class="rp-eyebrow">Calistenia Company · Centro de mando</span>
       <h1 class="rp-title">Reportes</h1>
-      <p class="rp-muted">Traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados: quién hizo qué y cuándo.</p>
+      <p class="rp-muted">Traspasos, paquetes eliminados, cambios de fecha, convenios, usuarios duplicados y cumpleañeros del mes.</p>
     </div>
     <form class="rp-fechas" id="rp-fechas" novalidate>
       <div class="rp-rapidos" role="group" aria-label="Períodos rápidos">
@@ -54,6 +54,7 @@
     <button type="button" role="tab" class="rp-tab" data-tab="fechas" aria-controls="rp-contenido"><b></b>Modificaciones de fecha</button>
     <button type="button" role="tab" class="rp-tab" data-tab="convenios" aria-controls="rp-contenido"><b></b>Convenios y recargas</button>
     <button type="button" role="tab" class="rp-tab" data-tab="duplicados" aria-controls="rp-contenido"><b></b>Usuarios duplicados eliminados</button>
+    <button type="button" role="tab" class="rp-tab" data-tab="cumpleanos" aria-controls="rp-contenido"><b></b>Cumpleañeros del mes</button>
   </nav>
 
   <div class="rp-herramientas">
@@ -71,11 +72,12 @@
       <li><b>Modificaciones de fecha:</b> prórrogas (incluidas las anuladas) y cambios de fecha de inicio o fin hechos desde el perfil del cliente, con la fecha anterior y la nueva.</li>
       <li><b>Convenios:</b> ventas de paquetes cuyo nombre dice CONVENIO. La empresa es la que dice el nombre del paquete después de «CONVENIO» o, si no la dice, la razón social de la factura. La primera compra del cliente en ese convenio es la credencial; las siguientes son recargas.</li>
       <li><b>Usuarios duplicados:</b> pendiente de definir la fuente con Servisofts / Capital Corp.</li>
+      <li><b>Cumpleañeros del mes:</b> clientes que cumplen años en el mes elegido (fecha de nacimiento del servicio de usuarios), con un mensaje motivador listo para mandar por WhatsApp. A quien no tiene plan vigente se le suma una invitación a volver.</li>
     </ul>
   </details>
 </main>
 
-<script src="reportes.js?v=1"></script>
+<script src="reportes.js?v=2"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");
