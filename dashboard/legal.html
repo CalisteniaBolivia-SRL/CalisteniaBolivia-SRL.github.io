@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Legal · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="legal.css?v=1">
+<script src="cm-mcp.js?v=2"></script>
+<script>
+/* Antes de cargar: hay que haber ingresado al portal, tener el permiso "legal" y la sesión de datos de Calistenia. */
+(function () {
+    var TABLERO = "legal";
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    if (s.tableros.indexOf(TABLERO) < 0) { location.replace("./?sin=" + TABLERO); return; }
+    window.CM_USUARIO = s;
+    if (!window.CM.conSesion()) { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); }
+})();
+</script>
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><span class="cm-quien" id="cm-quien"></span><button type="button" id="cm-salir">Salir</button></div>
+<div class="cm-aviso-sesion" id="cm-sesion" hidden><span>Tu sesión de datos de Calistenia venció.</span><button type="button" id="cm-reingresar">Volver a ingresar</button></div>
+
+<main class="lg" id="legal" lang="es">
+  <header class="lg-top">
+    <div>
+      <span class="lg-eyebrow">Calistenia Company · Centro de mando</span>
+      <h1 class="lg-title">Legal</h1>
+      <p class="lg-muted">Contratos, permisos y licencias de cada sucursal, procesos y casos con su bitácora, y un calendario con todos los vencimientos y plazos.</p>
+    </div>
+    <div class="lg-herr"><button type="button" class="lg-btn" id="lg-actualizar">Actualizar</button></div>
+  </header>
+  <p class="lg-msg" id="lg-estado" role="status" aria-live="polite">Cargando…</p>
+  <p class="lg-msg" id="lg-aviso" role="status" aria-live="polite"></p>
+  <nav class="lg-tabs" id="lg-tabs" role="tablist" aria-label="Secciones"></nav>
+  <section id="lg-contenido" role="tabpanel" aria-live="polite"></section>
+
+  <details class="lg-foot">
+    <summary>Cómo funciona</summary>
+    <ul>
+      <li><b>Avisos:</b> cada contrato, permiso y plazo tiene sus «días de aviso». Dentro de ese margen se marca en amarillo; con la fecha pasada, en rojo.</li>
+      <li><b>Contratos con renovación automática:</b> no se marcan como vencidos; se avisa que se renuevan solos para confirmarlo.</li>
+      <li><b>Casos:</b> la próxima actuación y las audiencias de la bitácora aparecen en el calendario. Los gastos de la bitácora se suman por caso.</li>
+      <li><b>Documentos:</b> se guarda el enlace (Google Drive u otro, siempre https://). Revisa que la carpeta esté compartida solo con quien corresponda.</li>
+    </ul>
+  </details>
+</main>
+
+<script src="legal-logica.js?v=1"></script>
+<script src="legal.js?v=1"></script>
+<script>
+(function () {
+    var q = document.getElementById("cm-quien");
+    if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
+    var salir = document.getElementById("cm-salir");
+    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
+    var re = document.getElementById("cm-reingresar");
+    if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
+})();
+</script>
+</body>
+</html>
