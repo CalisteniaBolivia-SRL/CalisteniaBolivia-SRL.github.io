@@ -9,6 +9,12 @@
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <link rel="stylesheet" href="comercial.css?v=1">
 <script src="cm-mcp.js?v=2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=1"></script>
+<script src="cm-firebase.js?v=1"></script>
+<script src="fb-comercial.js?v=2"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal y tener el permiso "comercial" (Atención al
    Cliente, ve todo el equipo) o "ventas" (ejecutiva, ve su CRM), y la sesión de datos de Calistenia. */
@@ -16,7 +22,6 @@
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
     if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
-    if (s.tableros.indexOf("comercial") < 0 && s.tableros.indexOf("ventas") < 0) { location.replace("./?sin=comercial"); return; }
     window.CM_USUARIO = s;
     if (!window.CM.conSesion()) { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); }
 })();
@@ -56,7 +61,7 @@
 </main>
 
 <script src="comercial-logica.js?v=1"></script>
-<script src="comercial.js?v=1"></script>
+<script src="comercial.js?v=2"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");

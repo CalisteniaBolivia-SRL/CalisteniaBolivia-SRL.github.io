@@ -34,10 +34,11 @@
 
     function mostrarPortal(nombre, usuario, permitidos) {
         var lista = permitidos || [];
+        /* Los módulos nuevos (data-libre) se ven siempre: el acceso a sus datos lo decide el rol de Firebase. */
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
-            el.hidden = lista.indexOf(el.getAttribute("data-tablero")) < 0;
+            el.hidden = !el.hasAttribute("data-libre") && lista.indexOf(el.getAttribute("data-tablero")) < 0;
         });
-        var hayTarjetas = lista.some(function (t) { return t !== "muro"; });
+        var hayTarjetas = true;
         document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
         document.getElementById("sin-acceso").hidden = lista.length > 0;
         document.getElementById("sin-permisos-erp").hidden = permitidos !== null;

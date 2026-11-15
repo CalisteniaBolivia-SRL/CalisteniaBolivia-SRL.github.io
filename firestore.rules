@@ -1,0 +1,107 @@
+rules_version = '2';
+// Reglas de seguridad de los módulos nuevos del centro de mando (Legal, Cuentas por pagar, Sistema comercial).
+// Acceso por rol: documento roles/{correo} con los campos admin, legal, administracion, comercial, ventas, reportes.
+// El primer documento de Dirección (admin: true) se crea a mano en la consola de Firebase (ver dashboard/FIREBASE.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ingreso() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function correo() { return request.auth.token.email.lower(); }
+    function perfil() { return get(/databases/$(database)/documents/roles/$(correo())).data; }
+    function tieneRol(r) {
+      return ingreso() && exists(/databases/$(database)/documents/roles/$(correo()))
+        && perfil().get('estado', 1) > 0
+        && (perfil().get('admin', false) == true || perfil().get(r, false) == true);
+    }
+    function admin() { return tieneRol('admin'); }
+    function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
+    function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
+
+    // Roles: cada persona lee el suyo; Dirección administra; Atención al Cliente puede buscar para armar su equipo.
+    match /roles/{email} {
+      allow read: if ingreso() && (email == correo() || admin() || tieneRol('comercial'));
+      allow write: if admin() && email == email.lower()
+        && soloCampos(['nombre', 'telefono', 'admin', 'legal', 'administracion', 'comercial', 'ventas', 'reportes', 'estado', 'fecha_edicion', 'editado_por']);
+    }
+
+    // Configuración común (lista de sucursales).
+    match /config/{doc} {
+      allow read: if ingreso();
+      allow write: if admin();
+    }
+
+    // ---------- Legal ----------
+    match /legal_contrato/{id} { allow read, write: if tieneRol('legal'); }
+    match /legal_permiso/{id} { allow read, write: if tieneRol('legal'); }
+    match /legal_caso/{id} { allow read, write: if tieneRol('legal'); }
+    match /legal_caso_evento/{id} { allow read, write: if tieneRol('legal'); }
+    match /legal_plazo/{id} { allow read, write: if tieneRol('legal'); }
+
+    // ---------- Cuentas por pagar ----------
+    match /cxp_cuenta/{id} {
+      allow read: if tieneRol('administracion');
+      allow create: if tieneRol('administracion') && request.resource.data.monto is number && request.resource.data.monto > 0
+        && request.resource.data.pagado == 0 && request.resource.data.tipo_costo in ['fijo', 'variable'];
+      // Lo pagado nunca supera el monto.
+      allow update: if tieneRol('administracion') && request.resource.data.pagado is number
+        && request.resource.data.pagado <= request.resource.data.monto + 0.001 && request.resource.data.monto == resource.data.monto;
+      allow delete: if false;
+    }
+    match /cxp_pago/{id} {
+      allow read: if tieneRol('administracion');
+      allow create: if tieneRol('administracion') && request.resource.data.monto is number && request.resource.data.monto > 0;
+      allow update, delete: if false;
+    }
+
+    // ---------- Sistema comercial ----------
+    function comercial() { return tieneRol('comercial'); }
+    function equipoComercial() { return tieneRol('comercial') || tieneRol('ventas'); }
+    function soyEjecutiva() {
+      return tieneRol('ventas') && exists(/databases/$(database)/documents/com_ejecutiva/$(correo()))
+        && get(/databases/$(database)/documents/com_ejecutiva/$(correo())).data.estado > 0;
+    }
+
+    match /com_ejecutiva/{email} {
+      allow read: if equipoComercial();
+      allow write: if comercial() && email == email.lower();
+    }
+    match /com_asignacion/{cliente} {
+      allow read: if equipoComercial();
+      allow write: if comercial();
+    }
+    match /com_guion/{id} {
+      allow read: if equipoComercial();
+      allow write: if comercial();
+    }
+    match /com_comision_anulada/{id} {
+      allow read: if equipoComercial();
+      allow write: if comercial();
+    }
+    match /com_tarea/{id} {
+      allow read: if equipoComercial();
+      allow create, delete: if comercial();
+      // Atención al Cliente edita todo; la ejecutiva solo marca como hecha una tarea suya o del equipo.
+      allow update: if comercial()
+        || (soyEjecutiva()
+            && (resource.data.key_ejecutiva == null || resource.data.key_ejecutiva == correo())
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hecha', 'fecha_hecha', 'comentario_cierre'])
+            && request.resource.data.hecha is bool && texto('comentario_cierre', 2000));
+    }
+    match /com_gestion/{id} {
+      allow read: if equipoComercial();
+      // Cada ejecutiva registra contactos solo a su nombre; Atención al Cliente también puede registrar.
+      allow create: if (comercial() || (soyEjecutiva() && request.resource.data.key_ejecutiva == correo()))
+        && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'otro']
+        && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() <= 120
+        && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
+      allow update, delete: if comercial();
+    }
+
+    // Todo lo demás, cerrado.
+    match /{documento=**} { allow read, write: if false; }
+  }
+}

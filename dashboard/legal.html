@@ -9,14 +9,18 @@
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <link rel="stylesheet" href="legal.css?v=1">
 <script src="cm-mcp.js?v=2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=1"></script>
+<script src="cm-firebase.js?v=1"></script>
+<script src="fb-legal.js?v=1"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener el permiso "legal" y la sesión de datos de Calistenia. */
 (function () {
-    var TABLERO = "legal";
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
     if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
-    if (s.tableros.indexOf(TABLERO) < 0) { location.replace("./?sin=" + TABLERO); return; }
     window.CM_USUARIO = s;
     if (!window.CM.conSesion()) { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); }
 })();

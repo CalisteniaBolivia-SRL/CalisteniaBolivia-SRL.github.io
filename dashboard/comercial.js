@@ -22,8 +22,8 @@
         comisionAnular: "comercial_comision_anular", comisionRestaurar: "comercial_comision_restaurar",
         miTrabajo: "comercial_mi_trabajo", gestionRegistrar: "comercial_gestion_registrar", tareaCompletar: "comercial_tarea_completar"
     };
-    var tableros = (window.CM_USUARIO && window.CM_USUARIO.tableros) || [];
-    var MASTER = tableros.indexOf("comercial") >= 0;
+    /* Perfil: rol de Firebase "comercial" (Atención al Cliente) o "ventas" (ejecutiva). */
+    var MASTER = false;
 
     /* ---------- utilidades de interfaz ---------- */
     var $ = function (s) { return raiz.querySelector(s); };
@@ -126,7 +126,7 @@
         var pC = MASTER ? cargarMaster() : cargarEjecutiva();
         return Promise.all([pV, pC]).then(function () {
             mensaje($("#co-estado"), S.sinHerramientas ? "warn" : "", S.sinHerramientas
-                ? "El sistema comercial está listo, pero el MCP de Calistenia todavía no tiene sus herramientas: por ahora solo se ven los clientes antiguos por sucursal."
+                ? "El sistema comercial está listo, pero todavía no está activo: por ahora solo se ven los clientes antiguos por sucursal."
                 : "Actualizado a las " + new Date().toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }));
             pintar();
         }).catch(function (e) { mensaje($("#co-estado"), "bad", "No se pudo cargar: " + textoError(e)); pintar(); });
@@ -331,7 +331,7 @@
         }
     };
     function yoListo(c) {
-        if (S.sinHerramientas) { c.appendChild(aviso("warn", "Pendiente de activación", "Tu CRM está listo, pero el MCP de Calistenia todavía no tiene las herramientas del sistema comercial. Cuando se activen, aquí verás tus clientes asignados.")); return false; }
+        if (S.sinHerramientas) { c.appendChild(aviso("warn", "Pendiente de activación", "Tu CRM está listo, pero todavía no está activo. Cuando se activen, aquí verás tus clientes asignados.")); return false; }
         if (S.errorYo) { c.appendChild(aviso("warn", "Todavía no estás en el equipo", S.errorYo)); return false; }
         if (!S.yo) { c.appendChild(el("p", { class: "co-msg", text: "Cargando…" })); return false; }
         return true;
@@ -421,7 +421,7 @@
     /* ================= Vista master (Atención al Cliente) ================= */
     function pendienteMaster(c) {
         if (!S.sinHerramientas) return false;
-        c.appendChild(aviso("warn", "Pendiente de activación", "El sistema comercial está listo, pero el MCP de Calistenia todavía no tiene sus herramientas. Mientras tanto puedes ver los clientes antiguos por sucursal en «Reparto por sucursal»."));
+        c.appendChild(aviso("warn", "Pendiente de activación", "El sistema comercial está listo, pero todavía no está activo. Mientras tanto puedes ver los clientes antiguos por sucursal en «Reparto por sucursal»."));
         return true;
     }
     var VISTAS_MASTER = {
@@ -561,9 +561,9 @@
         var tel = el("input", { type: "tel", maxlength: "40", value: e ? e.telefono || "" : "" });
         var meta = el("input", { type: "number", min: "0", max: "10000", step: "1", value: e ? e.meta_mensual || 0 : 20 });
         var keyUsuario = e ? e.key_usuario : null;
-        var buscar = el("input", { type: "search", placeholder: "Nombre o usuario en el ERP", value: "" });
+        var buscar = el("input", { type: "search", placeholder: "Correo o nombre (debe tener el rol de Ejecutiva en Roles)", value: "" });
         var resultados = el("div", { class: "co-resultados" });
-        var elegido = el("p", { class: "co-muted", text: keyUsuario ? "Usuario vinculado." : "Busca y elige el usuario con el que la ejecutiva entra al centro de mando." });
+        var elegido = el("p", { class: "co-muted", text: keyUsuario ? "Cuenta: " + keyUsuario : "Busca y elige la cuenta de Google con la que la ejecutiva entra. Si no aparece, primero Dirección le da el rol «Ejecutiva de ventas» en Roles." });
         var t;
         buscar.addEventListener("input", function () {
             clearTimeout(t); var q = buscar.value.trim(); if (q.length < 3) { resultados.textContent = ""; return; }
@@ -585,7 +585,7 @@
         var checks = nombresSuc.slice().sort().map(function (s) { return el("label", { class: "co-check" }, [el("input", { type: "checkbox", value: s, checked: !!marcadas[L.norm(s)] }), s]); });
         var f = el("form", { class: "co-card co-form", novalidate: true }, [
             el("h3", { class: "co-h3", text: e ? "Editar a " + e.nombre : "Agregar ejecutiva" }),
-            e ? null : el("label", { class: "co-ancho" }, ["Usuario del ERP", buscar, resultados, elegido]),
+            e ? el("p", { class: "co-muted co-ancho", text: "Cuenta: " + e.key_usuario }) : el("label", { class: "co-ancho" }, ["Cuenta de Google", buscar, resultados, elegido]),
             el("label", {}, ["Nombre", nombre]), el("label", {}, ["Teléfono", tel]), el("label", {}, ["Meta mensual (clientes recuperados)", meta]),
             el("fieldset", { class: "co-ancho co-checks" }, [el("legend", { text: "Sucursales que atiende" })].concat(checks)),
             el("div", { class: "co-acciones co-ancho" }, [el("button", { type: "submit", class: "co-primario", text: "Guardar" }),
@@ -593,7 +593,7 @@
                 el("button", { type: "button", class: "co-btn", text: "Cancelar", onclick: function () { cont.textContent = ""; } }), msg])
         ]);
         function guardar(estado) {
-            if (!keyUsuario) { mensaje(msg, "bad", "Elige el usuario del ERP."); return; }
+            if (!keyUsuario) { mensaje(msg, "bad", "Elige la cuenta de Google de la ejecutiva."); return; }
             if (!nombre.value.trim()) { mensaje(msg, "bad", "Escribe el nombre."); return; }
             var sucs = checks.map(function (l) { return l.querySelector("input"); }).filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
             mensaje(msg, "", "Guardando…");
@@ -667,6 +667,7 @@
     function avisar(t, tono) { var m = $("#co-aviso"); mensaje(m, tono || "ok", t); clearTimeout(avisar.t); avisar.t = setTimeout(function () { m.textContent = ""; }, 8000); }
 
     /* ---------- arranque ---------- */
+    function arrancar() {
     $("#co-titulo").textContent = MASTER ? "Sistema comercial" : "Mi CRM de ventas";
     $("#co-sub").textContent = MASTER
         ? "Atención al Cliente dirige al equipo de ventas: reparte clientes antiguos por sucursal, deja tareas y guiones, y controla resultados y comisiones."
@@ -682,4 +683,15 @@
     $("#co-actualizar").addEventListener("click", cargar);
     cargar();
     setInterval(function () { if (!document.hidden && !raiz.querySelector(".co-subfila, .co-form")) cargar(); }, 10 * 60000);
+    }
+    (window.CMFB ? CMFB.listo : Promise.resolve()).then(function () {
+        if (window.CMFB) {
+            MASTER = CMFB.tieneRol("comercial");
+            if (CMFB.estado.usuario && !MASTER && !CMFB.tieneRol("ventas")) {
+                mensaje($("#co-estado"), "warn", "Tu cuenta " + CMFB.correo() + " no tiene el rol de Sistema comercial ni de Ejecutiva de ventas. Pídeselo a Dirección.");
+                return;
+            }
+        }
+        arrancar();
+    });
 })();
