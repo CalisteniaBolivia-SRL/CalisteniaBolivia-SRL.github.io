@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Reportes · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="reportes.css?v=1">
+<script src="cm-mcp.js?v=2"></script>
+<script>
+/* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
+   y la sesión de datos de Calistenia. */
+(function () {
+    var TABLERO = "reportes";
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    if (s.tableros.indexOf(TABLERO) < 0) { location.replace("./?sin=" + TABLERO); return; }
+    window.CM_USUARIO = s;
+    if (!window.CM.conSesion()) { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); }
+})();
+</script>
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><span class="cm-quien" id="cm-quien"></span><button type="button" id="cm-salir">Salir</button></div>
+<div class="cm-aviso-sesion" id="cm-sesion" hidden><span>Tu sesión de datos de Calistenia venció.</span><button type="button" id="cm-reingresar">Volver a ingresar</button></div>
+
+<main class="rp" id="reportes" lang="es">
+  <header class="rp-top">
+    <div>
+      <span class="rp-eyebrow">Calistenia Company · Centro de mando</span>
+      <h1 class="rp-title">Reportes</h1>
+      <p class="rp-muted">Traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados: quién hizo qué y cuándo.</p>
+    </div>
+    <form class="rp-fechas" id="rp-fechas" novalidate>
+      <div class="rp-rapidos" role="group" aria-label="Períodos rápidos">
+        <button type="button" class="rp-btn" data-rango="mes">Este mes</button>
+        <button type="button" class="rp-btn" data-rango="mes_anterior">Mes anterior</button>
+        <button type="button" class="rp-btn" data-rango="30">30 días</button>
+        <button type="button" class="rp-btn" data-rango="90">90 días</button>
+      </div>
+      <label>Desde<input type="date" id="rp-desde" required></label>
+      <label>Hasta<input type="date" id="rp-hasta" required></label>
+      <button type="submit" class="rp-primario">Ver</button>
+      <p class="rp-msg is-bad" id="rp-fechas-msg" role="status" aria-live="polite"></p>
+    </form>
+  </header>
+
+  <nav class="rp-tabs" role="tablist" aria-label="Reportes">
+    <button type="button" role="tab" class="rp-tab" data-tab="traspasos" aria-controls="rp-contenido"><b></b>Traspasos de mensualidad</button>
+    <button type="button" role="tab" class="rp-tab" data-tab="eliminados" aria-controls="rp-contenido"><b></b>Paquetes eliminados</button>
+    <button type="button" role="tab" class="rp-tab" data-tab="fechas" aria-controls="rp-contenido"><b></b>Modificaciones de fecha</button>
+    <button type="button" role="tab" class="rp-tab" data-tab="convenios" aria-controls="rp-contenido"><b></b>Convenios y recargas</button>
+    <button type="button" role="tab" class="rp-tab" data-tab="duplicados" aria-controls="rp-contenido"><b></b>Usuarios duplicados eliminados</button>
+  </nav>
+
+  <div class="rp-herramientas">
+    <label class="rp-buscar">Buscar<input type="search" id="rp-buscar" placeholder="Cliente, paquete, sucursal, motivo…" autocomplete="off"></label>
+    <button type="button" class="rp-btn" id="rp-actualizar">Actualizar</button>
+  </div>
+
+  <section id="rp-contenido" role="tabpanel" aria-live="polite" aria-labelledby="rp-titulo"></section>
+
+  <details class="rp-foot">
+    <summary>Cómo se arma cada reporte</summary>
+    <ul>
+      <li><b>Traspasos:</b> cada vez que se cambia el dueño de un paquete vendido. El servidor lo registra desde que se instaló el historial; antes no quedaba guardado.</li>
+      <li><b>Paquetes eliminados:</b> ventas anuladas (con su motivo, monto y quién la anuló) y paquetes quitados a un cliente sin anular la venta.</li>
+      <li><b>Modificaciones de fecha:</b> prórrogas (incluidas las anuladas) y cambios de fecha de inicio o fin hechos desde el perfil del cliente, con la fecha anterior y la nueva.</li>
+      <li><b>Convenios:</b> ventas de paquetes cuyo nombre dice CONVENIO. La empresa es la que dice el nombre del paquete después de «CONVENIO» o, si no la dice, la razón social de la factura. La primera compra del cliente en ese convenio es la credencial; las siguientes son recargas.</li>
+      <li><b>Usuarios duplicados:</b> pendiente de definir la fuente con Servisofts / Capital Corp.</li>
+    </ul>
+  </details>
+</main>
+
+<script src="reportes.js?v=1"></script>
+<script>
+(function () {
+    var q = document.getElementById("cm-quien");
+    if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
+    var salir = document.getElementById("cm-salir");
+    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
+    var re = document.getElementById("cm-reingresar");
+    if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
+})();
+</script>
+</body>
+</html>
