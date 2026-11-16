@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=1"></script>
-<script src="fb-comercial.js?v=2"></script>
+<script src="fb-comercial.js?v=3"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal y tener el permiso "comercial" (Atención al
    Cliente, ve todo el equipo) o "ventas" (ejecutiva, ve su CRM), y la sesión de datos de Calistenia. */
@@ -51,7 +51,7 @@
   <details class="co-foot">
     <summary>Cómo funciona</summary>
     <ul>
-      <li><b>Clientes antiguos:</b> clientes cuyo último plan venció hace más de 30 días (dentro del último año) y no renovaron.</li>
+      <li><b>Clientes antiguos:</b> clientes cuyo último plan venció hace más de 30 días y hasta 6 meses (lo máximo que entrega el MCP) y no renovaron.</li>
       <li><b>Reparto:</b> cada ejecutiva recibe los clientes de las sucursales que Atención al Cliente le asigna. Si dos comparten sucursal, se reparten en partes iguales. Atención al Cliente puede pasar un cliente puntual a otra ejecutiva.</li>
       <li><b>Prioridad:</b> primero los seguimientos atrasados y de hoy, luego los interesados, después los clientes sin contactar (los que vencieron hace menos, antes) y al final los que no contestan.</li>
       <li><b>Comisión:</b> Bs 5 por cada cliente que vuelve a comprar (venta con monto mayor a 0) dentro de los 15 días siguientes al último contacto registrado por la ejecutiva. Atención al Cliente puede anular una comisión con su motivo.</li>
@@ -61,7 +61,7 @@
 </main>
 
 <script src="comercial-logica.js?v=1"></script>
-<script src="comercial.js?v=2"></script>
+<script src="comercial.js?v=3"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");

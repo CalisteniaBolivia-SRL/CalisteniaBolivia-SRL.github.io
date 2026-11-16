@@ -240,11 +240,21 @@
             cargar: function (a) {
                 return llamar(TOOLS.fechas, a).then(function (r) { return { filas: filas(r) }; }).catch(function (e) {
                     if (!esNoDisponible(e)) throw e;
-                    return llamar(TOOLS.prorrogas, Object.assign({ limite: 500 }, a)).then(function (r) {
+                    /* listar_prorrogas admite hasta 200 filas por página: se juntan hasta 2.000. */
+                    var acc = [];
+                    function pagina(offset, n) {
+                        return llamar(TOOLS.prorrogas, Object.assign({}, a, { limite: 200, offset: offset })).then(function (r) {
+                            acc = acc.concat(filas(r));
+                            var sig = r && r.siguiente_offset;
+                            return sig != null && n < 9 ? pagina(sig, n + 1) : sig != null;
+                        });
+                    }
+                    return pagina(0, 0).then(function (cortado) {
                         return {
                             parcial: "Por ahora solo se ven las prórrogas. Los cambios de fecha de inicio o fin hechos desde el perfil del cliente aparecerán cuando se active el reporte completo.",
-                            filas: filas(r).map(function (p) {
-                                return { origen: "prorroga", fecha_on: p.fecha, cliente: p.cliente, paquete: p.paquete, sucursal: p.sucursal, dias: p.dias, fecha_fin_nueva: p.nueva_fecha_fin, descripcion: p.motivo, responsable: p.registrado_por, vigente: true };
+                            cortado: cortado,
+                            filas: acc.map(function (p) {
+                                return { origen: "prorroga", fecha_on: p.fecha, cliente: p.cliente, key_cliente: p.key_usuario, paquete: p.paquete, sucursal: p.sucursal, dias: p.dias, fecha_fin_nueva: p.nueva_fecha_fin, descripcion: p.motivo, responsable: p.registrado_por, vigente: true };
                             })
                         };
                     });

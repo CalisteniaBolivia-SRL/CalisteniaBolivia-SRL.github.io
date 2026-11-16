@@ -98,14 +98,14 @@
         return [];
     }
     function datos(r) { return r && r.data && !Array.isArray(r.data) ? r.data : r; }
-    /* Clientes vencidos en el último año, en páginas (hasta 3.000). */
+    /* Clientes vencidos en los últimos 180 días (el máximo que acepta clientes_vencidos), en páginas (hasta 5.000). */
     function cargarVencidos() {
         var acc = [];
         function pag(offset, n) {
-            return llamar(T.vencidos, { dias: 365, limite: 200, offset: offset }).then(function (r) {
+            return llamar(T.vencidos, { dias: 180, limite: 200, offset: offset }).then(function (r) {
                 acc = acc.concat(filas(r));
                 var sig = r && r.siguiente_offset;
-                return sig != null && n < 14 ? pag(sig, n + 1) : { filas: acc, cortado: sig != null };
+                return sig != null && n < 24 ? pag(sig, n + 1) : { filas: acc, cortado: sig != null };
             });
         }
         return pag(0, 0);
@@ -173,7 +173,7 @@
         var c = $("#co-contenido"); c.textContent = "";
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
-        if (S.cortado) c.appendChild(aviso("warn", null, "Hay más de 3.000 clientes vencidos en el año: se muestran los primeros 3.000."));
+        if (S.cortado) c.appendChild(aviso("warn", null, "Hay más de 5.000 clientes vencidos en los últimos 6 meses: se muestran los primeros 5.000."));
         var fn = (MASTER ? VISTAS_MASTER : VISTAS_EJ)[S.tab];
         if (fn) fn(c);
     }
@@ -431,7 +431,7 @@
             Object.keys(com).forEach(function (k) { totalCom += com[k].comision; totalVentas += com[k].ventas; });
             var contactados = todos.filter(function (x) { return x.crm.ultimo && String(x.crm.ultimo).slice(0, 10) >= S.periodo.desde; }).length;
             c.appendChild(el("h2", { class: "co-h2", text: "Recuperación de clientes antiguos" }));
-            c.appendChild(el("p", { class: "co-muted", text: "Clientes que vencieron hace más de 30 días (en el último año). Período de ventas y comisiones: " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) + "." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Clientes que vencieron hace entre 1 y 6 meses. Período de ventas y comisiones: " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) + "." }));
             c.appendChild(kpis([
                 ["Clientes antiguos por recuperar", todos.length.toLocaleString("es-BO"), sin ? sin + " sin ejecutiva asignada" : "Todos asignados", sin ? "warn" : null],
                 ["Contactados en el período", contactados.toLocaleString("es-BO"), todos.length ? Math.round(contactados / todos.length * 100) + "% de la cartera" : ""],
