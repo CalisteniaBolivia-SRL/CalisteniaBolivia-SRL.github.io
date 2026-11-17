@@ -11,15 +11,21 @@
 <script src="cm-mcp.js?v=2"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
-   y la sesión de datos de Calistenia. */
+   y la sesión de datos de Calistenia.
+   Este tablero ahora vive dentro de «Comercial y Atención al Cliente» (comercial.html#atencion):
+   abierto solo, lleva allá; embebido (?embebido=1) se muestra sin barra ni encabezado propios. */
 (function () {
-    var TABLERO = "atencion";
+    var TABLEROS = ["atencion", "comercial"];
+    var embebido = /[?&]embebido=1\b/.test(location.search) && window.top !== window.self;
+    if (!embebido) { location.replace("comercial.html#atencion"); return; }
+    document.documentElement.classList.add("embebido");
+    var arriba = function (url) { try { window.top.location.replace(url); } catch (e) { location.replace(url); } };
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
-    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
-    if (s.tableros.indexOf(TABLERO) < 0) { location.replace("./?sin=" + TABLERO); return; }
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { arriba("./"); return; }
+    if (!s.tableros.some(function (t) { return TABLEROS.indexOf(t) >= 0; })) { arriba("./?sin=atencion"); return; }
     window.CM_USUARIO = s;
-    if (!window.CM.conSesion()) { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); }
+    /* La sesión de datos la pide la página contenedora (comercial.html); aquí no se abre otro inicio de sesión. */
 })();
 </script>
 <script>window.CM_PAGINA = {"datasets": {"activos": {"tool": "listar_clientes_activos", "args": {"limite": 1}}, "asis_suc_30": {"tool": "reporte_asistencia", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}", "agrupar_por": "sucursal"}}, "ocupacion": {"tool": "ocupacion_por_horario", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}"}}, "por_vencer": {"tool": "clientes_por_vencer", "args": {"dias": 7, "limite": 200}}, "vencidos": {"tool": "clientes_vencidos", "args": {"dias": 30, "limite": 200}}, "ventas_12m": {"tool": "reporte_ventas", "args": {"desde": "{{ini_12m}}", "hasta": "{{hoy}}", "agrupar_por": "mes"}}, "ventas_cajero": {"tool": "reporte_ventas", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "agrupar_por": "cajero"}}, "ventas_hoy_suc": {"tool": "reporte_ventas", "args": {"desde": "{{hoy}}", "hasta": "{{hoy}}", "agrupar_por": "sucursal"}}, "ventas_mesant_suc": {"tool": "reporte_ventas", "args": {"desde": "{{ant_ini}}", "hasta": "{{ant_fin}}", "agrupar_por": "sucursal"}}, "ventas_mes_suc": {"tool": "reporte_ventas", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "agrupar_por": "sucursal"}}, "ventas_paquete": {"tool": "reporte_ventas", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "agrupar_por": "paquete"}}, "ventas_paquete_ant": {"tool": "reporte_ventas", "args": {"desde": "{{ant_ini}}", "hasta": "{{ant_fin}}", "agrupar_por": "paquete"}}, "banco": {"tool": "movimientos_banco", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "limite": 1}}, "facturas": {"tool": "listar_facturas", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "limite": 1}}, "movs_caja": {"tool": "reporte_movimientos_caja", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "agrupar_por": "tipo_movimiento"}}, "prorrogas": {"tool": "listar_prorrogas", "args": {"desde": "{{ini_90}}", "hasta": "{{hoy}}", "limite": 200}}, "ventas_det": {"tool": "listar_ventas", "args": {"desde": "{{ini_mes}}", "hasta": "{{hoy}}", "limite": 200}}, "cajas": {"tool": "cajas_abiertas", "args": {}}, "comparar": {"tool": "comparar_asistencia", "args": {"a_desde": "{{ini_mes}}", "a_hasta": "{{hoy}}", "b_desde": "{{ant_ini}}", "b_hasta": "{{ant_fin}}"}}, "instructores": {"tool": "asistencia_por_instructor", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}"}}, "molinetes": {"tool": "estado_molinetes", "args": {"horas": 2}}, "sin_asistir": {"tool": "clientes_sin_asistir", "args": {"dias": 14, "limite": 200}}, "asis_30d": {"tool": "reporte_asistencia", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}", "agrupar_por": "dia"}}, "asis_hoy": {"tool": "asistencia_del_dia", "args": {"fecha": "{{hoy}}"}}, "frecuencia": {"tool": "frecuencia_asistencia", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}", "top": 0}}, "ventas_dia": {"tool": "reporte_ventas", "args": {"desde": "{{ini_30}}", "hasta": "{{hoy}}", "agrupar_por": "dia"}}}, "params": {"hoy": "2026-11-10", "ini_mes": "2026-11-01", "ini_30": "2026-10-12", "ini_12m": "2025-12-01", "ant_ini": "2026-10-01", "ant_fin": "2026-10-10", "ini_90": "2026-08-13"}};</script>
@@ -154,6 +160,8 @@
 /* Sin parpadeo al actualizar: los valores se reemplazan en el lugar, sin atenuar */
 .cb [data-dash-source-state], .cb [data-dash-source-state=refreshing] { opacity: 1 !important; transition: none !important; }
 .cb .cb-axis-2 text { font-weight: 600; }
+/* Embebido dentro de «Comercial y Atención al Cliente»: sin barra ni encabezado propios. */
+html.embebido .cm-barra, html.embebido #cabecera { display: none !important; }
 </style>
 
 <div class="cb" lang="es">

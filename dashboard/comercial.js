@@ -1,8 +1,11 @@
-/* Sistema comercial del centro de mando.
+/* Comercial y Atención al Cliente (antes «Sistema comercial» y «Atención al Cliente», unificados).
    - Perfil "comercial" (Atención al Cliente, master): equipo de ejecutivas, reparto por sucursal,
      reasignación de clientes, tareas, guiones, comisiones y actividad.
    - Perfil "ventas" (ejecutiva): su CRM con los clientes antiguos asignados, agenda del día,
      registro de gestiones y seguimientos, tareas, guiones y comisiones.
+   - Pestaña «Atención y retención»: el tablero de Atención al Cliente (atencion.html) embebido.
+     La ve el perfil "comercial" y quien tenga el tablero "atencion" del ERP; si alguien solo tiene
+     ese tablero (sin rol de Firebase), ve únicamente esa pestaña.
    Datos: MCP de Calistenia. Clientes antiguos = clientes_vencidos (ya existe); el resto, herramientas
    comercial_* nuevas (servidor: componente "comercial"). Sin ellas, la página lo avisa. */
 (function () {
@@ -24,6 +27,13 @@
     };
     /* Perfil: rol de Firebase "comercial" (Atención al Cliente) o "ventas" (ejecutiva). */
     var MASTER = false;
+    /* Pestaña de Atención y retención (tablero de Atención al Cliente embebido). */
+    var TAB_ATENCION = ["atencion", "Atención y retención"];
+    var SOLO_ATENCION = false;   // tiene el tablero "atencion" del ERP pero ningún rol del CRM
+    function veAtencion() {
+        var t = (window.CM_USUARIO && window.CM_USUARIO.tableros) || [];
+        return MASTER || t.indexOf("atencion") >= 0;
+    }
 
     /* ---------- utilidades de interfaz ---------- */
     var $ = function (s) { return raiz.querySelector(s); };
@@ -162,15 +172,55 @@
     /* ================= Pintar ================= */
     var TABS_MASTER = [["resumen", "Resumen"], ["equipo", "Equipo"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Comisiones"], ["actividad", "Actividad"]];
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
+    function pestanas() {
+        if (SOLO_ATENCION) return [TAB_ATENCION];
+        var tabs = (MASTER ? TABS_MASTER : TABS_EJ).slice();
+        if (veAtencion()) tabs.splice(1, 0, TAB_ATENCION);   // segunda, después de Resumen / Mi día
+        return tabs;
+    }
+    /* El tablero de Atención se crea una sola vez y se muestra u oculta: así no se recarga al cambiar de pestaña. */
+    var marco = null;
+    function mostrarAtencion(visible) {
+        var cont = $("#co-atencion");
+        if (!cont) return;
+        cont.hidden = !visible;
+        if (!visible || marco) return;
+        marco = el("iframe", { src: "atencion.html?embebido=1", title: "Atención y retención", class: "co-marco-atencion" });
+        marco.style.cssText = "display:block;width:100%;min-height:80vh;border:0;background:transparent";
+        marco.addEventListener("load", ajustarMarco);
+        cont.appendChild(marco);
+    }
+    function ajustarMarco() {
+        try {
+            var doc = marco.contentDocument;
+            if (!doc || !doc.body) return;
+            var pedido = 0;
+            var medir = function () {
+                if (pedido) return;
+                pedido = requestAnimationFrame(function () {
+                    pedido = 0;
+                    var alto = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight) + "px";
+                    if (marco.style.height !== alto) marco.style.height = alto;
+                });
+            };
+            medir();
+            if (window.ResizeObserver) new ResizeObserver(medir).observe(doc.body); else setInterval(medir, 2000);
+        } catch (e) { /* si no se puede medir, queda con su altura mínima y su propio scroll */ }
+    }
     function pintar() {
-        var tabs = MASTER ? TABS_MASTER : TABS_EJ;
+        var tabs = pestanas();
         if (!S.tab) { var h = location.hash.slice(1); S.tab = tabs.some(function (t) { return t[0] === h; }) ? h : tabs[0][0]; }
+        if (!tabs.some(function (t) { return t[0] === S.tab; })) S.tab = tabs[0][0];
         var nav = $("#co-tabs"); nav.textContent = "";
         tabs.forEach(function (t) {
             nav.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1],
                 onclick: function () { S.tab = t[0]; try { history.replaceState(null, "", "#" + t[0]); } catch (e) {} pintar(); } }));
         });
         var c = $("#co-contenido"); c.textContent = "";
+        var enAtencion = S.tab === TAB_ATENCION[0];
+        c.hidden = enAtencion;
+        mostrarAtencion(enAtencion);
+        if (enAtencion) return;
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
         if (S.cortado) c.appendChild(aviso("warn", null, "Hay más de 5.000 clientes vencidos en los últimos 6 meses: se muestran los primeros 5.000."));
@@ -668,9 +718,9 @@
 
     /* ---------- arranque ---------- */
     function arrancar() {
-    $("#co-titulo").textContent = MASTER ? "Sistema comercial" : "Mi CRM de ventas";
+    $("#co-titulo").textContent = "Comercial y Atención al Cliente";
     $("#co-sub").textContent = MASTER
-        ? "Atención al Cliente dirige al equipo de ventas: reparte clientes antiguos por sucursal, deja tareas y guiones, y controla resultados y comisiones."
+        ? "Atención al Cliente dirige al equipo de ventas: renovaciones y clientes en riesgo, reparto de clientes antiguos por sucursal, tareas, guiones, resultados y comisiones."
         : "Tus clientes antiguos por recuperar, tus seguimientos, las tareas de Atención al Cliente y tu comisión.";
     var mes = $("#co-mes");
     mes.value = S.periodo.desde.slice(0, 7); mes.max = hoy().slice(0, 7);
@@ -688,6 +738,17 @@
         if (window.CMFB) {
             MASTER = CMFB.tieneRol("comercial");
             if (CMFB.estado.usuario && !MASTER && !CMFB.tieneRol("ventas")) {
+                if (veAtencion()) {
+                    /* Solo el tablero de Atención: sin CRM, sin carga de datos comerciales. */
+                    SOLO_ATENCION = true;
+                    $("#co-titulo").textContent = "Comercial y Atención al Cliente";
+                    $("#co-sub").textContent = "Renovaciones, clientes en riesgo y recuperación por WhatsApp.";
+                    var herr = raiz.querySelector(".co-herr"); if (herr) herr.hidden = true;
+                    mensaje($("#co-estado"), "", "");
+                    S.tab = TAB_ATENCION[0];
+                    pintar();
+                    return;
+                }
                 mensaje($("#co-estado"), "warn", "Tu cuenta " + CMFB.correo() + " no tiene el rol de Sistema comercial ni de Ejecutiva de ventas. Pídeselo a Dirección.");
                 return;
             }

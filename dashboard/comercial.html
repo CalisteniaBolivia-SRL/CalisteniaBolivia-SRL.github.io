@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Sistema comercial · Calistenia Company</title>
+<title>Comercial y Atención al Cliente · Calistenia Company</title>
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <link rel="stylesheet" href="comercial.css?v=1">
@@ -13,11 +13,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
-<script src="cm-firebase.js?v=1"></script>
+<script src="cm-firebase.js?v=2"></script>
 <script src="fb-comercial.js?v=3"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal y tener el permiso "comercial" (Atención al
-   Cliente, ve todo el equipo) o "ventas" (ejecutiva, ve su CRM), y la sesión de datos de Calistenia. */
+   Cliente, ve todo el equipo) o "ventas" (ejecutiva, ve su CRM), y la sesión de datos de Calistenia.
+   Quien tenga el tablero "atencion" del ERP ve además la pestaña «Atención y retención». */
 (function () {
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
@@ -34,8 +35,8 @@
 <main class="co" id="comercial" lang="es">
   <header class="co-top">
     <div>
-      <span class="co-eyebrow">Calistenia Company · Equipo de ventas</span>
-      <h1 class="co-title" id="co-titulo">Sistema comercial</h1>
+      <span class="co-eyebrow">Calistenia Company · Atención al cliente y equipo de ventas</span>
+      <h1 class="co-title" id="co-titulo">Comercial y Atención al Cliente</h1>
       <p class="co-muted" id="co-sub"></p>
     </div>
     <div class="co-herr">
@@ -47,6 +48,9 @@
   <p class="co-msg" id="co-aviso" role="status" aria-live="polite"></p>
   <nav class="co-tabs" id="co-tabs" role="tablist" aria-label="Secciones"></nav>
   <section id="co-contenido" role="tabpanel" aria-live="polite"></section>
+  <!-- Pestaña «Atención y retención»: el tablero de Atención al Cliente, embebido. Vive fuera de
+       #co-contenido para que no se recargue cada vez que se repintan las otras pestañas. -->
+  <section id="co-atencion" role="tabpanel" aria-label="Atención y retención" hidden></section>
 
   <details class="co-foot">
     <summary>Cómo funciona</summary>
@@ -61,7 +65,7 @@
 </main>
 
 <script src="comercial-logica.js?v=1"></script>
-<script src="comercial.js?v=3"></script>
+<script src="comercial.js?v=4"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");

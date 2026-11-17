@@ -41,17 +41,33 @@
             t.textContent = "Para usar este módulo ingresa con tu cuenta de Google de la empresa.";
             var btn = document.createElement("button");
             btn.type = "button"; btn.textContent = "Ingresar con Google";
+            var ayuda = document.createElement("span");
+            ayuda.className = "cm-fb-ayuda";
+            /* Navegadores dentro de apps (WhatsApp, Instagram, Facebook, app de Google): Google no deja ingresar ahí. */
+            if (/FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|GSA\//i.test(navigator.userAgent || "")) {
+                ayuda.textContent = "Estás en el navegador de una app: ábrelo en Chrome o Safari (menú ⋮ → «Abrir en el navegador») para ingresar con Google.";
+            }
+            /* Solo ventana emergente. El ingreso por redirección no sirve en este sitio: Google vuelve por
+               centro-de-comando-a57cf.firebaseapp.com, otro dominio, y los navegadores actuales separan su
+               almacenamiento («missing initial state»). */
             btn.onclick = function () {
-                btn.disabled = true;
+                btn.disabled = true; ayuda.textContent = "";
                 var p = new firebase.auth.GoogleAuthProvider();
                 p.setCustomParameters({ prompt: "select_account" });
                 firebase.auth().signInWithPopup(p).catch(function (e) {
                     btn.disabled = false;
-                    if (e && (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment")) return firebase.auth().signInWithRedirect(p);
-                    if (e && e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") { estado.error = e.message; pintarBarra(); }
+                    var c = e && e.code;
+                    if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
+                    ayuda.textContent = c === "auth/popup-blocked"
+                        ? "El navegador bloqueó la ventana de Google. Permite las ventanas emergentes de este sitio (ícono en la barra de direcciones) y vuelve a presionar «Ingresar con Google»."
+                        : c === "auth/operation-not-supported-in-this-environment" || c === "auth/web-storage-unsupported"
+                        ? "Este navegador no permite ingresar con Google aquí. Ábrelo en Chrome, Edge o Safari (no en modo privado ni dentro de WhatsApp)."
+                        : c === "auth/unauthorized-domain"
+                        ? "Este sitio no está autorizado en Firebase. Agrega " + location.hostname + " en Firebase → Authentication → Configuración → Dominios autorizados."
+                        : "No se pudo ingresar con Google: " + ((e && e.message) || c) + ". Intenta de nuevo.";
                 });
             };
-            b.className = "cm-fb-barra is-warn"; b.appendChild(t); b.appendChild(btn); return;
+            b.className = "cm-fb-barra is-warn"; b.appendChild(t); b.appendChild(btn); b.appendChild(ayuda); return;
         }
         var nombres = Object.keys(ROLES_ETIQUETA).filter(function (r) { return estado.roles[r]; }).map(function (r) { return ROLES_ETIQUETA[r]; });
         t.textContent = "Datos de módulos: " + correo() + (nombres.length ? " · " + nombres.join(", ") : " · sin roles asignados (pídelos a Dirección)");
@@ -183,6 +199,7 @@
     var css = document.createElement("style");
     css.textContent = ".cm-fb-barra{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:8px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid #2B2E33;background:#121417;color:#A4A8AF;font-size:13px}" +
         ".cm-fb-barra.is-warn{color:#D9AE5B}.cm-fb-barra.is-bad{color:#D9776F}" +
+        ".cm-fb-ayuda{flex-basis:100%;color:#F0C987}.cm-fb-ayuda:empty{display:none}" +
         ".cm-fb-barra button{font:inherit;color:#FFFFFF;background:#B8050F;border:0;padding:5px 12px;cursor:pointer}.cm-fb-barra button:hover{background:#E30613}.cm-fb-barra button:disabled{opacity:.6}";
     (document.head || document.documentElement).appendChild(css);
 })();
