@@ -1,80 +1,62 @@
 /* Capa de Firebase de los módulos nuevos del centro de mando.
-   - Ingreso con Google (barra propia debajo de la barra del centro de mando).
-   - Roles por correo en Firestore (colección "roles", la administra Dirección en roles.html).
+   - Ingreso con el mismo usuario y contraseña del ERP: el portal llama al puente (Cloud Function erpLogin),
+     que confirma el usuario en el ERP y entrega una sesión con los permisos de /centro_mando.
    - Atiende en el navegador las herramientas legal_*, cuentas_por_pagar_* y comercial_* que antes iban al
      MCP: window.CM.llamar las desvía a Firestore; el resto de herramientas siguen yendo al MCP.
    Seguridad real: reglas de Firestore (firestore.rules). Esta capa solo arma la interfaz y las consultas. */
 (function () {
     "use strict";
     var CFG = window.CM_FIREBASE_CONFIG;
-    var ROLES_ETIQUETA = { admin: "Dirección (administra roles)", legal: "Legal", administracion: "Administración (cuentas por pagar)", comercial: "Jefa de Atención al Cliente", ventas: "ATC de sucursal", reportes: "Reportes" };
+    /* Puente de ingreso (Cloud Function erpLogin): confirma usuario y contraseña del ERP y entrega la sesión. */
+    var PUENTE = window.CM_FIREBASE_PUENTE || (CFG ? "https://southamerica-east1-" + CFG.projectId + ".cloudfunctions.net/erpLogin" : null);
     var herramientas = {}; /* prefijo o nombre -> función(args) */
-    var estado = { configurado: !!CFG, usuario: null, roles: {}, error: null };
+    var estado = { configurado: !!CFG, usuario: null, claims: {}, error: null };
     var resolverListo, listo = new Promise(function (r) { resolverListo = r; });
 
     function sinFirebase(msg) { return Object.assign(new Error(msg), { sinFirebase: true }); }
-    function correo() { return estado.usuario ? String(estado.usuario.email || "").toLowerCase() : ""; }
-    function tieneRol(r) { return !!(estado.roles && (estado.roles.admin || estado.roles[r])); }
+    function usuarioKey() { return estado.usuario ? estado.usuario.uid : ""; }
+    function nombre() { return (estado.claims && estado.claims.nombre) || ""; }
+    function sesionVigente() { return !!(estado.usuario && estado.claims.cm === 1 && Number(estado.claims.vence) > Date.now()); }
+    /* Permiso del ERP (página /centro_mando) incluido en la sesión. */
+    function tieneRol(r) { return sesionVigente() && (estado.claims.tableros || []).indexOf(r) >= 0; }
 
-    /* ---------- barra de ingreso ---------- */
+    /* ---------- ingreso (lo llama el portal, con la misma contraseña del ERP) ---------- */
+    function entrarConERP(usuario, passwordMd5) {
+        if (!estado.configurado || !PUENTE) return Promise.reject(sinFirebase("Falta configurar Firebase."));
+        return fetch(PUENTE, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario: usuario, password_md5: passwordMd5 }) })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || !d.token) throw sinFirebase(d.error || "El puente de ingreso respondió " + r.status + "."); return d; }); })
+            .then(function (d) { return firebase.auth().signInWithCustomToken(d.token).then(function () { return d; }); });
+    }
+    function salir() { try { return window.firebase && firebase.apps.length ? firebase.auth().signOut() : Promise.resolve(); } catch (e) { return Promise.resolve(); } }
+
+    /* ---------- barra de estado (solo en los tableros que usan estos datos) ---------- */
     function barra() {
         var b = document.getElementById("cm-fb-barra");
         if (!b) {
             b = document.createElement("div");
             b.id = "cm-fb-barra";
-            b.className = "cm-fb-barra";
             var ref = document.querySelector(".cm-aviso-sesion") || document.querySelector(".cm-barra");
             if (ref && ref.parentNode) ref.parentNode.insertBefore(b, ref.nextSibling); else document.body.insertBefore(b, document.body.firstChild);
         }
         return b;
     }
     function pintarBarra() {
-        if (!document.body) return;
-        var b = barra(); b.textContent = "";
+        if (!document.body || !document.querySelector(".cm-barra") || window.CM_FB_SIN_BARRA) return;
+        if (estado.configurado && !estado.error && sesionVigente()) { var x = document.getElementById("cm-fb-barra"); if (x) x.remove(); return; }
+        var b = barra(); b.textContent = ""; b.className = "cm-fb-barra is-warn";
         var t = document.createElement("span");
-        if (!estado.configurado) {
-            t.textContent = "Falta configurar Firebase para guardar los datos de este módulo (ver dashboard/FIREBASE.md).";
-            b.className = "cm-fb-barra is-warn"; b.appendChild(t); return;
-        }
-        if (estado.error) { t.textContent = "Firebase: " + estado.error; b.className = "cm-fb-barra is-bad"; b.appendChild(t); return; }
-        if (!estado.usuario) {
-            t.textContent = "Para usar este módulo ingresa con tu cuenta de Google de la empresa.";
+        if (!estado.configurado) t.textContent = "Falta configurar Firebase para guardar los datos de este módulo.";
+        else if (estado.error) { t.textContent = "No se pudo abrir la sesión de datos: " + estado.error; b.className = "cm-fb-barra is-bad"; }
+        else t.textContent = "Para guardar y ver los datos de este módulo, sal del centro de mando y vuelve a ingresar con tu usuario y contraseña del ERP.";
+        b.appendChild(t);
+        if (estado.configurado) {
             var btn = document.createElement("button");
-            btn.type = "button"; btn.textContent = "Ingresar con Google";
-            var ayuda = document.createElement("span");
-            ayuda.className = "cm-fb-ayuda";
-            /* Navegadores dentro de apps (WhatsApp, Instagram, Facebook, app de Google): Google no deja ingresar ahí. */
-            if (/FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)|GSA\//i.test(navigator.userAgent || "")) {
-                ayuda.textContent = "Estás en el navegador de una app: ábrelo en Chrome o Safari (menú ⋮ → «Abrir en el navegador») para ingresar con Google.";
-            }
-            /* Solo ventana emergente. El ingreso por redirección no sirve en este sitio: Google vuelve por
-               centro-de-comando-a57cf.firebaseapp.com, otro dominio, y los navegadores actuales separan su
-               almacenamiento («missing initial state»). */
+            btn.type = "button"; btn.textContent = "Volver a ingresar";
             btn.onclick = function () {
-                btn.disabled = true; ayuda.textContent = "";
-                var p = new firebase.auth.GoogleAuthProvider();
-                p.setCustomParameters({ prompt: "select_account" });
-                firebase.auth().signInWithPopup(p).catch(function (e) {
-                    btn.disabled = false;
-                    var c = e && e.code;
-                    if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
-                    ayuda.textContent = c === "auth/popup-blocked"
-                        ? "El navegador bloqueó la ventana de Google. Permite las ventanas emergentes de este sitio (ícono en la barra de direcciones) y vuelve a presionar «Ingresar con Google»."
-                        : c === "auth/operation-not-supported-in-this-environment" || c === "auth/web-storage-unsupported"
-                        ? "Este navegador no permite ingresar con Google aquí. Ábrelo en Chrome, Edge o Safari (no en modo privado ni dentro de WhatsApp)."
-                        : c === "auth/unauthorized-domain"
-                        ? "Este sitio no está autorizado en Firebase. Agrega " + location.hostname + " en Firebase → Authentication → Configuración → Dominios autorizados."
-                        : "No se pudo ingresar con Google: " + ((e && e.message) || c) + ". Intenta de nuevo.";
-                });
+                salir().then(function () { try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} if (window.CM) window.CM.cerrarSesion(); location.href = "./"; });
             };
-            b.className = "cm-fb-barra is-warn"; b.appendChild(t); b.appendChild(btn); b.appendChild(ayuda); return;
+            b.appendChild(btn);
         }
-        var nombres = Object.keys(ROLES_ETIQUETA).filter(function (r) { return estado.roles[r]; }).map(function (r) { return ROLES_ETIQUETA[r]; });
-        t.textContent = "Datos de módulos: " + correo() + (nombres.length ? " · " + nombres.join(", ") : " · sin roles asignados (pídelos a Dirección)");
-        var salir = document.createElement("button");
-        salir.type = "button"; salir.textContent = "Cambiar de cuenta";
-        salir.onclick = function () { firebase.auth().signOut().then(function () { location.reload(); }); };
-        b.className = "cm-fb-barra" + (nombres.length ? "" : " is-warn"); b.appendChild(t); b.appendChild(salir);
     }
 
     /* ---------- arranque ---------- */
@@ -89,12 +71,9 @@
         var primera = true;
         firebase.auth().onAuthStateChanged(function (u) {
             estado.usuario = u;
-            var fin = function () { pintarBarra(); if (primera) { primera = false; resolverListo(estado); } else location.reload(); };
-            if (!u) { estado.roles = {}; return fin(); }
-            if (!u.emailVerified) { estado.error = "la cuenta " + u.email + " no tiene el correo verificado."; estado.roles = {}; return fin(); }
-            firebase.firestore().collection("roles").doc(correo()).get().then(function (d) {
-                estado.roles = d.exists && Number(d.data().estado == null ? 1 : d.data().estado) > 0 ? d.data() : {};
-            }).catch(function () { estado.roles = {}; }).then(fin);
+            var fin = function () { pintarBarra(); if (primera) { primera = false; resolverListo(estado); } };
+            if (!u) { estado.claims = {}; return fin(); }
+            u.getIdTokenResult().then(function (t) { estado.claims = t.claims || {}; }).catch(function () { estado.claims = {}; }).then(fin);
         });
     }
 
@@ -114,10 +93,10 @@
             return listo.then(function () {
                 if (!estado.configurado) throw sinFirebase("Falta configurar Firebase para este módulo.");
                 if (estado.error) throw sinFirebase("Firebase: " + estado.error);
-                if (!estado.usuario) throw sinFirebase("Ingresa con tu cuenta de Google (barra de arriba) para usar este módulo.");
+                if (!sesionVigente()) throw sinFirebase("Sal del centro de mando y vuelve a ingresar con tu usuario del ERP para usar este módulo.");
                 return h(JSON.parse(JSON.stringify(args || {})), nombre);
             }).then(function (r) { return r; }, function (e) {
-                if (e && e.code === "permission-denied") throw sinFirebase("Tu cuenta " + correo() + " no tiene permiso para esto. Pídele a Dirección el rol que corresponde.");
+                if (e && e.code === "permission-denied") throw sinFirebase("Tu usuario del ERP no tiene permiso para esto en /centro_mando.");
                 throw e;
             });
         };
@@ -187,8 +166,9 @@
     }
 
     window.CMFB = {
-        listo: listo, estado: estado, tieneRol: tieneRol, correo: correo, ROLES_ETIQUETA: ROLES_ETIQUETA,
-        registrar: function (nombre, fn) { herramientas[nombre] = fn; },
+        listo: listo, estado: estado, tieneRol: tieneRol, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente,
+        entrarConERP: entrarConERP, salir: salir,
+        registrar: function (nombreH, fn) { herramientas[nombreH] = fn; },
         util: { db: db, ahora: ahora, docs: docs, vigentes: vigentes, err: err, txt: txt, opcion: opcion, fecha: fecha, monto: monto, entero: entero, url: url, bool: bool, sucursales: sucursales }
     };
 

@@ -1,6 +1,6 @@
 /* «Mi lista» de cada ATC: los clientes que le asignó la Jefa de Atención al Cliente en el Plan de hoy.
    Por cliente: llamar, abrir WhatsApp con el mensaje ya escrito y anotar cómo le fue (queda en el CRM:
-   seguimientos, avance que ve la Jefa y comisión). Se monta desde comercial.js:
+   seguimientos, avance que ve ATC Central y comisión). Se monta desde comercial.js:
    window.ATC_milista.montar(contenedor, { yo, asignaciones, ultimas, llamar(tool, args), avisar(texto, tono) }). */
 (function () {
     "use strict";

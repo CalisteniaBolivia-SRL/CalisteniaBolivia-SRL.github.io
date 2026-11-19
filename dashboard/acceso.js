@@ -11,7 +11,7 @@
     var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
     var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
-    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "comercial", "ventas", "legal"];
+    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc"];
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
@@ -34,11 +34,11 @@
 
     function mostrarPortal(nombre, usuario, permitidos) {
         var lista = permitidos || [];
-        /* Los módulos nuevos (data-libre) se ven siempre: el acceso a sus datos lo decide el rol de Firebase. */
+        /* data-tablero puede tener varios permisos separados por espacio (basta con uno). */
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
-            el.hidden = !el.hasAttribute("data-libre") && lista.indexOf(el.getAttribute("data-tablero")) < 0;
+            el.hidden = !el.getAttribute("data-tablero").split(/\s+/).some(function (t) { return lista.indexOf(t) >= 0; });
         });
-        var hayTarjetas = true;
+        var hayTarjetas = lista.some(function (t) { return t !== "muro"; });
         document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
         document.getElementById("sin-acceso").hidden = lista.length > 0;
         document.getElementById("sin-permisos-erp").hidden = permitidos !== null;
@@ -242,13 +242,22 @@
                 var dl = (r && r.data) || {};
                 try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, key_usuario: dl.key || dl.key_usuario || null, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             }
+            /* Con la misma contraseña se abre la sesión de datos de los módulos (Legal, Cuentas por pagar,
+               CRM de los ATC): el puente del ERP en Firebase confirma el usuario y sus permisos. Si falla,
+               el portal funciona igual y esos módulos avisan. */
+            var md5Clave = md5(password);
             form.reset();
-            mostrarPortal(nombre, usuario, tableros);
-            /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
-            if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
-                boton.textContent = "Conectando los datos de Calistenia…";
-                window.CM.iniciarSesion("./");
-            }
+            var pDatos = (tableros && tableros.length && window.CMFB && window.CMFB.estado.configurado)
+                ? (boton.textContent = "Abriendo la sesión de datos…", window.CMFB.entrarConERP(usuario, md5Clave).catch(function (e) { console.warn("Sesión de datos:", e.message); }))
+                : Promise.resolve();
+            return pDatos.then(function () {
+                mostrarPortal(nombre, usuario, tableros);
+                /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
+                if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
+                    boton.textContent = "Conectando los datos de Calistenia…";
+                    window.CM.iniciarSesion("./");
+                }
+            });
         }).catch(function (err) {
             form.password.value = "";
             var detalle = err.paso ? " (paso: " + err.paso + ")" : "";
@@ -263,7 +272,7 @@
         });
     });
 
-    salir.addEventListener("click", function () { if (window.CM) window.CM.cerrarSesion(); mostrarAcceso(); });
+    salir.addEventListener("click", function () { if (window.CM) window.CM.cerrarSesion(); if (window.CMFB) window.CMFB.salir(); mostrarAcceso(); });
 
     /* Vuelta del inicio de sesión de Calistenia (datos de los tableros): canjea el código y
        abre el tablero desde el que se pidió. */

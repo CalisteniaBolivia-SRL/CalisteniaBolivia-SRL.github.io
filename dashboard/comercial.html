@@ -14,16 +14,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
-<script src="cm-firebase.js?v=3"></script>
-<script src="fb-comercial.js?v=4"></script>
+<script src="cm-firebase.js?v=11"></script>
+<script src="fb-comercial.js?v=11"></script>
 <script>
-/* Antes de cargar: hay que haber ingresado al portal y tener el permiso "comercial" (Atención al
-   Cliente, ve todo el equipo) o "ventas" (ejecutiva, ve su CRM), y la sesión de datos de Calistenia.
-   Quien tenga el tablero "atencion" del ERP ve además la pestaña «Atención y retención». */
+/* Antes de cargar: hay que haber ingresado al portal con el usuario del ERP y tener el permiso
+   "atencion" (ATC Central) o "atc" (ATC de sucursal) en /centro_mando, y la sesión de datos de Calistenia. */
 (function () {
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
     if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    if (s.tableros.indexOf("atencion") < 0 && s.tableros.indexOf("atc") < 0) { location.replace("./?sin=atencion"); return; }
     window.CM_USUARIO = s;
     /* La sesión de datos de Calistenia la pide comercial.js solo a quien la necesita (Jefa de Atención al Cliente
        y tablero de Atención). Las ATC trabajan su lista sin ella. */
@@ -59,24 +59,24 @@
     <ul>
       <li><b>Plan de hoy:</b> cada día el sistema propone grupos de clientes (vencen pronto, vencidos por rango de fechas, pases diarios, sin venir, pagaron y no vinieron, cumpleañeros) con una promoción y un mensaje. La Jefa de Atención al Cliente elige cuáles se trabajan y descarga 2 listas en Excel por sucursal, una para cada ATC. Lo que elige queda guardado en su navegador.</li>
       <li><b>Clientes antiguos:</b> clientes cuyo último plan venció hace más de 30 días y hasta 6 meses (lo máximo que entrega el MCP) y no renovaron.</li>
-      <li><b>Reparto:</b> cada ejecutiva recibe los clientes de las sucursales que Atención al Cliente le asigna. Si dos comparten sucursal, se reparten en partes iguales. Atención al Cliente puede pasar un cliente puntual a otra ejecutiva.</li>
+      <li><b>Reparto:</b> cada ATC recibe los clientes de las sucursales que ATC Central le asigna (normalmente dos ATC por sucursal, que se reparten los clientes en partes iguales). ATC Central puede pasar un cliente puntual a otro ATC.</li>
       <li><b>Prioridad:</b> primero los seguimientos atrasados y de hoy, luego los interesados, después los clientes sin contactar (los que vencieron hace menos, antes) y al final los que no contestan.</li>
-      <li><b>Comisión:</b> Bs 5 por cada cliente que vuelve a comprar (venta con monto mayor a 0) dentro de los 15 días siguientes al último contacto registrado por la ejecutiva. Atención al Cliente puede anular una comisión con su motivo.</li>
-      <li><b>WhatsApp:</b> el botón abre el chat con el mensaje del guion y el nombre del cliente; nada se envía hasta que la ejecutiva lo manda.</li>
+      <li><b>Comisión:</b> Bs 5 por cada cliente que vuelve a comprar (venta con monto mayor a 0) dentro de los 15 días siguientes al último contacto registrado por el ATC. ATC Central puede anular una comisión con su motivo.</li>
+      <li><b>WhatsApp:</b> el botón abre el chat con el mensaje del guion y el nombre del cliente; nada se envía hasta que el ATC lo manda.</li>
     </ul>
   </details>
 </main>
 
 <script src="comercial-logica.js?v=1"></script>
-<script src="recuperacion.js?v=2"></script>
-<script src="mi-lista.js?v=1"></script>
-<script src="comercial.js?v=6"></script>
+<script src="recuperacion.js?v=3"></script>
+<script src="mi-lista.js?v=2"></script>
+<script src="comercial.js?v=11"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");
     if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
     var salir = document.getElementById("cm-salir");
-    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
+    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); if (window.CMFB) CMFB.salir(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
     var re = document.getElementById("cm-reingresar");
     if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
 })();

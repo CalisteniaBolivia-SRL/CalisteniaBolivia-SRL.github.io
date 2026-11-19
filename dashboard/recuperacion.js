@@ -523,9 +523,9 @@
             P.prefs.max = Math.max(0, Math.min(500, parseInt(e.target.value, 10) || 0)); guardarPrefs(); pintar();
         } });
         var partes = [];
-        if (!P.ctx) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Solo descarga en Excel" }), el("p", { text: "Para asignar las listas a las ATC dentro del sistema, tu cuenta de Google necesita el rol «Jefa de Atención al Cliente» (lo da Dirección en la página Roles). Mientras tanto puedes descargarlas en Excel." })]));
+        if (!P.ctx) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Solo descarga en Excel" }), el("p", { text: "Para asignar las listas dentro del sistema, sal del centro de mando y vuelve a ingresar con el usuario de ATC Central del ERP (permiso «atencion»). Mientras tanto puedes descargarlas en Excel." })]));
         else if (!conEquipo) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Primero agrega a las ATC" }),
-            el("p", { text: "Todavía no hay ATC en tu equipo. Agrégalas en la pestaña Equipo con su correo de Google y su sucursal: después aparecen aquí para asignarles las listas. Cada una necesita además el rol «ATC» en la página Roles (lo da Dirección)." }),
+            el("p", { text: "Todavía no hay ATC en tu equipo. Cada ATC aparece en la pestaña Equipo la primera vez que entra al centro de mando con su usuario del ERP (permiso «atc» en /centro_mando); ahí le asignas su sucursal y después aparece aquí para darle su lista." }),
             el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Ir a Equipo", onclick: function () { P.ctx.irA("equipo"); } })]));
         if (P.ctx && conEquipo) {
             var nota = el("textarea", { rows: "2", maxlength: "600", placeholder: "Ej.: Hoy prioricen los que vencen mañana. Si no atienden, manden el mensaje y anoten «No contesta»." });

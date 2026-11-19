@@ -1,0 +1,12 @@
+{
+  "name": "centro-de-mando-puente-erp",
+  "private": true,
+  "description": "Puente de ingreso: confirma el usuario y la contraseña del ERP y entrega una sesión de Firebase con los permisos de /centro_mando.",
+  "main": "index.js",
+  "engines": { "node": "20" },
+  "dependencies": {
+    "firebase-admin": "12.7.0",
+    "firebase-functions": "6.1.1",
+    "ws": "8.18.0"
+  }
+}

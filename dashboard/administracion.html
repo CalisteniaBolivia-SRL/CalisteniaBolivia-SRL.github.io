@@ -14,8 +14,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
-<script src="cm-firebase.js?v=1"></script>
-<script src="fb-cxp.js?v=1"></script>
+<script src="cm-firebase.js?v=10"></script>
+<script src="fb-cxp.js?v=10"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
    y la sesión de datos de Calistenia. */
@@ -1237,7 +1237,7 @@ dash.draw('tareas_supervision', (ul) => CB.tareas(ul, ['molinetes', 'c_acceso', 
     var q = document.getElementById("cm-quien");
     if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
     var salir = document.getElementById("cm-salir");
-    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
+    if (salir) salir.onclick = function () { window.CM.cerrarSesion(); if (window.CMFB) CMFB.salir(); try { localStorage.removeItem("cb_centro_mando"); } catch (e) {} location.href = "./"; };
     var re = document.getElementById("cm-reingresar");
     if (re) re.onclick = function () { window.CM.cerrarSesion(); window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); };
 })();

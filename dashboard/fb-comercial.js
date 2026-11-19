@@ -1,5 +1,6 @@
 /* Herramientas comercial_* sobre Firestore (mismas reglas que el componente "comercial" del servidor).
-   - Cada ejecutiva se identifica por su correo de Google (id del documento en com_ejecutiva).
+   - Cada ATC se identifica por su usuario del ERP (id del documento en com_ejecutiva = key del usuario).
+     La primera vez que un ATC entra queda registrado solo; ATC Central le asigna sucursales y meta.
    - Comisión: Bs 5 por venta (monto > 0) de un cliente cuyo último contacto registrado por una ejecutiva fue
      dentro de los 15 días anteriores a la compra. Las ventas salen de listar_ventas (MCP); el cliente se
      reconoce por su clave si la venta la trae, o por su nombre. */
@@ -13,7 +14,7 @@
     var col = function (n) { return U.db().collection(n); };
     var hoy = function () { return new Date().toISOString().slice(0, 10); };
     var norm = function (s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
-    var mail = function (s) { return String(s || "").trim().toLowerCase(); };
+    var clave = function (s) { var k = String(s || "").trim(); if (k && !/^[A-Za-z0-9_-]{1,64}$/.test(k)) throw U.err("Usuario no válido."); return k; };
     function rango(a) {
         var h = hoy(), d = a.desde || h.slice(0, 8) + "01", f = a.hasta || h;
         if (f < d) throw U.err("hasta no puede ser anterior a desde.");
@@ -22,10 +23,16 @@
     function menosDias(iso, n) { var d = new Date(iso.slice(0, 10) + "T00:00:00"); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
     function equipo() { return U.docs(col("com_ejecutiva")).then(function (l) { return U.vigentes(l); }); }
+    /* El ATC que está usando la página. Si es la primera vez, se registra solo (sin sucursales todavía). */
     function yo() {
-        return col("com_ejecutiva").doc(CMFB.correo()).get().then(function (x) {
-            if (!x.exists || Number(x.data().estado) <= 0) throw U.err("Tu cuenta (" + CMFB.correo() + ") no está en el equipo comercial. Pídele a Atención al Cliente que te agregue.");
-            return Object.assign({ key: x.id }, x.data());
+        var ref = col("com_ejecutiva").doc(CMFB.usuarioKey());
+        return ref.get().then(function (x) {
+            if (x.exists) {
+                if (Number(x.data().estado) <= 0) throw U.err("Tu usuario está dado de baja en el equipo ATC. Habla con ATC Central.");
+                return Object.assign({ key: x.id }, x.data());
+            }
+            var d = { nombre: CMFB.nombre() || "ATC", key_usuario: CMFB.usuarioKey(), sucursales: [], meta_mensual: 0, estado: 1, fecha_on: U.ahora(), autoregistro: true };
+            return ref.set(d).then(function () { return Object.assign({ key: ref.id }, d); });
         });
     }
     function asignaciones() {
@@ -143,14 +150,6 @@
             }), comision_por_venta: COMISION_BS, ventana_dias: VENTANA_DIAS };
         });
     });
-    /* Buscar usuario para agregarlo al equipo: entre los correos con rol asignado por Dirección. */
-    CMFB.registrar("comercial_buscar_usuario", function (a) {
-        var q = norm(a.texto);
-        return U.docs(col("roles")).then(function (l) {
-            return { filas: U.vigentes(l).filter(function (u) { return norm(u.key + " " + (u.nombre || "")).indexOf(q) >= 0; }).slice(0, 10)
-                .map(function (u) { return { key: u.key, nombre: u.nombre || u.key, usuario: u.key, telefono: u.telefono || null }; }) };
-        });
-    });
     CMFB.registrar("comercial_mi_trabajo", function (a) {
         var r = rango(a);
         return yo().then(function (e) {
@@ -167,32 +166,31 @@
 
     /* ---------- escritura: Atención al Cliente ---------- */
     CMFB.registrar("comercial_ejecutiva_guardar", function (a) {
-        var d = a.data || {}, email = mail(d.key || d.key_usuario);
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw U.err("El usuario de la ejecutiva debe ser su correo de Google.");
+        var d = a.data || {}, k = clave(d.key || d.key_usuario);
+        if (!k) throw U.err("Falta el ATC.");
         var suc = (Array.isArray(d.sucursales) ? d.sucursales : []).map(function (s) { return String(s).trim(); }).filter(Boolean);
         if (suc.some(function (s) { return s.length > 120; })) throw U.err("Nombre de sucursal no válido.");
         var ej = { nombre: U.txt(d, "nombre", 120, true), telefono: U.txt(d, "telefono", 40, false), sucursales: suc,
-            meta_mensual: Math.max(0, Math.min(10000, parseInt(d.meta_mensual, 10) || 0)), estado: Number(d.estado) === 0 ? 0 : 1, key_usuario: email,
-            fecha_edicion: U.ahora(), key_usuario_registro: CMFB.correo() };
-        var ref = col("com_ejecutiva").doc(email);
+            meta_mensual: Math.max(0, Math.min(10000, parseInt(d.meta_mensual, 10) || 0)), estado: Number(d.estado) === 0 ? 0 : 1, key_usuario: k,
+            fecha_edicion: U.ahora(), key_usuario_registro: CMFB.usuarioKey() };
+        var ref = col("com_ejecutiva").doc(k);
         return ref.get().then(function (x) {
-            if (!d.key && x.exists && Number(x.data().estado) > 0) throw U.err("Ese usuario ya está en el equipo comercial.");
-            if (!x.exists) ej.fecha_on = U.ahora();
+            if (!x.exists) throw U.err("Ese ATC todavía no ingresó al centro de mando.");
             return ref.set(ej, { merge: true });
-        }).then(function () { return { estado: "exito", data: Object.assign({ key: email }, ej) }; });
+        }).then(function () { return { estado: "exito", data: Object.assign({ key: k }, ej) }; });
     });
     CMFB.registrar("comercial_asignar", function (a) {
-        var k = U.txt(a, "key_cliente", 120, true), ej = a.key_ejecutiva ? mail(a.key_ejecutiva) : null;
+        var k = U.txt(a, "key_cliente", 120, true), ej = a.key_ejecutiva ? clave(a.key_ejecutiva) : null;
         if (/[/]/.test(k)) throw U.err("El cliente no es válido.");
-        var previo = ej ? col("com_ejecutiva").doc(ej).get().then(function (x) { if (!x.exists || Number(x.data().estado) <= 0) throw U.err("La ejecutiva no existe o está dada de baja."); }) : Promise.resolve();
-        return previo.then(function () { return col("com_asignacion").doc(k).set({ key_ejecutiva: ej, motivo: U.txt(a, "motivo", 300, false), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.correo() }); })
+        var previo = ej ? col("com_ejecutiva").doc(ej).get().then(function (x) { if (!x.exists || Number(x.data().estado) <= 0) throw U.err("Ese ATC no existe o está dado de baja."); }) : Promise.resolve();
+        return previo.then(function () { return col("com_asignacion").doc(k).set({ key_ejecutiva: ej, motivo: U.txt(a, "motivo", 300, false), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.usuarioKey() }); })
             .then(function () { return { estado: "exito" }; });
     });
     /* Plan de hoy: asigna una lista completa a una ATC (una sucursal, lista 1 o 2). Cada cliente queda con su foto
        (nombre, teléfono, grupo, dato, promoción y mensaje de WhatsApp) para que la ATC trabaje sin depender del MCP.
        Con reemplazar, la lista anterior de esa ATC en esa sucursal se da de baja (sus contactos registrados quedan). */
     CMFB.registrar("comercial_plan_asignar", function (a) {
-        var ej = mail(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), n = Number(a.lista_n) === 2 ? 2 : 1;
+        var ej = clave(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), n = Number(a.lista_n) === 2 ? 2 : 1;
         var nota = U.txt(a, "nota", 600, false), lote = U.ahora(), clientes = Array.isArray(a.clientes) ? a.clientes : [];
         if (!ej) throw U.err("Elige la ATC.");
         if (!clientes.length) throw U.err("La lista está vacía.");
@@ -200,7 +198,7 @@
         var docs = clientes.map(function (c) {
             var k = U.txt(c, "key_cliente", 120, true);
             if (/[/]/.test(k)) throw U.err("Cliente no válido: " + k);
-            return { id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + U.txt(c, "grupo_titulo", 120, false), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.correo(),
+            return { id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + U.txt(c, "grupo_titulo", 120, false), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.usuarioKey(),
                 lote: lote, lista_n: n, sucursal: suc, orden: Number(c.orden) || 0, nota_jefa: nota,
                 cliente: U.txt(c, "cliente", 200, false), telefono: U.txt(c, "telefono", 40, false), grupo: U.txt(c, "grupo", 20, false), grupo_n: Number(c.grupo_n) || null,
                 grupo_titulo: U.txt(c, "grupo_titulo", 120, false), dato: U.txt(c, "dato", 200, false), promo: U.txt(c, "promo", 300, false), mensaje: U.txt(c, "mensaje", 1000, false) } };
@@ -233,7 +231,7 @@
     });
     /* Plan de hoy: quita a una ATC su lista de una sucursal. */
     CMFB.registrar("comercial_plan_quitar", function (a) {
-        var ej = mail(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), ahora = U.ahora();
+        var ej = clave(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), ahora = U.ahora();
         return col("com_asignacion").where("key_ejecutiva", "==", ej).get().then(function (s) {
             var ids = s.docs.filter(function (d) { var v = d.data(); return v.lote && Number(v.estado) > 0 && v.sucursal === suc; }).map(function (d) { return d.id; });
             var b = U.db().batch(); ids.slice(0, 450).forEach(function (id) { b.set(col("com_asignacion").doc(id), { estado: 0, fecha_edicion: ahora }, { merge: true }); });
@@ -241,12 +239,12 @@
         });
     });
     CMFB.registrar("comercial_tarea_guardar", function (a) {
-        var d = a.data || {}, ej = d.key_ejecutiva ? mail(d.key_ejecutiva) : null;
+        var d = a.data || {}, ej = d.key_ejecutiva ? clave(d.key_ejecutiva) : null;
         var t = { titulo: U.txt(d, "titulo", 200, true), indicaciones: U.txt(d, "indicaciones", 4000, false), prioridad: U.opcion(d, "prioridad", ["alta", "normal", "baja"], "normal"),
             fecha_limite: U.fecha(d, "fecha_limite", false), key_ejecutiva: ej };
         if (d.key) return col("com_tarea").doc(String(d.key)).update(Object.assign(t, { fecha_edicion: U.ahora() })).then(function () { return { estado: "exito", data: { key: d.key } }; });
         var ref = col("com_tarea").doc();
-        return ref.set(Object.assign(t, { hecha: false, fecha_hecha: null, comentario_cierre: null, estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.correo() })).then(function () { return { estado: "exito", data: { key: ref.id } }; });
+        return ref.set(Object.assign(t, { hecha: false, fecha_hecha: null, comentario_cierre: null, estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.usuarioKey() })).then(function () { return { estado: "exito", data: { key: ref.id } }; });
     });
     CMFB.registrar("comercial_tarea_eliminar", function (a) { return col("com_tarea").doc(U.txt(a, "key", 64, true)).update({ estado: 0 }).then(function () { return { estado: "exito" }; }); });
     CMFB.registrar("comercial_guion_guardar", function (a) {
@@ -255,14 +253,14 @@
             guion_llamada: U.txt(d, "guion_llamada", 4000, false), mensaje_whatsapp: U.txt(d, "mensaje_whatsapp", 1000, false), oferta: U.txt(d, "oferta", 300, false), orden: parseInt(d.orden, 10) || 0 };
         if (d.key) return col("com_guion").doc(String(d.key)).update(g).then(function () { return { estado: "exito", data: { key: d.key } }; });
         var ref = col("com_guion").doc();
-        return ref.set(Object.assign(g, { estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.correo() })).then(function () { return { estado: "exito", data: { key: ref.id } }; });
+        return ref.set(Object.assign(g, { estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.usuarioKey() })).then(function () { return { estado: "exito", data: { key: ref.id } }; });
     });
     CMFB.registrar("comercial_guion_eliminar", function (a) { return col("com_guion").doc(U.txt(a, "key", 64, true)).update({ estado: 0 }).then(function () { return { estado: "exito" }; }); });
     CMFB.registrar("comercial_comision_anular", function (a) {
         var k = U.txt(a, "key_paquete_venta_usuario", 120, true), ref = col("com_comision_anulada").doc(k);
         return ref.get().then(function (x) {
             if (x.exists && Number(x.data().estado) > 0) throw U.err("Esa comisión ya está anulada.");
-            return ref.set({ motivo: U.txt(a, "motivo", 300, true), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.correo() });
+            return ref.set({ motivo: U.txt(a, "motivo", 300, true), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.usuarioKey() });
         }).then(function () { return { estado: "exito" }; });
     });
     CMFB.registrar("comercial_comision_restaurar", function (a) { return col("com_comision_anulada").doc(U.txt(a, "key_paquete_venta_usuario", 120, true)).update({ estado: 0 }).then(function () { return { estado: "exito" }; }); });
