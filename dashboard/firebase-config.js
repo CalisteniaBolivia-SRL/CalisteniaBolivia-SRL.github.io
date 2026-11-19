@@ -1,7 +1,7 @@
 /* Configuración de Firebase de los módulos nuevos del centro de mando (Legal, Cuentas por pagar,
    Sistema comercial, Reportes, Roles).
    Se copia desde la consola de Firebase: Configuración del proyecto → Tus apps → App web → SDK (Configuración).
-   Estos valores no son secretos: identifican el proyecto. La seguridad la dan el ingreso con Google y las
+   Estos valores no son secretos: identifican el proyecto. La seguridad la dan el ingreso con el usuario del ERP (puente erpLogin) y las
    reglas de Firestore (archivo firestore.rules en la raíz del repositorio).
    Mientras sea null, los módulos avisan que falta configurar Firebase. Pasos: dashboard/FIREBASE.md */
 window.CM_FIREBASE_CONFIG = {

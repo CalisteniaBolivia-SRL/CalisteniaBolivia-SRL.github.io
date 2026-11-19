@@ -1,13 +1,12 @@
-/* Comercial y Atención al Cliente (antes «Sistema comercial» y «Atención al Cliente», unificados).
-   - Perfil "comercial" (Atención al Cliente, master): equipo de ejecutivas, reparto por sucursal,
-     reasignación de clientes, tareas, guiones, comisiones y actividad.
-   - Perfil "ventas" (ejecutiva): su CRM con los clientes antiguos asignados, agenda del día,
-     registro de gestiones y seguimientos, tareas, guiones y comisiones.
-   - Pestaña «Atención y retención»: el tablero de Atención al Cliente (atencion.html) embebido.
-     La ve el perfil "comercial" y quien tenga el tablero "atencion" del ERP; si alguien solo tiene
-     ese tablero (sin rol de Firebase), ve únicamente esa pestaña.
-   Datos: MCP de Calistenia. Clientes antiguos = clientes_vencidos (ya existe); el resto, herramientas
-   comercial_* nuevas (servidor: componente "comercial"). Sin ellas, la página lo avisa. */
+/* Comercial y Atención al Cliente.
+   Ingreso: usuario y contraseña del ERP (portal). Perfiles según los permisos de /centro_mando del ERP:
+   - "atencion" = ATC Central (master, un solo usuario que usan Eliana y Mauricio): dirige a los ATC,
+     les asigna sucursales y clientes, deja tareas y guiones, ve resultados y comisiones, y la pestaña
+     «Atención y retención» (tablero de Atención al Cliente embebido).
+   - "atc" = cada ATC de sucursal (22, dos por sucursal): su CRM con los clientes antiguos que le tocan,
+     agenda del día, registro de gestiones y seguimientos, tareas, guiones y su comisión.
+   Datos: clientes antiguos = clientes_vencidos (MCP de Calistenia); el CRM se guarda en Firebase con la
+   sesión que entrega el puente del ERP. */
 (function () {
     "use strict";
     var L = window.COM_logica;
@@ -25,15 +24,14 @@
         comisionAnular: "comercial_comision_anular", comisionRestaurar: "comercial_comision_restaurar",
         miTrabajo: "comercial_mi_trabajo", gestionRegistrar: "comercial_gestion_registrar", tareaCompletar: "comercial_tarea_completar"
     };
-    /* Perfil: rol de Firebase "comercial" (Atención al Cliente) o "ventas" (ejecutiva). */
-    var MASTER = false;
+    /* Perfil según los permisos del ERP: "atencion" = ATC Central (master), "atc" = ATC de sucursal. */
+    var TABLEROS_ERP = (window.CM_USUARIO && window.CM_USUARIO.tableros) || [];
+    var MASTER = TABLEROS_ERP.indexOf("atencion") >= 0;
+    var ES_ATC = TABLEROS_ERP.indexOf("atc") >= 0;
     /* Pestaña de Atención y retención (tablero de Atención al Cliente embebido). */
     var TAB_ATENCION = ["atencion", "Atención y retención"];
-    var SOLO_ATENCION = false;   // tiene el tablero "atencion" del ERP pero ningún rol del CRM
-    function veAtencion() {
-        var t = (window.CM_USUARIO && window.CM_USUARIO.tableros) || [];
-        return MASTER || t.indexOf("atencion") >= 0;
-    }
+    var SOLO_ATENCION = false;   // ATC Central sin sesión de datos todavía: ve solo Atención y retención
+    function veAtencion() { return MASTER; }
 
     /* ---------- utilidades de interfaz ---------- */
     var $ = function (s) { return raiz.querySelector(s); };
@@ -253,7 +251,7 @@
             el("label", {}, ["Estado", el("select", { class: "dash-select", onchange: function (e) { S.filtroEstado = e.target.value; repintarLista(); } }, opciones(estados, S.filtroEstado))]),
             el("label", {}, ["Sucursal", el("select", { class: "dash-select", onchange: function (e) { S.filtroSuc = e.target.value; repintarLista(); } }, opciones([["", "Todas"]].concat(Object.keys(sucs).sort().map(function (s) { return [s, s]; })), S.filtroSuc))])
         ];
-        if (conEjecutiva) hijos.push(el("label", {}, ["Ejecutiva", el("select", { class: "dash-select", onchange: function (e) { S.filtroEj = e.target.value; repintarLista(); } },
+        if (conEjecutiva) hijos.push(el("label", {}, ["ATC", el("select", { class: "dash-select", onchange: function (e) { S.filtroEj = e.target.value; repintarLista(); } },
             opciones([["", "Todas"], ["_sin", "Sin asignar"]].concat(S.equipo.filter(activa).map(function (e) { return [e.key, e.nombre]; })), S.filtroEj))]));
         return el("div", { class: "co-filtros" }, hijos);
     }
@@ -320,7 +318,7 @@
             { t: "Sucursal", v: function (c) { return c.sucursal; } },
             { t: "Vencido hace", num: 1, v: function (c) { return c.dias_vencido + " días"; } }
         ];
-        if (opts.ejecutiva) cols.push({ t: "Ejecutiva", v: function (c) { return opts.ejecutiva(c); } });
+        if (opts.ejecutiva) cols.push({ t: "ATC", v: function (c) { return opts.ejecutiva(c); } });
         cols.push({ t: "Estado", v: function (c) { return estadoChip(c); } });
         cols.push({ t: "Acciones", v: function (c, tr) { return accionesCliente(c, tr, cols.length, S.yo); } });
         var LIM = 400;
@@ -348,7 +346,7 @@
             ]));
             var pend = S.tareas.filter(function (t) { return !t.hecha; });
             if (pend.length) {
-                c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "Tareas de Atención al Cliente" }), listaTareas(pend, true)]));
+                c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "Tareas de ATC Central" }), listaTareas(pend, true)]));
             }
             var agenda = mia.filter(function (x) { return x.crm.orden <= 2; }).slice(0, 60);
             var siguientes = mia.filter(function (x) { return x.crm.clave === "sin_contactar"; }).slice(0, 20);
@@ -376,7 +374,7 @@
             if (!yoListo(c)) return;
             var tot = L.totalesComision(S.comisiones)[S.yo.key] || { ventas: 0, comision: 0, anuladas: 0 };
             c.appendChild(el("h2", { class: "co-h2", text: "Mis comisiones · " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) }));
-            c.appendChild(kpis([["Clientes recuperados", String(tot.ventas)], ["Comisión", bs(tot.comision)], ["Anuladas por Atención al Cliente", String(tot.anuladas || 0)]]));
+            c.appendChild(kpis([["Clientes recuperados", String(tot.ventas)], ["Comisión", bs(tot.comision)], ["Anuladas por ATC Central", String(tot.anuladas || 0)]]));
             c.appendChild(tablaComisiones(S.comisiones, false));
         }
     };
@@ -442,7 +440,7 @@
             { t: "Monto", num: 1, v: function (x) { return bs(x.monto); } },
             { t: "Contacto", v: function (x) { return fecha(x.fecha_contacto) + " · " + (L.CANALES[x.canal] || x.canal || ""); } }
         ];
-        if (conAcciones) cols.splice(1, 0, { t: "Ejecutiva", v: function (x) { return x.ejecutiva; } });
+        if (conAcciones) cols.splice(1, 0, { t: "ATC", v: function (x) { return x.ejecutiva; } });
         cols.push({ t: "Comisión", num: 1, v: function (x) { return x.anulada ? el("span", {}, [chip("muted", "Anulada"), el("div", { class: "co-muted", text: x.motivo_anulacion || "" })]) : bs(x.comision); } });
         if (conAcciones) cols.push({ t: "", v: function (x, tr) {
             return x.anulada
@@ -483,10 +481,10 @@
             c.appendChild(el("h2", { class: "co-h2", text: "Recuperación de clientes antiguos" }));
             c.appendChild(el("p", { class: "co-muted", text: "Clientes que vencieron hace entre 1 y 6 meses. Período de ventas y comisiones: " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) + "." }));
             c.appendChild(kpis([
-                ["Clientes antiguos por recuperar", todos.length.toLocaleString("es-BO"), sin ? sin + " sin ejecutiva asignada" : "Todos asignados", sin ? "warn" : null],
+                ["Clientes antiguos por recuperar", todos.length.toLocaleString("es-BO"), sin ? sin + " sin ATC asignado" : "Todos asignados", sin ? "warn" : null],
                 ["Contactados en el período", contactados.toLocaleString("es-BO"), todos.length ? Math.round(contactados / todos.length * 100) + "% de la cartera" : ""],
                 ["Seguimientos atrasados", String(todos.filter(function (x) { return x.crm.seguimiento_estado === "vencido"; }).length), "Clientes con seguimiento vencido", null],
-                ["Clientes recuperados", String(totalVentas), "Ventas atribuidas a una ejecutiva", totalVentas ? "ok" : null],
+                ["Clientes recuperados", String(totalVentas), "Ventas atribuidas a un ATC", totalVentas ? "ok" : null],
                 ["Comisiones a pagar", bs(totalCom), "Bs 5 por cliente recuperado"]
             ]));
             if (pendienteMaster(c)) return;
@@ -495,9 +493,9 @@
             if (atrasadas.length) c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "Tareas atrasadas" }), listaTareas(atrasadas, false)]));
         },
         equipo: function (c) {
-            c.appendChild(el("h2", { class: "co-h2", text: "Equipo de ventas" }));
+            c.appendChild(el("h2", { class: "co-h2", text: "Equipo ATC" }));
             if (pendienteMaster(c)) return;
-            c.appendChild(el("div", { class: "co-fila" }, [el("button", { type: "button", class: "co-primario", text: "Agregar ejecutiva", onclick: function () { editarEjecutiva(null); } })]));
+            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC aparece aquí la primera vez que ingresa al centro de mando con su usuario del ERP (permiso «atc»). Asígnale sus sucursales y su meta con «Editar»." }));
             c.appendChild(el("div", { id: "co-form-ej" }));
             c.appendChild(el("div", { class: "co-card" }, [tablaEquipo(true)]));
         },
@@ -507,11 +505,11 @@
             S.sucursales.forEach(function (s) { if (!Object.keys(porSuc).some(function (k) { return L.norm(k) === L.norm(s); })) porSuc[s] = { sucursal: s, clientes: 0, sin: 0, ej: {} }; });
             var lista = Object.keys(porSuc).map(function (k) { return porSuc[k]; }).sort(function (a, b) { return b.clientes - a.clientes; });
             c.appendChild(el("h2", { class: "co-h2", text: "Reparto por sucursal" }));
-            c.appendChild(el("p", { class: "co-muted", text: "Cada ejecutiva recibe los clientes antiguos de sus sucursales. Si dos ejecutivas comparten sucursal, los clientes se reparten en partes iguales. Para cambiar las sucursales de una ejecutiva, edítala en «Equipo»." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC recibe los clientes antiguos de sus sucursales. Si dos ATC comparten sucursal (lo normal), los clientes se reparten en partes iguales. Para cambiar las sucursales de un ATC, edítalo en «Equipo»." }));
             c.appendChild(el("div", { class: "co-card" }, [tabla([
                 { t: "Sucursal", v: function (f) { return f.sucursal; } },
                 { t: "Clientes antiguos", num: 1, v: function (f) { return f.clientes.toLocaleString("es-BO"); } },
-                { t: "Ejecutivas", v: function (f) { var n = Object.keys(f.ej); return n.length ? n.map(function (k) { return k + " (" + f.ej[k] + ")"; }).join(", ") : chip(f.clientes ? "bad" : "muted", f.clientes ? "Sin cobertura" : "—"); } },
+                { t: "ATC", v: function (f) { var n = Object.keys(f.ej); return n.length ? n.map(function (k) { return k + " (" + f.ej[k] + ")"; }).join(", ") : chip(f.clientes ? "bad" : "muted", f.clientes ? "Sin cobertura" : "—"); } },
                 { t: "Sin asignar", num: 1, v: function (f) { return f.sin ? chip("bad", String(f.sin)) : "0"; } }
             ], lista, "No hay clientes antiguos.")]));
         },
@@ -522,9 +520,9 @@
             var cont = el("div"); c.appendChild(cont);
             var ejecutivaCelda = function (x) {
                 if (S.sinHerramientas) return x.ejecutiva || "—";
-                var sel = el("select", { class: "dash-select co-sel-mini", "aria-label": "Ejecutiva de " + (x.cliente || "cliente"), onchange: function () {
+                var sel = el("select", { class: "dash-select co-sel-mini", "aria-label": "ATC de " + (x.cliente || "cliente"), onchange: function () {
                     var v = sel.value;
-                    llamar(T.asignar, { key_cliente: x.key_cliente, key_ejecutiva: v === "_auto" ? null : v, motivo: "Reasignado por Atención al Cliente" })
+                    llamar(T.asignar, { key_cliente: x.key_cliente, key_ejecutiva: v === "_auto" ? null : v, motivo: "Reasignado por ATC Central" })
                         .then(function () { avisar((x.cliente || "Cliente") + (v === "_auto" ? " vuelve al reparto por sucursal." : " reasignado.")); cargar(); })
                         .catch(function (e) { avisar("No se pudo reasignar: " + textoError(e), "bad"); });
                 } }, opciones([["_auto", "Por sucursal" + (x.asignacion === "sucursal" ? " (" + x.ejecutiva + ")" : "")]].concat(S.equipo.filter(activa).map(function (e) { return [e.key, e.nombre]; })), x.asignacion === "manual" ? x.key_ejecutiva : "_auto"));
@@ -545,7 +543,7 @@
         guiones: function (c) {
             c.appendChild(el("h2", { class: "co-h2", text: "Guiones de llamada y WhatsApp" }));
             if (pendienteMaster(c)) return;
-            c.appendChild(el("p", { class: "co-muted", text: "Usa {nombre}, {ejecutiva}, {sucursal} y {paquete}: se reemplazan solos con los datos de cada cliente." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Usa {nombre}, {ejecutiva} (el nombre del ATC), {sucursal} y {paquete}: se reemplazan solos con los datos de cada cliente." }));
             c.appendChild(el("div", { class: "co-fila" }, [el("button", { type: "button", class: "co-primario", text: "Nuevo guion", onclick: function () { editarGuion(null); } })]));
             c.appendChild(el("div", { id: "co-form-guion" }));
             c.appendChild(listaGuiones(true));
@@ -553,10 +551,10 @@
         comisiones: function (c) {
             c.appendChild(el("h2", { class: "co-h2", text: "Comisiones · " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) }));
             if (pendienteMaster(c)) return;
-            c.appendChild(el("p", { class: "co-muted", text: "Una venta es de la ejecutiva que hizo el último contacto con ese cliente dentro de los 15 días anteriores a la compra. Si una comisión no corresponde, anúlala con el motivo." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Una venta es del ATC que hizo el último contacto con ese cliente dentro de los 15 días anteriores a la compra. Si una comisión no corresponde, anúlala con el motivo." }));
             var t = L.totalesComision(S.comisiones);
-            c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "A pagar por ejecutiva" }), tabla([
-                { t: "Ejecutiva", v: function (f) { return f.ejecutiva; } },
+            c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "A pagar por ATC" }), tabla([
+                { t: "ATC", v: function (f) { return f.ejecutiva; } },
                 { t: "Clientes recuperados", num: 1, v: function (f) { return f.ventas; } },
                 { t: "Vendido", num: 1, v: function (f) { return bs(f.monto_vendido); } },
                 { t: "Anuladas", num: 1, v: function (f) { return f.anuladas; } },
@@ -570,7 +568,7 @@
             if (pendienteMaster(c)) return;
             c.appendChild(el("div", { class: "co-card" }, [tabla([
                 { t: "Fecha", v: function (g) { return fecha(g.fecha_on) + " " + String(g.fecha_on || "").slice(11, 16); } },
-                { t: "Ejecutiva", v: function (g) { return g.ejecutiva; } },
+                { t: "ATC", v: function (g) { return g.ejecutiva; } },
                 { t: "Cliente", v: function (g) { return el("div", {}, [g.cliente || "—", el("div", { class: "co-muted", text: g.sucursal || "" })]); } },
                 { t: "Canal", v: function (g) { return L.CANALES[g.canal] || g.canal; } },
                 { t: "Resultado", v: function (g) { var r = L.RESULTADOS[g.resultado] || L.RESULTADOS.otro; return chip(r.tono, r.texto); } },
@@ -588,7 +586,7 @@
         var lista = S.equipo.filter(activa).map(function (e) { return Object.assign({}, e, res[e.key] || {}, { cartera: porEj[e.key] || { clientes: 0, sin: 0 }, com: com[e.key] || { ventas: 0, comision: 0 } }); })
             .sort(function (a, b) { return b.com.ventas - a.com.ventas || num(b.gestiones) - num(a.gestiones); });
         var cols = [
-            { t: "Ejecutiva", v: function (e) { return el("div", {}, [el("b", { text: e.nombre }), el("div", { class: "co-muted", text: (e.sucursales || []).join(", ") || "Sin sucursales" })]); } },
+            { t: "ATC", v: function (e) { return el("div", {}, [el("b", { text: e.nombre }), el("div", { class: "co-muted", text: (e.sucursales || []).join(", ") || "Sin sucursales" })]); } },
             { t: "Clientes", num: 1, v: function (e) { return el("div", {}, [String(e.cartera.clientes), el("div", { class: "co-muted", text: e.cartera.sin + " sin contactar" })]); } },
             { t: "Gestiones", num: 1, v: function (e) { return num(e.gestiones); } },
             { t: "Contactados", num: 1, v: function (e) { return num(e.contactados); } },
@@ -599,7 +597,7 @@
             { t: "Tareas pend.", num: 1, v: function (e) { return num(e.tareas_pendientes); } }
         ];
         if (conAcciones) cols.push({ t: "", v: function (e) { return el("button", { type: "button", class: "co-btn", text: "Editar", onclick: function () { editarEjecutiva(e); } }); } });
-        return tabla(cols, lista, "Todavía no hay ejecutivas en el equipo. Agrégalas en «Equipo».");
+        return tabla(cols, lista, "Todavía no ingresó ningún ATC. Aparecen aquí la primera vez que entran con su usuario del ERP.");
     }
 
     /* ----- formularios del master ----- */
@@ -610,32 +608,13 @@
         var nombre = el("input", { type: "text", maxlength: "120", value: e ? e.nombre : "", required: true });
         var tel = el("input", { type: "tel", maxlength: "40", value: e ? e.telefono || "" : "" });
         var meta = el("input", { type: "number", min: "0", max: "10000", step: "1", value: e ? e.meta_mensual || 0 : 20 });
-        var keyUsuario = e ? e.key_usuario : null;
-        var buscar = el("input", { type: "search", placeholder: "Correo o nombre (debe tener el rol de Ejecutiva en Roles)", value: "" });
-        var resultados = el("div", { class: "co-resultados" });
-        var elegido = el("p", { class: "co-muted", text: keyUsuario ? "Cuenta: " + keyUsuario : "Busca y elige la cuenta de Google con la que la ejecutiva entra. Si no aparece, primero Dirección le da el rol «Ejecutiva de ventas» en Roles." });
-        var t;
-        buscar.addEventListener("input", function () {
-            clearTimeout(t); var q = buscar.value.trim(); if (q.length < 3) { resultados.textContent = ""; return; }
-            t = setTimeout(function () {
-                llamar(T.buscarUsuario, { texto: q }).then(function (r) {
-                    resultados.textContent = "";
-                    filas(r).slice(0, 8).forEach(function (u) {
-                        resultados.appendChild(el("button", { type: "button", class: "co-btn", text: (u.nombre || u.usuario || u.key) + (u.usuario ? " · " + u.usuario : ""), onclick: function () {
-                            keyUsuario = u.key || u.key_usuario; if (!nombre.value) nombre.value = u.nombre || ""; if (!tel.value && u.telefono) tel.value = u.telefono;
-                            elegido.textContent = "Usuario elegido: " + (u.nombre || u.usuario); resultados.textContent = "";
-                        } }));
-                    });
-                    if (!resultados.childNodes.length) resultados.appendChild(el("span", { class: "co-muted", text: "Sin resultados." }));
-                }).catch(function (err) { resultados.textContent = err.noDisponible ? "La búsqueda de usuarios todavía no está en el MCP." : textoError(err); });
-            }, 350);
-        });
+        var keyUsuario = e ? (e.key_usuario || e.key) : null;
         var marcadas = {}; (e ? e.sucursales || [] : []).forEach(function (s) { marcadas[L.norm(s)] = true; });
         var nombresSuc = S.sucursales.length ? S.sucursales : Object.keys(clientesBase().reduce(function (a, c) { if (c.sucursal) a[c.sucursal] = 1; return a; }, {}));
         var checks = nombresSuc.slice().sort().map(function (s) { return el("label", { class: "co-check" }, [el("input", { type: "checkbox", value: s, checked: !!marcadas[L.norm(s)] }), s]); });
         var f = el("form", { class: "co-card co-form", novalidate: true }, [
-            el("h3", { class: "co-h3", text: e ? "Editar a " + e.nombre : "Agregar ejecutiva" }),
-            e ? el("p", { class: "co-muted co-ancho", text: "Cuenta: " + e.key_usuario }) : el("label", { class: "co-ancho" }, ["Cuenta de Google", buscar, resultados, elegido]),
+            el("h3", { class: "co-h3", text: "Editar a " + (e ? e.nombre : "") }),
+            el("p", { class: "co-muted co-ancho", text: "Usuario del ERP de " + (e ? e.nombre : "") }),
             el("label", {}, ["Nombre", nombre]), el("label", {}, ["Teléfono", tel]), el("label", {}, ["Meta mensual (clientes recuperados)", meta]),
             el("fieldset", { class: "co-ancho co-checks" }, [el("legend", { text: "Sucursales que atiende" })].concat(checks)),
             el("div", { class: "co-acciones co-ancho" }, [el("button", { type: "submit", class: "co-primario", text: "Guardar" }),
@@ -643,17 +622,17 @@
                 el("button", { type: "button", class: "co-btn", text: "Cancelar", onclick: function () { cont.textContent = ""; } }), msg])
         ]);
         function guardar(estado) {
-            if (!keyUsuario) { mensaje(msg, "bad", "Elige la cuenta de Google de la ejecutiva."); return; }
+            if (!keyUsuario) { mensaje(msg, "bad", "Falta el ATC."); return; }
             if (!nombre.value.trim()) { mensaje(msg, "bad", "Escribe el nombre."); return; }
             var sucs = checks.map(function (l) { return l.querySelector("input"); }).filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
             mensaje(msg, "", "Guardando…");
             llamar(T.ejecutivaGuardar, { data: { key: e ? e.key : undefined, key_usuario: keyUsuario, nombre: nombre.value.trim(), telefono: tel.value.trim() || undefined, sucursales: sucs, meta_mensual: Math.max(0, parseInt(meta.value, 10) || 0), estado: estado == null ? 1 : estado } })
-                .then(function () { avisar(estado === 0 ? e.nombre + " dada de baja." : "Ejecutiva guardada."); cont.textContent = ""; cargar(); })
+                .then(function () { avisar(estado === 0 ? e.nombre + " dado de baja." : "ATC guardado."); cont.textContent = ""; cargar(); })
                 .catch(function (err) { mensaje(msg, "bad", textoError(err)); });
         }
         f.addEventListener("submit", function (ev) { ev.preventDefault(); guardar(); });
         cont.appendChild(f);
-        (e ? nombre : buscar).focus();
+        nombre.focus();
     }
     function editarTarea(t) {
         var cont = $("#co-form-tarea"); if (!cont) { S.tab = "tareas"; pintar(); cont = $("#co-form-tarea"); }
@@ -707,7 +686,7 @@
     }
     function descargarComisiones() {
         var esc = function (v) { var s = v == null ? "" : String(v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-        var filasCsv = [["Fecha venta", "Ejecutiva", "Cliente", "Paquete", "Sucursal", "Monto", "Fecha contacto", "Canal", "Comisión", "Anulada", "Motivo anulación"]]
+        var filasCsv = [["Fecha venta", "ATC", "Cliente", "Paquete", "Sucursal", "Monto", "Fecha contacto", "Canal", "Comisión", "Anulada", "Motivo anulación"]]
             .concat(S.comisiones.map(function (x) { return [String(x.fecha_venta || "").slice(0, 10), x.ejecutiva, x.cliente || x.key_cliente, x.paquete, x.sucursal, x.monto, String(x.fecha_contacto || "").slice(0, 10), x.canal, x.comision, x.anulada ? "sí" : "no", x.motivo_anulacion || ""]; }));
         var blob = new Blob(["﻿" + filasCsv.map(function (f) { return f.map(esc).join(";"); }).join("\r\n")], { type: "text/csv;charset=utf-8" });
         var a = el("a", { href: URL.createObjectURL(blob), download: "comisiones-" + S.periodo.desde + "-a-" + S.periodo.hasta + ".csv" });
@@ -720,8 +699,8 @@
     function arrancar() {
     $("#co-titulo").textContent = "Comercial y Atención al Cliente";
     $("#co-sub").textContent = MASTER
-        ? "Atención al Cliente dirige al equipo de ventas: renovaciones y clientes en riesgo, reparto de clientes antiguos por sucursal, tareas, guiones, resultados y comisiones."
-        : "Tus clientes antiguos por recuperar, tus seguimientos, las tareas de Atención al Cliente y tu comisión.";
+        ? "ATC Central dirige a los ATC de cada sucursal: renovaciones y clientes en riesgo, reparto de clientes antiguos, tareas, guiones, resultados y comisiones."
+        : "Tus clientes antiguos por recuperar, tus seguimientos, las tareas de ATC Central y tu comisión.";
     var mes = $("#co-mes");
     mes.value = S.periodo.desde.slice(0, 7); mes.max = hoy().slice(0, 7);
     mes.addEventListener("change", function () {
@@ -735,23 +714,20 @@
     setInterval(function () { if (!document.hidden && !raiz.querySelector(".co-subfila, .co-form")) cargar(); }, 10 * 60000);
     }
     (window.CMFB ? CMFB.listo : Promise.resolve()).then(function () {
-        if (window.CMFB) {
-            MASTER = CMFB.tieneRol("comercial");
-            if (CMFB.estado.usuario && !MASTER && !CMFB.tieneRol("ventas")) {
-                if (veAtencion()) {
-                    /* Solo el tablero de Atención: sin CRM, sin carga de datos comerciales. */
-                    SOLO_ATENCION = true;
-                    $("#co-titulo").textContent = "Comercial y Atención al Cliente";
-                    $("#co-sub").textContent = "Renovaciones, clientes en riesgo y recuperación por WhatsApp.";
-                    var herr = raiz.querySelector(".co-herr"); if (herr) herr.hidden = true;
-                    mensaje($("#co-estado"), "", "");
-                    S.tab = TAB_ATENCION[0];
-                    pintar();
-                    return;
-                }
-                mensaje($("#co-estado"), "warn", "Tu cuenta " + CMFB.correo() + " no tiene el rol de Sistema comercial ni de Ejecutiva de ventas. Pídeselo a Dirección.");
-                return;
-            }
+        if (!MASTER && !ES_ATC) {
+            mensaje($("#co-estado"), "warn", "Tu usuario del ERP no tiene el permiso de ATC Central («atencion») ni de ATC («atc») en /centro_mando.");
+            return;
+        }
+        if (window.CMFB && !CMFB.sesionVigente() && MASTER) {
+            /* Sin sesión de datos: ATC Central igual ve Atención y retención (datos del MCP). */
+            SOLO_ATENCION = true;
+            $("#co-titulo").textContent = "Comercial y Atención al Cliente";
+            $("#co-sub").textContent = "Renovaciones, clientes en riesgo y recuperación por WhatsApp. Para el CRM de los ATC, vuelve a ingresar con tu usuario del ERP.";
+            var herr = raiz.querySelector(".co-herr"); if (herr) herr.hidden = true;
+            mensaje($("#co-estado"), "", "");
+            S.tab = TAB_ATENCION[0];
+            pintar();
+            return;
         }
         arrancar();
     });

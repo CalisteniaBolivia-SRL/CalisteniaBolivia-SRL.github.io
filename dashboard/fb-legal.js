@@ -69,7 +69,7 @@
         orden(fus, d, "fecha_inicio", "fecha_fin", "La fecha de fin no puede ser anterior a la de inicio.");
         orden(fus, d, "fecha_emision", "fecha_vencimiento", "El vencimiento no puede ser anterior a la emisión.");
         orden(fus, d, "fecha_apertura", "fecha_cierre", "El cierre no puede ser anterior a la apertura.");
-        var col = U.db().collection(COL[e]), quien = CMFB.correo();
+        var col = U.db().collection(COL[e]), quien = CMFB.usuarioKey();
         var previo = e === "evento" ? U.db().collection("legal_caso").doc(out.key_caso || "-").get().then(function (c) {
             if (!c.exists || Number(c.data().estado) <= 0) throw U.err("El caso no existe o fue eliminado.");
         }) : Promise.resolve();
@@ -96,7 +96,7 @@
         return ref.get().then(function (x) {
             if (!x.exists || Number(x.data().estado) <= 0) throw U.err("El registro no existe o ya fue eliminado.");
             var lote = U.db().batch();
-            lote.update(ref, { estado: 0, key_usuario: CMFB.correo(), fecha_edicion: U.ahora() });
+            lote.update(ref, { estado: 0, key_usuario: CMFB.usuarioKey(), fecha_edicion: U.ahora() });
             if (e !== "caso") return lote.commit();
             return U.db().collection("legal_caso_evento").where("key_caso", "==", k).get().then(function (s) {
                 s.docs.forEach(function (d) { lote.update(d.ref, { estado: 0 }); });

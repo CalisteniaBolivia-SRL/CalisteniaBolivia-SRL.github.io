@@ -1,75 +1,40 @@
-# Activar los módulos nuevos con Firebase (sin depender de Servisofts)
+# Datos de los módulos del centro de mando (Firebase + ingreso con el ERP)
 
-Los módulos **Legal**, **Cuentas por pagar** (en Administración) y **Sistema comercial** guardan sus datos en Firebase (Firestore), que es de Calistenia. **Reportes** sigue leyendo del MCP de Calistenia (prórrogas y convenios ya funcionan). Cada persona entra a estos módulos con su **cuenta de Google**, y **Dirección** decide quién ve qué en la página **Roles**.
+Los módulos **Legal**, **Cuentas por pagar** (en Administración) y el **CRM de los ATC** (en Comercial y Atención al Cliente) guardan sus datos en Firebase, proyecto **Centro de Comando** (`centro-de-comando-a57cf`). **Reportes** y los demás tableros leen del MCP de Calistenia, como siempre.
 
-Tiempo estimado: 15 minutos. Lo hace alguien con acceso de propietario al proyecto de Firebase.
+## Cómo se ingresa
 
-## 1. Proyecto
+Como siempre: **usuario y contraseña del ERP** en el portal. Qué ve cada persona lo deciden sus permisos en la página **/centro_mando** del ERP:
 
-Usar el proyecto de Firebase de Calistenia (el de la app, `tapeke-20bb6`) o crear uno nuevo en https://console.firebase.google.com (plan gratuito Spark alcanza).
-
-## 2. Ingreso con Google
-
-1. **Authentication → Comenzar → Método de acceso → Google → Habilitar** (elegir el correo de soporte) → Guardar.
-2. **Authentication → Configuración → Dominios autorizados → Agregar dominio:** `calisteniabolivia-srl.github.io`.
-
-## 3. Base de datos
-
-1. **Firestore Database → Crear base de datos →** modo **producción**, ubicación `southamerica-east1` (São Paulo) o la más cercana.
-2. **Firestore → Reglas:** borrar todo, pegar el contenido de `firestore.rules` (raíz de este repositorio) y **Publicar**.
-
-## 4. Primer usuario de Dirección
-
-En **Firestore → Datos → Iniciar colección**:
-- ID de la colección: `roles`
-- ID del documento: el **correo de Google de Dirección, en minúsculas** (ej. `nombre@empresa.com`)
-- Campos: `admin` (booleano) = `true`, `nombre` (cadena) = el nombre, `estado` (número) = `1`
-
-A partir de ahí, todo lo demás se hace desde la página **Roles** del centro de mando.
-
-## 5. Conectar la página
-
-1. **Configuración del proyecto (engranaje) → General → Tus apps → Agregar app → Web (`</>`)**, nombre "Centro de mando", sin Hosting → Registrar.
-2. Copiar el objeto `firebaseConfig` que muestra y pegarlo en `dashboard/firebase-config.js`, reemplazando `null`:
-
-```js
-window.CM_FIREBASE_CONFIG = {
-    apiKey: "...",
-    authDomain: "....firebaseapp.com",
-    projectId: "...",
-    storageBucket: "...",
-    messagingSenderId: "...",
-    appId: "..."
-};
-```
-
-Estos valores no son secretos (identifican el proyecto); la seguridad la dan el ingreso con Google y las reglas.
-
-3. Publicar el cambio (merge a `main`).
-
-## 6. Dar accesos (página Roles)
-
-Dirección entra a **Centro de mando → Roles**, ingresa con Google y agrega a cada persona con su correo y sus módulos:
-
-| Rol | Qué puede hacer |
+| Permiso del ERP | Qué habilita |
 |---|---|
-| Dirección | Administra roles y la lista de sucursales; ve todo. |
-| Legal | Contratos, permisos, casos y plazos. |
-| Administración | Cuentas por pagar y punto de equilibrio. |
-| Sistema comercial (master) | Atención al Cliente: equipo, reparto, tareas, guiones, comisiones. |
-| Ejecutiva de ventas | Su CRM. Además, Atención al Cliente la agrega al equipo en Sistema comercial → Equipo. |
-| Reportes | Tablero Reportes (si no tiene ya el permiso "reportes" en el ERP). |
+| `atencion` | **ATC Central** (un solo usuario, el que usan Eliana y Mauricio): dirige a los ATC, reparte clientes, deja tareas y guiones, ve resultados y comisiones, y Atención y retención. |
+| `atc` | **ATC de sucursal** (22, dos por sucursal): su CRM, con los clientes antiguos que le tocan, sus seguimientos, tareas y comisión. |
+| `legal` | Legal: contratos, permisos, casos y plazos. |
+| `administracion` | Administración, incluida Cuentas por pagar. |
+| `reportes` | Reportes. |
+| `todo` | Todo lo anterior. |
 
-En **Roles → Sucursales** conviene cargar la lista de sucursales (una por línea).
+Los permisos `atc` y `legal` hay que crearlos en /centro_mando del ERP y asignarlos a los usuarios que correspondan.
 
-## Qué queda en el servidor de Calistenia (opcional, Servisofts)
+Al ingresar, el portal llama al **puente** (Cloud Function `erpLogin`, en `functions/`): confirma el mismo usuario y contraseña contra el ERP, lee sus permisos de /centro_mando y abre la sesión de datos de Firebase con esos permisos. No guarda contraseñas. La sesión dura 30 días; los cambios de permisos en el ERP se aplican al volver a ingresar.
 
-Estos reportes necesitan que el servidor registre información que hoy no guarda; quedan "pendientes de activación" hasta instalar sus pull requests del repositorio `server`:
-- Traspasos de mensualidad, paquetes eliminados y cambios de fecha (historial del servidor).
-- Cumpleañeros del mes (fecha de nacimiento del servicio de usuarios).
+Cada ATC aparece en **Comercial → Equipo** la primera vez que entra; ATC Central le asigna sus sucursales y su meta.
+
+## Instalación del puente (una sola vez)
+
+Requiere el **plan Blaze** de Firebase (las Cloud Functions lo exigen para conectarse al ERP). El uso del centro de mando entra en la capa gratuita.
+
+1. Consola de Firebase → proyecto Centro de Comando → **Actualizar a Blaze** y elegir la cuenta de facturación.
+2. Publicar la función y las reglas (desde una sesión con acceso al proyecto):
+   ```
+   gcloud functions deploy erpLogin --gen2 --runtime nodejs20 --region southamerica-east1 \
+     --source functions --entry-point erpLogin --trigger-http --allow-unauthenticated --project centro-de-comando-a57cf
+   ```
+   y dar al servicio de la función el rol **Creador de tokens de cuenta de servicio** sobre sí mismo (para firmar las sesiones).
+3. Publicar `firestore.rules` (Firestore → Reglas).
 
 ## Notas
 
-- **Comisiones del Sistema comercial:** se calculan cruzando los contactos registrados con las ventas de `listar_ventas` (MCP). El cliente se reconoce por su clave si la venta la trae, si no por su nombre: conviene revisar las primeras comisiones.
-- **Copias de seguridad:** Firestore permite exportar datos desde la consola (Firestore → Importar/exportar, requiere plan Blaze) o con `gcloud firestore export`.
-- **Quitar acceso:** en Roles → "Quitar acceso". La persona deja de ver los datos al recargar la página.
+- **Comisiones:** se calculan cruzando los contactos registrados por cada ATC con las ventas de `listar_ventas` (MCP).
+- **Clientes antiguos:** `clientes_vencidos` del MCP entrega hasta 180 días; el CRM toma los vencidos hace entre 1 y 6 meses.

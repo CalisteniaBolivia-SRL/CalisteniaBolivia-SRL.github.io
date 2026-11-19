@@ -49,12 +49,12 @@
         };
         if (d.fecha_vencimiento < d.fecha_emision) throw U.err("La fecha de vencimiento no puede ser anterior a la de emisión.");
         var ref = C().doc();
-        return ref.set(Object.assign(d, { pagado: 0, estado: 1, fecha_on: U.ahora(), key_usuario: CMFB.correo() }))
+        return ref.set(Object.assign(d, { pagado: 0, estado: 1, fecha_on: U.ahora(), key_usuario: CMFB.usuarioKey() }))
             .then(function () { return { estado: "exito", data: Object.assign({ key: ref.id }, d) }; });
     });
     CMFB.registrar("cuentas_por_pagar_pagar", function (a) {
         var key = U.txt(a, "key_cuenta_pagar", 64, true), m = U.monto(a, "monto", true, true);
-        var pago = { key_cuenta_pagar: key, monto: m, fecha: U.fecha(a, "fecha", true), forma_pago: U.opcion(a, "forma_pago", FORMAS, null, true), observacion: U.txt(a, "observacion", 1000, false), estado: 1, fecha_on: U.ahora(), key_usuario: CMFB.correo() };
+        var pago = { key_cuenta_pagar: key, monto: m, fecha: U.fecha(a, "fecha", true), forma_pago: U.opcion(a, "forma_pago", FORMAS, null, true), observacion: U.txt(a, "observacion", 1000, false), estado: 1, fecha_on: U.ahora(), key_usuario: CMFB.usuarioKey() };
         var refC = C().doc(key), refP = P().doc();
         return U.db().runTransaction(function (tx) {
             return tx.get(refC).then(function (x) {
@@ -74,7 +74,7 @@
             if (!x.exists || Number(x.data().estado) <= 0) throw U.err("La cuenta por pagar no existe o ya está anulada.");
             if ((Number(x.data().pagado) || 0) > 0) throw U.err("La cuenta tiene pagos registrados: no se puede anular.");
             var obs = x.data().observacion ? x.data().observacion + "\n" : "";
-            return ref.update({ estado: 0, observacion: obs + "Anulada " + U.ahora() + " por " + CMFB.correo() + ": " + motivo });
+            return ref.update({ estado: 0, observacion: obs + "Anulada " + U.ahora() + " por " + (CMFB.nombre() || CMFB.usuarioKey()) + ": " + motivo });
         }).then(function () { return { estado: "exito", data: { key: key } }; });
     });
 })();
