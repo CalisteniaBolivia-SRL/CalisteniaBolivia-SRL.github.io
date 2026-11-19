@@ -18,6 +18,27 @@
 
     function leer(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
     function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+    /* La conexión con Calistenia se guarda por usuario del ERP: quien ya la conectó una vez no vuelve a poner la
+       contraseña de Calistenia, aunque presione Salir y vuelva a entrar con el ERP. Otro usuario del ERP en el
+       mismo navegador no usa la conexión de otro. */
+    function usuarioErp() { var s = leer("cb_centro_mando"); return s && s.usuario ? String(s.usuario).trim().toLowerCase() : ""; }
+    function claveTokens(u) { return K.tokens + ":" + (u || usuarioErp() || "_"); }
+    function leerTokens() {
+        var t = leer(claveTokens());
+        if (!t) {   /* conexión guardada con la versión anterior (una sola para todo el navegador): pasa al usuario actual */
+            var viejo = leer(K.tokens);
+            if (viejo && usuarioErp()) { guardar(claveTokens(), viejo); guardar(K.tokens, null); t = viejo; }
+        }
+        return t;
+    }
+    function escribirTokens(t, u) { guardar(claveTokens(u), t); }
+
+    /* Sesión del ERP deslizante: mientras la persona use el sistema, no vence. */
+    (function () {
+        var s = leer("cb_centro_mando"), DIAS30 = 30 * 86400000;
+        if (s && s.vence > Date.now() && s.vence - Date.now() < DIAS30 - 86400000) { s.vence = Date.now() + DIAS30; guardar("cb_centro_mando", s); }
+    })();
     function azar(n) { var a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a); }
     function b64url(bytes) {
         var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
@@ -44,7 +65,7 @@
         return cliente().then(function (clientId) {
             var verifier = azar(48), state = azar(24);
             return sha256(verifier).then(function (challenge) {
-                guardar(K.pkce, { verifier: verifier, state: state, volverA: volverA || "", clientId: clientId });
+                guardar(K.pkce, { verifier: verifier, state: state, volverA: volverA || "", clientId: clientId, usuario: usuarioErp() });
                 location.href = AUTHORIZE + "?" + formulario({
                     response_type: "code", client_id: clientId, redirect_uri: REDIRECT, scope: SCOPES, state: state,
                     code_challenge: challenge, code_challenge_method: "S256", resource: MCP
@@ -53,9 +74,9 @@
         });
     }
 
-    function guardarTokens(d) {
+    function guardarTokens(d, u) {
         var t = { access: d.access_token, refresh: d.refresh_token, vence: Date.now() + (Number(d.expires_in) || 900) * 1000 };
-        guardar(K.tokens, t);
+        escribirTokens(t, u);
         return t;
     }
 
@@ -71,14 +92,14 @@
             method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: formulario({ grant_type: "authorization_code", code: q.get("code"), redirect_uri: REDIRECT, client_id: p.clientId, code_verifier: p.verifier, resource: MCP })
         }).then(function (r) { return r.ok ? r.json() : r.text().then(function (t) { throw new Error("token " + r.status + " " + t); }); })
-          .then(function (d) { guardarTokens(d); guardar(K.pkce, null); return p.volverA || null; });
+          .then(function (d) { guardarTokens(d, p.usuario); guardar(K.pkce, null); return p.volverA || null; });
     }
 
     var renovando = null;
     function sinSesion() { return Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
     function renovar(tVieja) {
         /* Ya dentro del turno: si otra pestaña renovó mientras esperábamos, usar ese token. */
-        var t = leer(K.tokens);
+        var t = leerTokens();
         if (!t) return Promise.reject(sinSesion());
         if (t.refresh !== tVieja.refresh || t.vence - Date.now() > 30000) return Promise.resolve(t.access);
         var c = leer(K.cliente);
@@ -86,12 +107,15 @@
             method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: formulario({ grant_type: "refresh_token", refresh_token: t.refresh, client_id: c && c.client_id, resource: MCP })
         }).then(function (r) {
-            if (!r.ok) { guardar(K.tokens, null); throw sinSesion(); }
+            /* Solo se descarta la conexión si Calistenia dice que ya no vale (400/401). Si el servidor falla un
+               momento (5xx), se conserva y se reintenta en la próxima carga. */
+            if (r.status === 400 || r.status === 401) { escribirTokens(null); throw sinSesion(); }
+            if (!r.ok) throw new Error("El servidor de Calistenia no respondió (" + r.status + "). Se reintenta solo en unos minutos.");
             return r.json();
         }).then(function (d) { return guardarTokens(d).access; });
     }
     function acceso() {
-        var t = leer(K.tokens);
+        var t = leerTokens();
         if (!t) return Promise.reject(sinSesion());
         if (t.vence - Date.now() > 30000) return Promise.resolve(t.access);
         if (renovando) return renovando;
@@ -125,13 +149,17 @@
             return fetch(MCP, { method: "POST", headers: h, body: JSON.stringify(cuerpo) });
         });
     }
-    function iniciarMcp() {
+    function iniciarMcp(intento) {
         if (sesionMcp) return Promise.resolve();
         if (iniciando) return iniciando;
         var id = idPedido++;
         iniciando = enviar({ jsonrpc: "2.0", id: id, method: "initialize", params: { protocolVersion: PROTOCOLO, capabilities: {}, clientInfo: { name: "centro-de-mando", version: "1.0" } } }, false)
             .then(function (r) {
-                if (r.status === 401) { guardar(K.tokens, null); throw Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
+                if (r.status === 401 && !intento) {   /* acceso vencido: se renueva una vez antes de pedir la contraseña */
+                    var t = leerTokens(); if (t) { t.vence = 0; escribirTokens(t); }
+                    throw { reintentar: true };
+                }
+                if (r.status === 401) { escribirTokens(null); throw Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
                 if (!r.ok) throw new Error("No se pudo iniciar la conexión con Calistenia (" + r.status + ").");
                 sesionMcp = r.headers.get("Mcp-Session-Id");
                 return leerRespuesta(r, id);
@@ -140,7 +168,7 @@
                 if (m && m.result && m.result.protocolVersion) PROTOCOLO = m.result.protocolVersion;
                 return enviar({ jsonrpc: "2.0", method: "notifications/initialized" }, true);
             })
-            .then(function () { iniciando = null; }, function (e) { iniciando = null; sesionMcp = null; throw e; });
+            .then(function () { iniciando = null; }, function (e) { iniciando = null; sesionMcp = null; if (e && e.reintentar) return iniciarMcp(1); throw e; });
         return iniciando;
     }
 
@@ -152,10 +180,10 @@
             return enviar({ jsonrpc: "2.0", id: id, method: "tools/call", params: { name: nombre, arguments: args || {} } }, true).then(function (r) {
                 if ((r.status === 404 || r.status === 400) && intento < 1) { sesionMcp = null; return llamar(nombre, args, intento + 1); }
                 if (r.status === 401 && intento < 1) {
-                    var t = leer(K.tokens); if (t) { t.vence = 0; guardar(K.tokens, t); }
+                    var t = leerTokens(); if (t) { t.vence = 0; escribirTokens(t); }
                     sesionMcp = null; return llamar(nombre, args, intento + 1);
                 }
-                if (r.status === 401) { guardar(K.tokens, null); throw Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
+                if (r.status === 401) { escribirTokens(null); throw Object.assign(new Error("sin_sesion"), { sinSesion: true }); }
                 if (!r.ok) throw new Error("El servidor respondió " + r.status + " en " + nombre + ".");
                 return leerRespuesta(r, id).then(function (m) {
                     if (!m) throw new Error("Respuesta vacía de " + nombre + ".");
@@ -172,8 +200,9 @@
         });
     }
 
-    function cerrarSesion() { guardar(K.tokens, null); guardar(K.pkce, null); sesionMcp = null; }
-    function conSesion() { return !!leer(K.tokens); }
+    /* Salir del portal NO borra la conexión con Calistenia: queda guardada para ese usuario del ERP. */
+    function cerrarSesion() { guardar(K.pkce, null); sesionMcp = null; }
+    function conSesion() { return !!leerTokens(); }
 
     window.CM = { iniciarSesion: iniciarSesion, atenderVuelta: atenderVuelta, llamar: llamar, cerrarSesion: cerrarSesion, conSesion: conSesion };
 })();
