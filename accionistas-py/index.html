@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ingresos · Calistenia Paraguay</title>
+<meta name="description" content="Cierres semanales y mensuales de ingresos de Calistenia Paraguay para accionistas, en vivo desde el ERP.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --page: #000000;
+  --surface: #141414;
+  --surface-2: #1e1e1e;
+  --border: rgba(255,255,255,0.10);
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --s-memb: #3987e5;
+  --s-snack: #d95926;
+  --s-alq: #199e70;
+  --s-otros: #9085e9;
+  --sel: rgba(255,255,255,0.08);
+  --up: #0ca30c;
+  --down: #e66767;
+  --error: #e66767;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --page: #f4f4f2;
+    --surface: #fcfcfb;
+    --surface-2: #f0efec;
+    --border: rgba(11,11,11,0.10);
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #6f6e69;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --s-memb: #2a78d6;
+    --s-snack: #eb6834;
+    --s-alq: #1baf7a;
+    --s-otros: #6250d6;
+    --sel: rgba(11,11,11,0.06);
+    --up: #006300;
+    --down: #c03636;
+    --error: #c03636;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45; }
+header.top { background: #000; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.top__in { max-width: 1120px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.top__in img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: #fff; flex: none; }
+.top__txt { flex: 1; min-width: 0; }
+.top__in h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: .2px; }
+.top__in p { margin: 0; font-size: 13px; color: #b5b4ae; }
+.top__user { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #b5b4ae; }
+.top__user button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; min-height: 34px; }
+.vivo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.vivo i { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(12,163,12,.6); animation: pulso 2s infinite; }
+.vivo.err i { background: var(--error); animation: none; }
+@keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(12,163,12,.55); } 70% { box-shadow: 0 0 0 7px rgba(12,163,12,0); } 100% { box-shadow: 0 0 0 0 rgba(12,163,12,0); } }
+@media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
+main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
+.estado-barra { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: center; margin-bottom: 14px; }
+
+/* Ingreso */
+.login { max-width: 400px; margin: 48px auto; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; }
+.login h2 { margin: 0 0 4px; font-size: 22px; }
+.login p.lead { margin: 0 0 18px; color: var(--ink-2); font-size: 14px; }
+.login label { display: block; font-size: 13px; color: var(--ink-2); margin: 12px 0 6px; }
+.login input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 16px; }
+.login input:focus { outline: 2px solid var(--s-memb); outline-offset: 1px; }
+.login button { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 8px; background: var(--ink); color: var(--page); font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+.login button:disabled { opacity: .6; cursor: default; }
+.login .err { color: var(--error); font-size: 13px; min-height: 18px; margin: 10px 0 0; }
+.login .nota { font-size: 12px; color: var(--muted); margin: 14px 0 0; }
+
+.cargando { max-width: 480px; margin: 64px auto; text-align: center; color: var(--ink-2); }
+.progreso { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin: 14px 0 8px; }
+.progreso div { height: 100%; width: 0; background: var(--s-memb); transition: width .2s; }
+.aviso { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--error); border-radius: 10px; padding: 14px 16px; max-width: 560px; margin: 40px auto; }
+.aviso h2 { margin: 0 0 6px; font-size: 17px; }
+.aviso p { margin: 0 0 8px; font-size: 14px; color: var(--ink-2); }
+.aviso button { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.kpi__l { font-size: 13px; color: var(--ink-2); }
+.kpi__v { font-size: 26px; font-weight: 700; margin-top: 2px; }
+.kpi__s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+section.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 18px 14px; margin-bottom: 20px; }
+.card__h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 6px; }
+.card__h h2 { font-size: 18px; margin: 0; }
+.card__h p { margin: 0; font-size: 13px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin: 8px 0 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: inherit; }
+.bar-hit { cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.35); white-space: nowrap; z-index: 2; display: none; }
+.tip b { display: block; margin-bottom: 4px; font-size: 13px; }
+.tip .row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.tip .tot { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; font-weight: 700; }
+.sel-week { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 14px; }
+.sel-week__h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.sel-week__h h3 { margin: 0; font-size: 16px; }
+.nav-btns { display: flex; gap: 6px; }
+.nav-btns button { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; min-height: 34px; }
+.nav-btns button:disabled { opacity: .4; cursor: default; }
+.stackbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 12px 0; gap: 2px; background: var(--surface-2); }
+.stackbar div { height: 100%; }
+.breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.bd { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; border-left: 4px solid transparent; }
+.bd__l { font-size: 13px; color: var(--ink-2); }
+.bd__v { font-size: 20px; font-weight: 700; }
+.bd__p { font-size: 12px; color: var(--muted); }
+.bd--tot { border-left-color: var(--ink-2); }
+.delta-up { color: var(--up); }
+.delta-down { color: var(--down); }
+details { margin-top: 12px; }
+summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.tbl-wrap { overflow-x: auto; margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+tfoot td { font-weight: 700; }
+.nota { font-size: 12px; color: var(--muted); margin-top: 8px; }
+footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) { .kpi__v { font-size: 22px; } .bd__v { font-size: 18px; } .top__user span { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top__in">
+    <img src="https://empresa.servisofts.com/http/empresa/3433c7d4-a626-44de-b825-f924334e679c" alt="Calistenia Paraguay" onerror="this.style.display='none'">
+    <div class="top__txt">
+      <h1>Calistenia Paraguay · Ingresos</h1>
+      <p>Reporte para accionistas</p>
+    </div>
+    <div class="top__user" id="usuario-barra" hidden>
+      <span id="hola"></span>
+      <button type="button" id="salir">Salir</button>
+    </div>
+  </div>
+</header>
+
+<!-- Ingreso con el usuario del ERP -->
+<main id="v-login" hidden>
+  <form class="login" id="f-login" novalidate>
+    <h2>Ingresar</h2>
+    <p class="lead">Usa tu usuario y contraseña del ERP (S-ERP).</p>
+    <label for="l-usuario">Usuario</label>
+    <input id="l-usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="l-pass">Contraseña</label>
+    <input id="l-pass" name="password" type="password" autocomplete="current-password" required>
+    <p class="err" id="l-error" role="alert"></p>
+    <button type="submit" id="l-btn">Ingresar</button>
+    <p class="nota">La contraseña se valida directamente con el ERP y no se guarda en esta página. El acceso lo da Dirección desde los roles del ERP.</p>
+  </form>
+</main>
+
+<!-- Primera carga -->
+<main id="v-carga" hidden>
+  <div class="cargando">
+    <div id="c-texto">Conectando con el ERP…</div>
+    <div class="progreso"><div id="c-barra"></div></div>
+    <div class="nota" id="c-sub">La primera vez se leen todas las ventas; después la página se actualiza sola cada 8 segundos.</div>
+  </div>
+</main>
+
+<!-- Aviso (sin permiso o error) -->
+<main id="v-aviso" hidden>
+  <div class="aviso">
+    <h2 id="a-titulo"></h2>
+    <p id="a-texto"></p>
+    <button type="button" id="a-btn">Volver a intentar</button>
+  </div>
+</main>
+
+<!-- Tablero -->
+<main id="v-tablero" hidden>
+  <div class="estado-barra">
+    <span class="vivo" id="vivo"><i></i><span id="vivo-txt">En vivo</span></span>
+    <span class="nota" style="margin:0" id="datos-al"></span>
+  </div>
+  <div class="kpis" id="kpis"></div>
+
+  <section class="card" aria-labelledby="t-sem">
+    <div class="card__h">
+      <h2 id="t-sem">Cierres semanales</h2>
+      <p>Semanas de lunes a domingo · toca una barra para ver su detalle</p>
+    </div>
+    <div class="legend" id="leg-sem"></div>
+    <div class="chart" id="ch-sem"><div class="tip"></div></div>
+    <div class="sel-week" id="sel-week" aria-live="polite"></div>
+    <details>
+      <summary>Ver tabla de cierres semanales</summary>
+      <div class="tbl-wrap" id="tb-sem"></div>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="t-mes">
+    <div class="card__h">
+      <h2 id="t-mes">Ingresos por mes</h2>
+      <p id="mes-rango"></p>
+    </div>
+    <div class="legend" id="leg-mes"></div>
+    <div class="chart" id="ch-mes"><div class="tip"></div></div>
+    <div class="tbl-wrap" id="tb-mes"></div>
+  </section>
+
+  <p class="nota">Fuente: ERP S-ERP de Calistenia Paraguay, en vivo. Ventas vigentes (sin anuladas) por fecha de venta, clasificadas por el tipo de producto del ERP. Montos en guaraníes. La semana y el mes en curso se muestran más claros porque aún no cerraron.</p>
+</main>
+<footer>Calistenia Paraguay · Información confidencial para accionistas</footer>
+
+<script src="erp.js?v=1"></script>
+<script>
+(function () {
+  /* ================= Configuración ================= */
+  var INICIO = "2026-04-01";              // inicio de operaciones (primer mes del gráfico anual)
+  var CADA_MS = 8000;                     // actualización en vivo
+  var RESYNC_MS = 10 * 60000;             // repaso completo (anulaciones de días anteriores)
+  var SESION_DIAS = 7;
+  var K_SESION = "py_acc_sesion", K_CACHE = "py_acc_ventas_v1";
+  /* Tipos de producto del ERP -> concepto */
+  var TIPOS = {
+    "cdb00245-a58c-4149-9c3a-abe76cc5a28a": "membresias",
+    "1bf01e71-083c-446d-b09a-d7dc61a3d6e2": "snacks",
+    "1d233c1e-c81d-429f-8510-4bb52eda4aa9": "alquileres"
+  };
+  var CATS_BASE = [
+    { k: "membresias", n: "Membresías", c: "--s-memb" },
+    { k: "snacks", n: "Snacks", c: "--s-snack" },
+    { k: "alquileres", n: "Alquileres", c: "--s-alq" }
+  ];
+  var CAT_OTROS = { k: "otros", n: "Otros", c: "--s-otros" };
+  var CATS = CATS_BASE.slice();
+
+  /* ================= Utilidades ================= */
+  var $ = function (id) { return document.getElementById(id); };
+  function leer(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+  function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function vista(id) { ["v-login", "v-carga", "v-aviso", "v-tablero"].forEach(function (v) { $(v).hidden = v !== id; }); }
+  function hoyPY() {
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Asuncion", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+    catch (e) { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  }
+  function horaPY() {
+    try { return new Intl.DateTimeFormat("es-PY", { timeZone: "America/Asuncion", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()); }
+    catch (e) { return new Date().toLocaleTimeString(); }
+  }
+
+  /* ================= Sesión ================= */
+  var sesion = leer(K_SESION);
+  if (sesion && !(sesion.vence > Date.now() && sesion.key)) { sesion = null; guardar(K_SESION, null); }
+
+  function mostrarUsuario() {
+    $("usuario-barra").hidden = !sesion;
+    $("hola").textContent = sesion ? "Hola, " + sesion.nombre : "";
+  }
+  function salir() {
+    detener();
+    guardar(K_SESION, null); guardar(K_CACHE, null);
+    sesion = null; ventas = {}; modelos = null;
+    ERP.cerrar();
+    mostrarUsuario();
+    vista("v-login");
+    $("l-usuario").focus();
+  }
+  $("salir").addEventListener("click", salir);
+
+  $("f-login").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = e.target, u = f.usuario.value.trim(), p = f.password.value, btn = $("l-btn"), err = $("l-error");
+    if (!u || !p) { err.textContent = "Escribe tu usuario y tu contraseña."; return; }
+    err.textContent = ""; btn.disabled = true; btn.textContent = "Conectando con el ERP…";
+    ERP.ingresar(u, p).then(function (r) {
+      f.password.value = "";
+      if (r.permitido === null) { err.textContent = "No se pudieron leer tus permisos del ERP. Intenta de nuevo."; return; }
+      if (!r.permitido) {
+        err.textContent = "Tu usuario «" + u + "» no tiene acceso a este reporte. Pide a Dirección el permiso de la página " + ERP.PAGINA + " en el ERP de Calistenia Paraguay.";
+        return;
+      }
+      sesion = { nombre: r.nombre, usuario: u, key: r.key, vence: Date.now() + SESION_DIAS * 864e5 };
+      guardar(K_SESION, sesion);
+      f.reset();
+      mostrarUsuario();
+      arrancar();
+    }).catch(function (x) {
+      f.password.value = "";
+      err.textContent = x.message === "error_login" ? "Usuario o contraseña incorrectos."
+        : x.message === "tiempo" ? "El ERP no respondió a tiempo. Intenta de nuevo."
+        : "No se pudo conectar con el ERP. Revisa tu internet e intenta de nuevo.";
+    }).then(function () { btn.disabled = false; btn.textContent = "Ingresar"; });
+  });
+
+  /* ================= Datos en vivo ================= */
+  var ventas = leer(K_CACHE) || {};   // key_compra_venta -> { f, membresias, snacks, alquileres, otros, n, anul }
+  var modelos = null, reloj = null, ultimoResync = 0, ocupado = false, firma = "";
+
+  function resumenVenta(v, previo) {
+    var r = { f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0 };
+    (v.detalle || v.detalles || []).forEach(function (d) {
+      if (d.estado === 0) return;
+      var c = TIPOS[modelos[d.key_modelo]] || "otros";
+      r[c] += (Number(d.precio_unitario) || 0) * (Number(d.cantidad) || 0);
+    });
+    var desc = Number(v.descuento) || 0, t = r.membresias + r.snacks + r.alquileres + r.otros;
+    if (desc > 0 && t > 0) ["membresias", "snacks", "alquileres", "otros"].forEach(function (k) { r[k] -= r[k] / t * desc; });
+    if (v.state !== "vendido" || v.estado === 0 || (previo && previo.anul)) r.anul = 1;
+    return r;
+  }
+
+  /* Revisa movimientos de caja: ventas nuevas a leer y ventas anuladas. */
+  function revisar(movs) {
+    var nuevas = {};
+    movs.forEach(function (mv) {
+      var k = mv.key_compra_venta, t = String(mv.tipo || "");
+      if (!k) return;
+      if (t.indexOf("anulacion") === 0) { ventas[k] = ventas[k] || {}; ventas[k].anul = 1; }
+      else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f)) nuevas[k] = 1;
+    });
+    return Object.keys(nuevas);
+  }
+
+  /* Ventas que no se pudieron leer: se reintentan en cada vuelta hasta lograrlo. */
+  var faltan = {};
+  function leerVentas(keys, progreso) {
+    Object.keys(faltan).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+    var i = 0, hechas = 0, total = keys.length;
+    function leerUna(k, intento) {
+      return ERP.venta(k).then(function (v) {
+        if (!v || !v.key) throw new Error("sin_venta");
+        ventas[k] = resumenVenta(v, ventas[k]); delete faltan[k];
+      }).catch(function () {
+        if (intento < 2) return leerUna(k, intento + 1);
+        faltan[k] = 1;
+      });
+    }
+    function trabajar() {
+      if (i >= keys.length) return Promise.resolve();
+      var k = keys[i++];
+      return leerUna(k, 0).then(function () { hechas++; if (progreso) progreso(hechas, total); return trabajar(); });
+    }
+    var hilos = []; for (var n = 0; n < 4; n++) hilos.push(trabajar());
+    return Promise.all(hilos).then(function () { guardar(K_CACHE, ventas); });
+  }
+
+  function construirDias() {
+    var porDia = {}, hayOtros = false;
+    Object.keys(ventas).forEach(function (k) {
+      var v = ventas[k];
+      if (!v.f || v.anul) return;
+      var d = porDia[v.f] || (porDia[v.f] = { fecha: v.f, membresias: 0, snacks: 0, alquileres: 0, otros: 0, ventas: 0 });
+      d.membresias += v.membresias; d.snacks += v.snacks; d.alquileres += v.alquileres; d.otros += v.otros || 0; d.ventas++;
+      if (v.otros) hayOtros = true;
+    });
+    CATS = hayOtros ? CATS_BASE.concat([CAT_OTROS]) : CATS_BASE.slice();
+    return Object.keys(porDia).sort().map(function (k) { return porDia[k]; });
+  }
+
+  function estadoVivo(ok, texto) {
+    $("vivo").classList.toggle("err", !ok);
+    $("vivo-txt").textContent = texto;
+  }
+
+  function pintarSiCambio(forzar) {
+    var dias = construirDias();
+    var f = JSON.stringify(dias);
+    if (forzar || f !== firma) { firma = f; render(dias); }
+  }
+
+  /* Vuelta cada 8 s: movimientos de hoy (o repaso completo cada 10 min). */
+  function vuelta() {
+    if (ocupado || document.hidden || !sesion) return;
+    ocupado = true;
+    var hoy = hoyPY(), completo = Date.now() - ultimoResync > RESYNC_MS;
+    ERP.movimientos(completo ? INICIO : hoy, hoy)
+      .then(function (movs) { if (completo) ultimoResync = Date.now(); return leerVentas(revisar(movs)); })
+      .then(function () {
+        pintarSiCambio(false);
+        var nf = Object.keys(faltan).length;
+        estadoVivo(true, "En vivo · actualizado " + horaPY() + (nf ? " · " + nf + " ventas pendientes de leer" : ""));
+      })
+      .catch(function () { estadoVivo(false, "Sin conexión con el ERP · reintentando…"); })
+      .then(function () { ocupado = false; });
+  }
+  function detener() { if (reloj) clearInterval(reloj); reloj = null; }
+
+  function arrancar() {
+    vista("v-carga");
+    $("c-texto").textContent = "Conectando con el ERP…"; $("c-barra").style.width = "0";
+    ERP.modelos(sesion.key).then(function (m) {
+      modelos = m;
+      $("c-texto").textContent = "Leyendo movimientos de caja…";
+      return ERP.movimientos(INICIO, hoyPY());
+    }).then(function (movs) {
+      ultimoResync = Date.now();
+      var nuevas = revisar(movs);
+      $("c-texto").textContent = nuevas.length ? "Leyendo ventas…" : "Preparando el tablero…";
+      return leerVentas(nuevas, function (h, t) {
+        $("c-texto").textContent = "Leyendo ventas: " + h + " de " + t;
+        $("c-barra").style.width = Math.round(h / t * 100) + "%";
+      });
+    }).then(function () {
+      vista("v-tablero");
+      pintarSiCambio(true);
+      estadoVivo(true, "En vivo · actualizado " + horaPY());
+      detener(); reloj = setInterval(vuelta, CADA_MS);
+    }).catch(function (x) {
+      $("a-titulo").textContent = "No se pudo cargar el reporte";
+      $("a-texto").textContent = x && x.message === "tiempo" ? "El ERP no respondió a tiempo." : "No se pudo conectar con el ERP (" + (x && x.message || "error") + ").";
+      vista("v-aviso");
+    });
+  }
+  $("a-btn").addEventListener("click", function () { ERP.cerrar(); arrancar(); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && reloj) vuelta(); });
+
+  /* ================= Tablero ================= */
+  var MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var MES3 = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+  var gs = function (n) { return "Gs " + Math.round(n).toLocaleString("es-PY"); };
+  var corto = function (n) {
+    if (n >= 1e6) return (n / 1e6).toLocaleString("es-PY", { maximumFractionDigits: n >= 1e7 ? 0 : 1 }) + " M";
+    if (n >= 1e3) return Math.round(n / 1e3) + " mil";
+    return String(n);
+  };
+  var pct = function (a, b) { return b ? Math.round(a / b * 100) + "%" : "0%"; };
+  function fechaLocal(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function lunes(d) { var x = new Date(d); var w = (x.getDay() + 6) % 7; x.setDate(x.getDate() - w); return x; }
+  function vacio() { return { membresias: 0, snacks: 0, alquileres: 0, otros: 0, ventas: 0 }; }
+  function sumar(dst, o) { ["membresias", "snacks", "alquileres", "otros"].forEach(function (k) { dst[k] += o[k] || 0; }); dst.ventas += o.ventas || 0; }
+  function total(o) { return CATS.reduce(function (s, c) { return s + o[c.k]; }, 0); }
+  function diaCorto(d) { return d.getDate() + " " + MES3[d.getMonth()]; }
+  function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+  var semanas = [], meses = [], sel = -1, selManual = false;
+
+  function render(dias) {
+    var hoy = fechaLocal(hoyPY());
+    var inicio = lunes(fechaLocal(INICIO));
+    if (dias.length && fechaLocal(dias[0].fecha) < inicio) inicio = lunes(fechaLocal(dias[0].fecha));
+
+    semanas = []; var porSemana = {};
+    for (var d = new Date(inicio); d <= hoy; d.setDate(d.getDate() + 7)) {
+      var s = vacio(); s.ini = new Date(d); s.fin = new Date(d); s.fin.setDate(s.fin.getDate() + 6);
+      s.enCurso = s.fin >= hoy; s.label = diaCorto(s.ini);
+      s.titulo = diaCorto(s.ini) + " al " + diaCorto(s.fin) + " " + s.fin.getFullYear();
+      porSemana[iso(s.ini)] = s; semanas.push(s);
+    }
+    /* Las primeras semanas sin ventas no se muestran */
+    meses = []; var porMes = {};
+    var m0 = fechaLocal(INICIO); m0.setDate(1);
+    for (var m = new Date(m0); m <= hoy; m.setMonth(m.getMonth() + 1)) {
+      var mm = vacio(); mm.y = m.getFullYear(); mm.m = m.getMonth();
+      mm.label = MES3[mm.m] + (mm.m === 0 || meses.length === 0 ? " " + String(mm.y).slice(2) : "");
+      mm.titulo = MESES[mm.m] + " " + mm.y; mm.enCurso = (mm.y === hoy.getFullYear() && mm.m === hoy.getMonth());
+      porMes[mm.y + "-" + mm.m] = mm; meses.push(mm);
+    }
+    var acum = vacio();
+    dias.forEach(function (x) {
+      var f = fechaLocal(x.fecha);
+      var s = porSemana[iso(lunes(f))]; if (s) sumar(s, x);
+      var mm = porMes[f.getFullYear() + "-" + f.getMonth()]; if (mm) sumar(mm, x);
+      sumar(acum, x);
+    });
+    while (semanas.length > 1 && total(semanas[0]) === 0) semanas.shift();
+
+    var cerradas = semanas.filter(function (s) { return !s.enCurso; });
+    var ultCerrada = cerradas[cerradas.length - 1] || semanas[semanas.length - 1];
+    if (!selManual || sel < 0 || sel >= semanas.length) sel = semanas.indexOf(ultCerrada);
+
+    var mesAct = meses[meses.length - 1], mesAnt = meses[meses.length - 2];
+    var primer = dias.length ? fechaLocal(dias[0].fecha) : hoy;
+    $("datos-al").textContent = "Datos al " + hoy.getDate() + " de " + MESES[hoy.getMonth()] + " de " + hoy.getFullYear();
+    $("kpis").innerHTML = [
+      ["Total desde el inicio", gs(total(acum)), "Desde " + diaCorto(primer) + " " + primer.getFullYear() + " · " + acum.ventas.toLocaleString("es-PY") + " ventas"],
+      ["Última semana cerrada", gs(total(ultCerrada)), ultCerrada.titulo],
+      [cap(mesAct.titulo) + (mesAct.enCurso ? " (en curso)" : ""), gs(total(mesAct)), mesAnt ? cap(mesAnt.titulo) + ": " + gs(total(mesAnt)) : ""]
+    ].map(function (k) { return '<div class="kpi"><div class="kpi__l">' + k[0] + '</div><div class="kpi__v">' + k[1] + '</div><div class="kpi__s">' + k[2] + "</div></div>"; }).join("");
+
+    var ley = CATS.map(function (c) { return '<span><i style="background:var(' + c.c + ')"></i>' + c.n + "</span>"; }).join("");
+    $("leg-sem").innerHTML = ley; $("leg-mes").innerHTML = ley;
+
+    tabla("tb-sem", semanas, "Semana");
+    tabla("tb-mes", meses, "Mes");
+    $("mes-rango").textContent = "De " + meses[0].titulo + " a " + meses[meses.length - 1].titulo;
+    dibujarSem(); dibujarMes();
+  }
+
+  function nice(max) {
+    if (max <= 0) return { top: 1, step: 1 };
+    var raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+    var st = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+    return { top: Math.ceil(max / st) * st, step: st };
+  }
+  function barras(cont, datos, opt) {
+    var el = $(cont), tip = el.querySelector(".tip");
+    var W = Math.max(300, el.clientWidth), H = opt.alto, ml = 52, mr = 8, mt = opt.totales ? 22 : 10, mb = 28;
+    var iw = W - ml - mr, ih = H - mt - mb;
+    var max = Math.max.apply(null, datos.map(total)), sc = nice(max);
+    var n = datos.length, slot = iw / n, bw = Math.max(4, Math.min(opt.maxBar, slot * 0.72));
+    var y = function (v) { return mt + ih - v / sc.top * ih; };
+    var svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + opt.aria + '">';
+    for (var g = 0; g <= sc.top + 1; g += sc.step) {
+      svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="' + (g === 0 ? css("--axis") : css("--grid")) + '" stroke-width="1"/>';
+      svg += '<text x="' + (ml - 8) + '" y="' + (y(g) + 4) + '" text-anchor="end" font-size="11" fill="' + css("--muted") + '">' + (g === 0 ? "0" : corto(g)) + "</text>";
+    }
+    var cada = Math.ceil(n / Math.max(1, Math.floor(iw / 58)));
+    datos.forEach(function (o, i) {
+      var cx = ml + slot * i + slot / 2, x = cx - bw / 2, base = 0, segs = [];
+      CATS.forEach(function (c) { if (o[c.k] > 0) segs.push(c); });
+      if (opt.sel === i) svg += '<rect x="' + (ml + slot * i + 1) + '" y="' + mt + '" width="' + (slot - 2) + '" height="' + ih + '" rx="6" fill="' + css("--sel") + '"/>';
+      var op = o.enCurso ? ' fill-opacity="0.55"' : "";
+      segs.forEach(function (c, j) {
+        var v = o[c.k], y1 = y(base + v), y0 = y(base);
+        var h = Math.max(1, y0 - y1 - (j > 0 ? 2 : 0));
+        if (j === segs.length - 1) {
+          var r = Math.min(4, h, bw / 2);
+          svg += '<path d="M' + x + "," + (y1 + h) + "V" + (y1 + r) + "Q" + x + "," + y1 + " " + (x + r) + "," + y1 + "H" + (x + bw - r) + "Q" + (x + bw) + "," + y1 + " " + (x + bw) + "," + (y1 + r) + "V" + (y1 + h) + 'Z" fill="' + css(c.c) + '"' + op + "/>";
+        } else {
+          svg += '<rect x="' + x + '" y="' + y1 + '" width="' + bw + '" height="' + h + '" fill="' + css(c.c) + '"' + op + "/>";
+        }
+        base += v;
+      });
+      if (opt.totales && total(o) > 0) svg += '<text x="' + cx + '" y="' + (y(total(o)) - 6) + '" text-anchor="middle" font-size="11" font-weight="500" fill="' + css("--ink-2") + '">' + corto(total(o)) + "</text>";
+      if (i % cada === 0)
+        svg += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + (opt.sel === i ? css("--ink") : css("--muted")) + '">' + o.label + "</text>";
+      svg += '<rect class="bar-hit" data-i="' + i + '" x="' + (ml + slot * i) + '" y="' + mt + '" width="' + slot + '" height="' + (ih + mb) + '" fill="transparent"/>';
+    });
+    svg += "</svg>";
+    el.querySelectorAll("svg").forEach(function (s) { s.remove(); });
+    el.insertAdjacentHTML("afterbegin", svg);
+    el.querySelectorAll(".bar-hit").forEach(function (r) {
+      var i = +r.getAttribute("data-i");
+      r.addEventListener("mousemove", function (ev) { mostrarTip(el, tip, datos[i], ev); });
+      r.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+      if (opt.onClick) r.addEventListener("click", function () { opt.onClick(i); });
+    });
+  }
+  function mostrarTip(el, tip, o, ev) {
+    tip.innerHTML = "<b>" + cap(o.titulo) + (o.enCurso ? " · en curso" : "") + "</b>" +
+      CATS.map(function (c) { return '<div class="row"><span><i style="background:var(' + c.c + ')"></i>' + c.n + "</span><span>" + gs(o[c.k]) + "</span></div>"; }).join("") +
+      '<div class="row tot"><span>Total</span><span>' + gs(total(o)) + "</span></div>";
+    tip.style.display = "block";
+    var r = el.getBoundingClientRect(), x = ev.clientX - r.left + 14, yv = ev.clientY - r.top - 10;
+    if (x + tip.offsetWidth > r.width) x = ev.clientX - r.left - tip.offsetWidth - 14;
+    if (x < 0) x = 4;
+    tip.style.left = x + "px"; tip.style.top = Math.max(0, yv - tip.offsetHeight / 2) + "px";
+  }
+
+  function detalle() {
+    var s = semanas[sel], t = total(s), prev = semanas[sel - 1], dl = "";
+    if (s.enCurso) dl = "semana aún sin cerrar";
+    else if (prev && total(prev) > 0) {
+      var dv = (t - total(prev)) / total(prev) * 100, up = dv >= 0;
+      dl = '<span class="' + (up ? "delta-up" : "delta-down") + '">' + (up ? "▲ +" : "▼ ") + Math.round(dv) + "%</span> vs semana anterior";
+    }
+    var barra = t > 0 ? CATS.filter(function (c) { return s[c.k] > 0; }).map(function (c) { return '<div style="width:' + (s[c.k] / t * 100) + "%;background:var(" + c.c + ')" title="' + c.n + ": " + gs(s[c.k]) + '"></div>'; }).join("") : "";
+    $("sel-week").innerHTML =
+      '<div class="sel-week__h"><h3>Semana del ' + s.titulo + (s.enCurso ? " · en curso" : "") + '</h3><div class="nav-btns">' +
+      '<button type="button" id="w-prev"' + (sel === 0 ? " disabled" : "") + '>◀ Anterior</button><button type="button" id="w-next"' + (sel === semanas.length - 1 ? " disabled" : "") + ">Siguiente ▶</button></div></div>" +
+      '<div class="stackbar" role="img" aria-label="Composición de la semana">' + barra + "</div>" +
+      '<div class="breakdown">' +
+      CATS.map(function (c) { return '<div class="bd" style="border-left-color:var(' + c.c + ')"><div class="bd__l">' + c.n + '</div><div class="bd__v">' + gs(s[c.k]) + '</div><div class="bd__p">' + pct(s[c.k], t) + " del total</div></div>"; }).join("") +
+      '<div class="bd bd--tot"><div class="bd__l">Total de la semana</div><div class="bd__v">' + gs(t) + '</div><div class="bd__p">' + s.ventas + " ventas" + (dl ? " · " + dl : "") + "</div></div></div>";
+    $("w-prev").onclick = function () { if (sel > 0) { sel--; selManual = true; dibujarSem(); } };
+    $("w-next").onclick = function () { if (sel < semanas.length - 1) { sel++; selManual = true; dibujarSem(); } };
+  }
+  function dibujarSem() {
+    barras("ch-sem", semanas, { alto: 280, maxBar: 28, sel: sel, aria: "Ingresos por semana, apilados por concepto", onClick: function (i) { sel = i; selManual = true; dibujarSem(); } });
+    detalle();
+  }
+  function dibujarMes() { barras("ch-mes", meses, { alto: 300, maxBar: 64, totales: true, aria: "Ingresos por mes, apilados por concepto" }); }
+
+  function tabla(id, filas, col0) {
+    var tot = vacio(); filas.forEach(function (f) { sumar(tot, f); });
+    var h = "<table><thead><tr><th>" + col0 + "</th>" + CATS.map(function (c) { return "<th>" + c.n + "</th>"; }).join("") + "<th>Total</th><th>Ventas</th></tr></thead><tbody>";
+    h += filas.slice().reverse().map(function (f) { return "<tr><td>" + cap(f.titulo) + (f.enCurso ? " (en curso)" : "") + "</td>" + CATS.map(function (c) { return "<td>" + gs(f[c.k]) + "</td>"; }).join("") + "<td><b>" + gs(total(f)) + "</b></td><td>" + f.ventas + "</td></tr>"; }).join("");
+    h += "</tbody><tfoot><tr><td>Total</td>" + CATS.map(function (c) { return "<td>" + gs(tot[c.k]) + "</td>"; }).join("") + "<td>" + gs(total(tot)) + "</td><td>" + tot.ventas + "</td></tr></tfoot></table>";
+    $(id).innerHTML = h;
+  }
+
+  var tr; window.addEventListener("resize", function () { clearTimeout(tr); tr = setTimeout(function () { if (semanas.length) { dibujarSem(); dibujarMes(); } }, 120); });
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { if (semanas.length) { dibujarSem(); dibujarMes(); } });
+
+  /* ================= Inicio ================= */
+  mostrarUsuario();
+  if (sesion) arrancar(); else { vista("v-login"); }
+})();
+</script>
+</body>
+</html>
