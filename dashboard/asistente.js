@@ -209,6 +209,7 @@
     }
     function respuestaBasica(t) {
         var d = S.datos || {}, x = t.toLowerCase();
+        if (/\b(abr[ei]r?|abra|ll[eé]vame|ir a)\b.*\bclaude\b|\bclaude\b.*\b(abr[ei]r?|abra)\b|tablero|dashboard|estudio|an[aá]lisis|suger|recomend|estrategia|marketing/.test(x)) { setTimeout(abrirClaude, 3500); return "Con gusto. Le abro Capital Corp en Claude, donde puedo consultar los datos en vivo y prepararle eso."; }
         if (/resumen|pendiente|atender|c[oó]mo vamos|novedad/.test(x)) return resumen();
         if (/sucursal|ranking|mejor|peor|l[ií]der/.test(x) && d.sucursal_lider_mes) return "En el mes lidera " + d.sucursal_lider_mes.sucursal + " con " + bs(d.sucursal_lider_mes.total) + (d.sucursal_ultima_mes ? ", y la que más atrás va es " + d.sucursal_ultima_mes.sucursal + " con " + bs(d.sucursal_ultima_mes.total) : "") + ".";
         if (/ingres|venta|factur|plata|dinero/.test(x)) return "Hoy llevamos " + bs(d.ingresos_hoy) + " y en el mes " + bs(d.ingresos_mes) + (d.variacion_mes_pct != null ? ", " + Math.abs(d.variacion_mes_pct) + " por ciento " + (d.variacion_mes_pct >= 0 ? "arriba" : "abajo") + " del mes pasado a la misma fecha" : "") + ".";
@@ -216,7 +217,7 @@
         if (/venc|renov|retenc|riesgo/.test(x)) return n(d.por_vencer_7_dias) + " clientes vencen en siete días, " + n(d.sin_venir_14_dias) + " no vienen hace dos semanas y " + n(d.vencidos_30_dias) + " vencieron en el último mes. Atención al Cliente tiene las listas.";
         if (/caja/.test(x)) return "Hay " + n(d.cajas_abiertas) + " cajas abiertas, " + n(d.cajas_abiertas_mas_de_2_dias) + " de ellas hace más de dos días.";
         if (/gracias/.test(x)) return "Es un placer" + (S.quien ? ", " + S.quien : "") + ". Aquí estaré.";
-        return "Por ahora trabajo en modo básico: puedo darle el resumen del día, ingresos, visitas, vencimientos, cajas y sucursales. La conversación completa se activa en cuanto publiquemos mi inteligencia artificial.";
+        return "Por ahora trabajo en modo básico: puedo darle el resumen del día, ingresos, visitas, vencimientos, cajas y sucursales. Para conversar con libertad, pedirme tableros, estudios o sugerencias, diga «abrir Claude» o toque «Hablar con Capital Corp».";
     }
     function modo2(t) { $("as-modo").textContent = t; }
     function preguntarIA() {
@@ -239,7 +240,7 @@
         var p = S.modoIA === false ? Promise.resolve(local()) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
             if (e.status === 429) return "Demasiadas preguntas seguidas; permítame un momento.";
             S.modoIA = false;
-            modo2("Modo básico: la conversación con IA se activa cuando se publique el asistente en Firebase.");
+            modo2("Resumen del día en esta pantalla. Conversación completa, tableros y estudios: «Hablar con Capital Corp» (Claude).");
             return local();
         });
         return p.then(function (resp) {
@@ -253,6 +254,23 @@
     setInterval(function () {
         if (Date.now() - S.ultimo > REPOSO_MS && (S.historial.length || S.quien)) { S.historial = []; S.quien = ""; $("as-dice").textContent = "Diga «Capital» para hablar conmigo."; }
     }, 20000);
+
+    /* ---------- Capital Corp en Claude ----------
+       La conversación completa (tableros, estudios, sugerencias) se hace en Claude, con el conector de Calistenia,
+       dentro de la suscripción de la empresa. Cada equipo guarda el enlace de su proyecto «Capital Corp». */
+    var K_CLAUDE = "cc_claude_proyecto";
+    function urlClaude() { try { var u = localStorage.getItem(K_CLAUDE); if (u && /^https:\/\/claude\.ai\//.test(u)) return u; } catch (e) {} return window.CC_CLAUDE_URL || "https://claude.ai/projects"; }
+    function pintarEnlace() { $("as-claude").href = urlClaude(); $("as-enlace").textContent = /\/project\//.test(urlClaude()) ? "Cambiar el proyecto de Claude de este equipo" : "Elegir el proyecto de Claude de este equipo"; }
+    function abrirClaude() { var w = window.open(urlClaude(), "capital-corp-claude"); if (!w) location.href = urlClaude(); }
+    $("as-enlace").addEventListener("click", function () {
+        var u = window.prompt("Pegue el enlace del proyecto «Capital Corp» en Claude (se copia de la barra de direcciones, empieza con https://claude.ai/project/):", urlClaude());
+        if (u == null) return;
+        u = u.trim();
+        if (!/^https:\/\/claude\.ai\/[^\s]*$/.test(u)) { avisar("El enlace debe empezar con https://claude.ai/"); setTimeout(function () { avisar(""); }, 6000); return; }
+        try { localStorage.setItem(K_CLAUDE, u); } catch (e) {}
+        pintarEnlace();
+    });
+    pintarEnlace();
 
     /* ---------- controles ---------- */
     /* Arranca solo: saluda en cuanto están los datos (o a los 4 segundos) y queda escuchando. */

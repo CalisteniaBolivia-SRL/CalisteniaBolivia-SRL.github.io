@@ -70,3 +70,10 @@ Instalación (una sola vez, con el plan Blaze activo):
 El asistente arranca solo. Si un equipo del muro todavía no tiene autorizados micrófono, cámara y sonido para el sitio, las pantallas del muro muestran abajo **«Autorice este equipo una sola vez»** con el botón **Descargar autorización** (`dashboard/kiosco/autorizar-este-equipo.reg`): se abre el archivo, se acepta «Sí» y se reinicia Chrome. Queda para siempre en ese usuario de Windows (políticas de Chrome del usuario, solo para este sitio) y el aviso no vuelve a salir.
 
 Opcional: `dashboard/kiosco/muro-capital-corp.bat` en el Inicio de Windows (Win+R → `shell:startup`) abre el asistente a pantalla completa al encender.
+
+### Conversación completa: Capital Corp en Claude (sin costo extra)
+
+La pantalla 5 muestra el resumen del día y responde lo básico. Para conversar con libertad, pedir tableros, estudios o sugerencias, el botón **Hablar con Capital Corp** (o decir «abrir Claude») abre el proyecto «Capital Corp» en Claude, con el conector de Calistenia y dentro de la suscripción de la empresa.
+
+1. En claude.ai: Proyectos → Crear proyecto «Capital Corp», pegar las instrucciones del caballero de negocios y activar el conector Calistenia Bolivia (y el del ERP de Paraguay cuando esté reconectado).
+2. En la computadora del muro: abrir el proyecto, copiar su enlace (https://claude.ai/project/…) y pegarlo en la pantalla 5 con «Elegir el proyecto de Claude de este equipo». Queda guardado en ese equipo.
