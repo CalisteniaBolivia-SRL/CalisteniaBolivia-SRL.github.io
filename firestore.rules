@@ -94,6 +94,53 @@ service cloud.firestore {
       allow update, delete: if central();
     }
 
+    // ---------- Redes sociales (permiso "marketing") ----------
+    // Los comentarios de Facebook e Instagram los crea la función metaWebhook; las respuestas las redacta y publica
+    // la función (con Claude). Desde el panel solo se aprueba, edita, descarta o pide otra versión.
+    function marketing() { return permiso('marketing'); }
+    match /rs_config/{pais} {
+      allow read: if marketing();
+      allow write: if marketing() && pais in ['bolivia', 'paraguay']
+        && soloCampos(['datos', 'whatsapp', 'tono_extra', 'auto_activo', 'max_por_hora', 'fecha_mod', 'mod_por'])
+        && texto('datos', 12000) && texto('whatsapp', 40) && texto('tono_extra', 2000)
+        && request.resource.data.auto_activo is bool
+        && request.resource.data.max_por_hora is int && request.resource.data.max_por_hora >= 1 && request.resource.data.max_por_hora <= 300;
+    }
+    match /rs_cuenta/{id} {
+      allow read: if marketing();
+      allow write: if marketing() && id.matches('^[0-9]{5,25}$')
+        && soloCampos(['plataforma', 'pais', 'nombre', 'activa', 'auto', 'fecha_mod', 'mod_por'])
+        && request.resource.data.plataforma in ['facebook', 'instagram'] && request.resource.data.pais in ['bolivia', 'paraguay']
+        && request.resource.data.activa is bool && request.resource.data.auto is bool && texto('nombre', 120);
+    }
+    // El token de la página se puede cargar o reemplazar, pero nunca leer desde el navegador.
+    match /rs_token/{id} {
+      allow read: if false;
+      allow create, update: if marketing() && id.matches('^[0-9]{5,25}$') && soloCampos(['token', 'fecha_mod', 'mod_por'])
+        && request.resource.data.token is string && request.resource.data.token.size() >= 20 && request.resource.data.token.size() <= 1000;
+      allow delete: if marketing();
+    }
+    match /rs_comentario/{id} {
+      allow read: if marketing();
+      // TikTok: el panel pega el comentario y la función devuelve el borrador.
+      allow create: if marketing() && request.resource.data.plataforma == 'tiktok' && request.resource.data.estado == 'nuevo'
+        && soloCampos(['plataforma', 'pais', 'texto', 'autor', 'publicacion_texto', 'estado', 'fecha_on', 'creado_por', 'id', 'cuenta'])
+        && request.resource.data.pais in ['bolivia', 'paraguay'] && request.resource.data.creado_por == yo()
+        && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 4000
+        && texto('autor', 80) && texto('publicacion_texto', 1500);
+      // Aprobar, editar, descartar o pedir otra versión. Nada más.
+      allow update: if marketing()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'respuesta_final', 'revisado_por', 'fecha_revision', 'indicacion'])
+        && request.resource.data.revisado_por == yo() && texto('respuesta_final', 1000) && texto('indicacion', 300)
+        && (
+          (resource.data.plataforma != 'tiktok' && resource.data.estado in ['pendiente', 'error']
+            && request.resource.data.estado in ['pendiente', 'error', 'aprobado', 'descartado', 'regenerar'])
+          || (resource.data.plataforma == 'tiktok' && resource.data.estado == 'borrador'
+            && request.resource.data.estado in ['borrador', 'publicado_manual', 'descartado', 'regenerar'])
+        );
+      allow delete: if false;
+    }
+
     // Todo lo demás (incluida la antigua colección "roles"), cerrado.
     match /{documento=**} { allow read, write: if false; }
   }
