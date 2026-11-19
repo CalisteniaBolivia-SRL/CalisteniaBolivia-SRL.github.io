@@ -59,8 +59,42 @@
 
     try {
         var s = JSON.parse(localStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now() && "tableros" in s) mostrarPortal(s.nombre, s.usuario, s.tableros);
+        if (s && s.vence > Date.now() && "tableros" in s) { mostrarPortal(s.nombre, s.usuario, s.tableros); actualizarPermisos(s); }
     } catch (e) {}
+
+    /* La sesión no vence mientras se use (cm-mcp.js la extiende), así que cada vez que se abre el portal se vuelven
+       a leer los permisos del usuario en el ERP, sin pedirle la contraseña: si Dirección le cambió el rol, lo ve al instante. */
+    function actualizarPermisos(ses) {
+        if (!ses || !ses.key_usuario || !window.WebSocket) return;
+        var ws, buffer = "", id = "perm-" + Date.now(), listo = false;
+        var reloj = setTimeout(function () { cerrar(); }, 15000);
+        function cerrar() { listo = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} }
+        try { ws = new WebSocket(WS_URL); } catch (e) { return; }
+        ws.onerror = cerrar;
+        ws.onmessage = function (ev) {
+            buffer += ev.data;
+            var i;
+            while ((i = buffer.indexOf(MARCA)) >= 0 && !listo) {
+                var crudo = buffer.slice(0, i).split("---SSkey---")[0], m;
+                buffer = buffer.slice(i + MARCA.length);
+                try { m = JSON.parse(crudo); } catch (e) { continue; }
+                if (m.component === "servicio" && m.type === "init") {
+                    ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
+                        key_usuario: ses.key_usuario, key_empresa: KEY_EMPRESA, _ssocket_promise: id }) + "\n");
+                } else if (m._ssocket_promise === id || (m.component === "usuarioPage" && m.type === "getAll")) {
+                    cerrar();
+                    var nuevos = m.estado === "exito" ? permisosERP(m.data || {}) : null;
+                    if (!nuevos) return;
+                    var actual = JSON.parse(localStorage.getItem(CLAVE) || "null");
+                    if (!actual || actual.usuario !== ses.usuario) return;
+                    if (JSON.stringify(nuevos) === JSON.stringify(actual.tableros)) return;
+                    actual.tableros = nuevos;
+                    try { localStorage.setItem(CLAVE, JSON.stringify(actual)); } catch (e) {}
+                    mostrarPortal(actual.nombre, actual.usuario, nuevos);
+                }
+            }
+        };
+    }
 
     /* El ERP espera la contraseña cifrada con MD5 (hexadecimal en minúsculas), igual que su web. */
     function md5(texto) {
@@ -205,7 +239,8 @@
             var tableros = permisosERP(res.paginas);
             /* Si no se pudieron leer los permisos, no se recuerda la sesión: al reingresar se vuelven a pedir. */
             if (tableros !== null) {
-                try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+                var dl = (r && r.data) || {};
+                try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, key_usuario: dl.key || dl.key_usuario || null, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             }
             form.reset();
             mostrarPortal(nombre, usuario, tableros);
@@ -236,7 +271,15 @@
         window.CM.atenderVuelta().then(function (volverA) {
             if (volverA) location.replace(volverA);
         }).catch(function (err) {
-            error.textContent = "No se pudo conectar los datos de Calistenia: " + err.message;
+            /* Con el portal abierto, el formulario de ingreso está oculto: el motivo se muestra arriba del portal. */
+            var txt = "No se pudo conectar los datos de Calistenia: " + err.message;
+            error.textContent = txt;
+            if (acceso.hidden) {
+                var av = document.createElement("p");
+                av.className = "cm-error"; av.setAttribute("role", "alert"); av.textContent = txt;
+                av.style.cssText = "margin:12px 0;padding:10px 14px;border-left:3px solid #E30613;background:rgba(227,6,19,.08)";
+                portal.insertBefore(av, portal.firstChild);
+            }
         });
     }
 })();
