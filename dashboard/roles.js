@@ -4,7 +4,7 @@
     var raiz = document.getElementById("roles");
     if (!raiz || !window.CMFB) return;
     var $ = function (s) { return raiz.querySelector(s); };
-    var ROLES = [["admin", "Dirección (administra roles)"], ["legal", "Legal"], ["administracion", "Administración · cuentas por pagar"], ["comercial", "Sistema comercial (master)"], ["ventas", "Ejecutiva de ventas"], ["reportes", "Reportes"]];
+    var ROLES = [["admin", "Dirección (administra roles)"], ["legal", "Legal"], ["administracion", "Administración · cuentas por pagar"], ["comercial", "Jefa de Atención al Cliente"], ["ventas", "ATC de sucursal (su lista de clientes)"], ["reportes", "Reportes"]];
     function el(tag, attrs, hijos) {
         var e = document.createElement(tag);
         Object.keys(attrs || {}).forEach(function (k) { var v = attrs[k]; if (k === "text") e.textContent = v; else if (k === "class") e.className = v; else if (k.indexOf("on") === 0 && typeof v === "function") e.addEventListener(k.slice(2), v); else if (v != null && v !== false) e.setAttribute(k, v === true ? "" : v); });

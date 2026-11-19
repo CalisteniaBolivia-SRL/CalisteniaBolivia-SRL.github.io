@@ -7,7 +7,7 @@
 (function () {
     "use strict";
     var CFG = window.CM_FIREBASE_CONFIG;
-    var ROLES_ETIQUETA = { admin: "Dirección (administra roles)", legal: "Legal", administracion: "Administración (cuentas por pagar)", comercial: "Sistema comercial (master)", ventas: "Ejecutiva de ventas", reportes: "Reportes" };
+    var ROLES_ETIQUETA = { admin: "Dirección (administra roles)", legal: "Legal", administracion: "Administración (cuentas por pagar)", comercial: "Jefa de Atención al Cliente", ventas: "ATC de sucursal", reportes: "Reportes" };
     var herramientas = {}; /* prefijo o nombre -> función(args) */
     var estado = { configurado: !!CFG, usuario: null, roles: {}, error: null };
     var resolverListo, listo = new Promise(function (r) { resolverListo = r; });

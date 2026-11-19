@@ -29,7 +29,8 @@
         });
     }
     function asignaciones() {
-        return U.docs(col("com_asignacion")).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }; }); });
+        /* Las asignaciones del «Plan de hoy» traen además la foto del cliente (nombre, teléfono, grupo, mensaje). */
+        return U.docs(col("com_asignacion")).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); });
     }
     function gestionesDesde(desde) {
         return U.docs(col("com_gestion").where("fecha_on", ">=", desde)).then(function (l) { return U.vigentes(l).sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); });
@@ -153,11 +154,13 @@
     CMFB.registrar("comercial_mi_trabajo", function (a) {
         var r = rango(a);
         return yo().then(function (e) {
-            return Promise.all([equipo(), asignaciones(), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), comisiones(r.desde, r.hasta, e.key)]).then(function (x) {
+            /* Las comisiones necesitan las ventas del MCP; si la ATC no tiene sesión de Calistenia, su lista igual carga. */
+            var com = comisiones(r.desde, r.hasta, e.key).catch(function () { return null; });
+            return Promise.all([equipo(), asignaciones(), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), com]).then(function (x) {
                 var nom = nombresEquipo(x[0]);
-                return { data: { ejecutiva: e, equipo: x[0], asignaciones: x[1], ultimas_gestiones: ultimas(x[2], nom),
+                return { data: { ejecutiva: e, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key || !a.lote; }), ultimas_gestiones: ultimas(x[2], nom),
                     tareas: x[3].map(function (t) { return Object.assign({}, t, { ejecutiva: t.key_ejecutiva ? nom[t.key_ejecutiva] : null }); }),
-                    guiones: x[4], comisiones: x[5], comision_por_venta: COMISION_BS, ventana_dias: VENTANA_DIAS } };
+                    guiones: x[4], comisiones: x[5] || [], comisiones_sin_datos: x[5] === null, comision_por_venta: COMISION_BS, ventana_dias: VENTANA_DIAS } };
             });
         });
     });
@@ -184,6 +187,58 @@
         var previo = ej ? col("com_ejecutiva").doc(ej).get().then(function (x) { if (!x.exists || Number(x.data().estado) <= 0) throw U.err("La ejecutiva no existe o está dada de baja."); }) : Promise.resolve();
         return previo.then(function () { return col("com_asignacion").doc(k).set({ key_ejecutiva: ej, motivo: U.txt(a, "motivo", 300, false), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.correo() }); })
             .then(function () { return { estado: "exito" }; });
+    });
+    /* Plan de hoy: asigna una lista completa a una ATC (una sucursal, lista 1 o 2). Cada cliente queda con su foto
+       (nombre, teléfono, grupo, dato, promoción y mensaje de WhatsApp) para que la ATC trabaje sin depender del MCP.
+       Con reemplazar, la lista anterior de esa ATC en esa sucursal se da de baja (sus contactos registrados quedan). */
+    CMFB.registrar("comercial_plan_asignar", function (a) {
+        var ej = mail(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), n = Number(a.lista_n) === 2 ? 2 : 1;
+        var nota = U.txt(a, "nota", 600, false), lote = U.ahora(), clientes = Array.isArray(a.clientes) ? a.clientes : [];
+        if (!ej) throw U.err("Elige la ATC.");
+        if (!clientes.length) throw U.err("La lista está vacía.");
+        if (clientes.length > 500) throw U.err("Una lista admite hasta 500 clientes.");
+        var docs = clientes.map(function (c) {
+            var k = U.txt(c, "key_cliente", 120, true);
+            if (/[/]/.test(k)) throw U.err("Cliente no válido: " + k);
+            return { id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + U.txt(c, "grupo_titulo", 120, false), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.correo(),
+                lote: lote, lista_n: n, sucursal: suc, orden: Number(c.orden) || 0, nota_jefa: nota,
+                cliente: U.txt(c, "cliente", 200, false), telefono: U.txt(c, "telefono", 40, false), grupo: U.txt(c, "grupo", 20, false), grupo_n: Number(c.grupo_n) || null,
+                grupo_titulo: U.txt(c, "grupo_titulo", 120, false), dato: U.txt(c, "dato", 200, false), promo: U.txt(c, "promo", 300, false), mensaje: U.txt(c, "mensaje", 1000, false) } };
+        });
+        var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
+        return col("com_ejecutiva").doc(ej).get().then(function (x) {
+            if (!x.exists || Number(x.data().estado) <= 0) throw U.err("Esa ATC no está en el equipo o está dada de baja.");
+            if (a.reemplazar === false) return [];
+            return col("com_asignacion").where("key_ejecutiva", "==", ej).get().then(function (s) {
+                return s.docs.filter(function (d) { var v = d.data(); return v.lote && Number(v.estado) > 0 && v.sucursal === suc && !nuevos[d.id]; }).map(function (d) { return d.id; });
+            });
+        }).then(function (viejos) {
+            var ops = viejos.map(function (id) { return { id: id, baja: true }; }).concat(docs), i = 0;
+            function escribir(b, o) { var r = col("com_asignacion").doc(o.id); if (o.baja) b.set(r, { estado: 0, fecha_edicion: lote }, { merge: true }); else b.set(r, o.d); }
+            /* Si Firebase rechaza la tanda (límite de verificaciones de reglas por tanda), se escribe de a uno, 8 a la vez. */
+            function deAUno(lista) {
+                var j = 0;
+                function sig() { if (j >= lista.length) return Promise.resolve(); var o = lista[j++], b = U.db().batch(); escribir(b, o); return b.commit().then(sig); }
+                return Promise.all([sig(), sig(), sig(), sig(), sig(), sig(), sig(), sig()]);
+            }
+            function tanda() {
+                if (i >= ops.length) return Promise.resolve();
+                var parte = ops.slice(i, i + 400), b = U.db().batch();
+                parte.forEach(function (o) { escribir(b, o); });
+                i += 400;
+                return b.commit().catch(function (e) { if (parte.length > 1 && e && e.code === "permission-denied") return deAUno(parte); throw e; }).then(tanda);
+            }
+            return tanda().then(function () { return { estado: "exito", data: { asignados: docs.length, dados_de_baja: viejos.length, lote: lote } }; });
+        });
+    });
+    /* Plan de hoy: quita a una ATC su lista de una sucursal. */
+    CMFB.registrar("comercial_plan_quitar", function (a) {
+        var ej = mail(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), ahora = U.ahora();
+        return col("com_asignacion").where("key_ejecutiva", "==", ej).get().then(function (s) {
+            var ids = s.docs.filter(function (d) { var v = d.data(); return v.lote && Number(v.estado) > 0 && v.sucursal === suc; }).map(function (d) { return d.id; });
+            var b = U.db().batch(); ids.slice(0, 450).forEach(function (id) { b.set(col("com_asignacion").doc(id), { estado: 0, fecha_edicion: ahora }, { merge: true }); });
+            return (ids.length ? b.commit() : Promise.resolve()).then(function () { return { estado: "exito", data: { quitados: Math.min(ids.length, 450) } }; });
+        });
     });
     CMFB.registrar("comercial_tarea_guardar", function (a) {
         var d = a.data || {}, ej = d.key_ejecutiva ? mail(d.key_ejecutiva) : null;
