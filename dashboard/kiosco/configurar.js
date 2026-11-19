@@ -14,9 +14,9 @@
     function mostrar() {
         try { if (sessionStorage.getItem(CLAVE)) return; } catch (e) {}
         var css = document.createElement("style");
-        css.textContent = ".cc-autorizar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:50;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;" +
-            "max-width:min(94vw,900px);padding:14px 18px;background:#0A0A0A;border:1px solid #FFFFFF;color:#FFFFFF;font:15px/1.4 Saira,'Segoe UI',Roboto,Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}" +
-            ".cc-autorizar p{margin:0;flex:1 1 360px}.cc-autorizar b{font-weight:600}.cc-autorizar small{display:block;color:#BDBDBD;margin-top:4px}" +
+        css.textContent = ".cc-autorizar{position:fixed;right:16px;bottom:84px;z-index:50;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;" +
+            "width:min(calc(100vw - 32px),420px);padding:14px 18px;background:#0A0A0A;border:1px solid #FFFFFF;color:#FFFFFF;font:15px/1.4 Saira,'Segoe UI',Roboto,Arial,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}" +
+            ".cc-autorizar p{margin:0;flex:1 1 100%}.cc-autorizar b{font-weight:600}.cc-autorizar small{display:block;color:#BDBDBD;margin-top:4px}" +
             ".cc-autorizar a,.cc-autorizar button{font:inherit;font-weight:600;padding:9px 16px;cursor:pointer;text-decoration:none;white-space:nowrap}" +
             ".cc-autorizar a{background:#FFFFFF;color:#000000;border:1px solid #FFFFFF}.cc-autorizar button{background:none;color:#BDBDBD;border:1px solid #3A3A3A}";
         document.head.appendChild(css);

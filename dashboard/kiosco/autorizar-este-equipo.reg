@@ -1,7 +1,7 @@
 Windows Registry Editor Version 5.00
 
 ; Capital Corp - autorizacion del equipo del muro (una sola vez por usuario de Windows).
-; Permite al centro de mando (https://calisteniabolivia-srl.github.io) usar microfono, camara y sonido
+; Permite al centro de mando (https://calisteniabolivia-srl.github.io) usar microfono, camara y sonido, y abrir Claude en otra ventana,
 ; en Google Chrome sin volver a preguntar. No da permiso a ningun otro sitio.
 
 [HKEY_CURRENT_USER\Software\Policies\Google\Chrome\AudioCaptureAllowedUrls]
@@ -11,4 +11,7 @@ Windows Registry Editor Version 5.00
 "1"="https://calisteniabolivia-srl.github.io"
 
 [HKEY_CURRENT_USER\Software\Policies\Google\Chrome\AutoplayAllowlist]
+"1"="https://calisteniabolivia-srl.github.io"
+
+[HKEY_CURRENT_USER\Software\Policies\Google\Chrome\PopupsAllowedForUrls]
 "1"="https://calisteniabolivia-srl.github.io"
