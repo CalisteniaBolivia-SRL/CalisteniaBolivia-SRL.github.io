@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=10"></script>
-<script src="fb-legal.js?v=10"></script>
+<script src="fb-legal.js?v=11"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal con el usuario del ERP y tener el permiso "legal" en /centro_mando. */
 (function () {
@@ -34,7 +34,7 @@
 <main class="lg" id="legal" lang="es">
   <header class="lg-top">
     <div>
-      <span class="lg-eyebrow">Calistenia Company · Centro de mando</span>
+      <span class="lg-eyebrow" id="lg-pais">Calistenia Company · Bolivia</span>
       <h1 class="lg-title">Legal</h1>
       <p class="lg-muted">Contratos, permisos y licencias de cada sucursal, procesos y casos con su bitácora, y un calendario con todos los vencimientos y plazos.</p>
     </div>
@@ -60,6 +60,7 @@
 <script src="legal.js?v=1"></script>
 <script>
 (function () {
+    if (/[?&]pais=paraguay\b/.test(location.search)) { document.getElementById("lg-pais").textContent = "Calistenia Company · Paraguay"; document.title = "Legal Paraguay · Calistenia Company"; }
     var q = document.getElementById("cm-quien");
     if (q && window.CM_USUARIO) q.textContent = "Hola, " + window.CM_USUARIO.nombre;
     var salir = document.getElementById("cm-salir");

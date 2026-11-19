@@ -1,0 +1,62 @@
+/* Capital Corp: entrada maestra del centro de mando. Fondo negro, logo y letra blancos.
+   Después de elegir empresa y país se pasa al portal de la empresa (Calistenia Company, con su rojo). */
+body.cc { background: #000000; color: #FFFFFF; }
+body.cc .nav { background: #000000; border-bottom: 1px solid #1F1F1F; }
+body.cc .red, body.cc .cm-eyebrow { color: #FFFFFF; }
+body.cc .cm-eyebrow { opacity: .62; }
+body.cc .cm-lead, body.cc .cm-nota { color: #BDBDBD; }
+body.cc .cm-form { background: #0A0A0A; border-color: #262626; border-top: 2px solid #FFFFFF; }
+body.cc .cm-form input:focus-visible { outline-color: #FFFFFF; border-color: #FFFFFF; }
+body.cc .btn { background: #FFFFFF; color: #000000; border-color: #FFFFFF; }
+body.cc .btn:hover { background: #000000; color: #FFFFFF; border-color: #FFFFFF; }
+body.cc .cm-salir:hover, body.cc .cm-salir:focus-visible { border-color: #FFFFFF; color: #FFFFFF; }
+body.cc .cm-foot { border-top-color: #1F1F1F; color: #8A8A8A; }
+
+/* Marca: logo de Capital Corp (images/capital-corp-logo.png, blanco sobre transparente) o, si no está, el nombre escrito. */
+.cc-marca { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .35rem; color: #FFFFFF; text-decoration: none; }
+.cc-marca img { display: none; height: 100%; max-height: 64px; width: auto; }
+.cc-marca.con-img img { display: block; }
+.cc-marca.con-img .cc-texto { display: none; }
+.cc-texto { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .32em; line-height: 1; font-size: 1rem; white-space: nowrap; }
+.cc-texto::after { content: ""; display: block; height: 1px; margin-top: .45em; background: currentColor; opacity: .55; }
+.cc-marca--grande .cc-texto { font-size: clamp(1.9rem, 6.5vw, 3.4rem); letter-spacing: .26em; }
+.cc-marca--grande img { max-height: 120px; }
+.nav .cc-marca { flex-direction: row; align-items: center; }
+
+/* Ruta: Capital Corp › Calistenia Company › Bolivia */
+.cc-ruta { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; font-size: .85rem; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.cc-ruta button { font: inherit; color: var(--white); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,255,255,.35); }
+.cc-ruta button:hover, .cc-ruta button:focus-visible { text-decoration-color: currentColor; outline: none; }
+.cc-ruta .cc-sep { opacity: .5; }
+
+/* Pasos: empresa y país */
+.cc-paso { min-height: calc(100vh - 170px); justify-content: center; gap: 2.5rem; }
+.cc-paso__cab { display: flex; flex-direction: column; gap: .8rem; }
+.cc-paso h1 { font-size: clamp(1.8rem, 5vw, 3rem); color: #FFFFFF; }
+.cc-opciones { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.cc-opcion { display: flex; flex-direction: column; justify-content: space-between; gap: 1.25rem; min-height: 210px; padding: 1.6rem 1.6rem 1.4rem;
+    text-align: left; font: inherit; color: #FFFFFF; background: #0A0A0A; border: 1px solid #2A2A2A; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
+.cc-opcion:hover:not(:disabled), .cc-opcion:focus-visible { border-color: #FFFFFF; background: #111111; outline: none; transform: translateY(-2px); }
+.cc-opcion:disabled { cursor: default; opacity: .55; }
+.cc-opcion img { max-width: 100%; height: 64px; width: auto; object-fit: contain; object-position: left center; }
+.cc-opcion__nombre { font-family: var(--font-display); text-transform: uppercase; font-size: 1.5rem; letter-spacing: .04em; line-height: 1.1; }
+.cc-opcion__det { color: #BDBDBD; font-size: .95rem; line-height: 1.45; }
+.cc-opcion__pie { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .12em; color: #8A8A8A; }
+.cc-opcion__pie b { color: #FFFFFF; font-weight: 600; }
+.cc-codigo { font-family: var(--font-display); font-size: 3.2rem; line-height: 1; letter-spacing: .04em; }
+.cc-bloqueo { color: #E8857D; }
+
+/* Portal de un país */
+.cc-pais-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
+.cc-chip { display: inline-block; padding: .2rem .6rem; border: 1px solid var(--line); font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.cm-card--prox { opacity: .55; pointer-events: none; }
+body.cc .nav__brand--cal, body:not(.cc) .nav__brand--cc { display: none; }
+.cm-screen--cc { border-left-color: #FFFFFF; background: #050505; }
+.cm-screen--cc .cm-num { color: #FFFFFF; }
+.cm-nota a { color: var(--white); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 600px) {
+    .cm-hola { display: none; }
+    .nav .cc-texto { font-size: .85rem; letter-spacing: .2em; }
+    .nav__links.nav__links--static { flex-wrap: wrap; justify-content: flex-end; gap: .5rem .9rem; min-width: 0; }
+    .cc-ruta { font-size: .8rem; }
+}

@@ -57,3 +57,10 @@ Instalación (una sola vez, con el plan Blaze activo):
 3. En developers.facebook.com: crear una app de tipo empresa, agregar **Webhooks** (objetos *Page* → campo `feed` e *Instagram* → campo `comments`) con la URL de `metaWebhook` y el `META_VERIFY_TOKEN`. Permisos: `pages_manage_engagement`, `pages_read_user_content`, `pages_read_engagement`, `pages_manage_metadata`, `instagram_basic`, `instagram_manage_comments`. Para usarla con el público, Meta pide la revisión de la app.
 4. Suscribir cada página a la app y sacar su token de página de larga duración. En el tablero → Configuración → *Agregar cuenta*: el id de la página (Facebook) o de la cuenta profesional de Instagram, su país y el token.
 5. Cargar en Configuración los datos de cada país (precios, sucursales, horarios, promociones, WhatsApp) y activar las respuestas automáticas.
+
+## Capital Corp: entrada, países y asistente
+
+- **Entrada:** el portal empieza en Capital Corp (fondo negro, letra blanca) → empresa (Calistenia Company) → país (Bolivia o Paraguay). La elección queda recordada; la ruta de arriba permite cambiarla.
+- **Logo:** sube el logo de Capital Corp en blanco sobre fondo transparente como `images/capital-corp-logo.png` y reemplaza el nombre escrito en todas las pantallas.
+- **Paraguay:** los permisos se leen en el ERP de Calistenia Paraguay (`/centro_mando` y `/accionistas`). Ingresos en vivo usa el ERP de Paraguay; Legal y Redes sociales usan los mismos permisos de datos que Bolivia, separados por país. Las sucursales de Paraguay para Legal se cargan en `config/sucursales_paraguay` (campo `lista`).
+- **Asistente «Capital Corp»** (`asistente.html`, pantalla 5 del muro): escucha la palabra «Capital», saluda, pregunta con quién habla y dice lo que hay que atender. Sin publicar la función `asistente` trabaja en modo básico (resumen y respuestas simples); con la función y el secreto `ANTHROPIC_API_KEY` conversa con IA (Claude). Necesita Chrome para la voz.
