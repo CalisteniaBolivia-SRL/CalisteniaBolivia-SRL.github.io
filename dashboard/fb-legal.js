@@ -3,6 +3,9 @@
     "use strict";
     if (!window.CMFB) return;
     var U = CMFB.util;
+    /* País del tablero (Capital Corp → Calistenia Company → Bolivia o Paraguay). Lo anterior a esta división es de Bolivia. */
+    var PAIS = /[?&]pais=paraguay\b/.test(location.search) ? "paraguay" : "bolivia";
+    var delPais = function (l) { return l.filter(function (r) { return (r.pais || "bolivia") === PAIS; }); };
     var COL = { contrato: "legal_contrato", permiso: "legal_permiso", caso: "legal_caso", evento: "legal_caso_evento", plazo: "legal_plazo" };
     var t = function (max, req) { return { t: "texto", max: max, req: req }; };
     var o = function (ops, def) { return { t: "opcion", ops: ops, def: def }; };
@@ -53,11 +56,15 @@
     }
     function orden(a, b, x, y, msg) { if (a[x] && a[y] && a[y] < a[x]) throw U.err(msg); }
 
-    CMFB.registrar("legal_sucursales", function () { return U.sucursales().then(function (l) { return { filas: l }; }); });
+    CMFB.registrar("legal_sucursales", function () {
+        if (PAIS === "bolivia") return U.sucursales().then(function (l) { return { filas: l }; });
+        /* Paraguay: las sucursales las carga Dirección en config/sucursales_paraguay (el MCP de Calistenia es de Bolivia). */
+        return U.db().collection("config").doc("sucursales_paraguay").get().then(function (x) { return { filas: x.exists ? (x.data().lista || []) : [] }; }).catch(function () { return { filas: [] }; });
+    });
     CMFB.registrar("legal_listar", function (a) {
         var e = entidad(a), q = U.db().collection(COL[e]);
         if (e === "evento" && a.key_caso) q = q.where("key_caso", "==", String(a.key_caso));
-        return U.docs(q).then(function (l) { return { filas: U.vigentes(l) }; });
+        return U.docs(q).then(function (l) { return { filas: delPais(U.vigentes(l)) }; });
     });
     CMFB.registrar("legal_guardar", function (a) {
         var e = entidad(a), d = a.data || {}, alta = !d.key, ficha = F[e], out = {};
@@ -77,7 +84,7 @@
             if (e === "plazo" && "hecho" in out) out.fecha_hecho = out.hecho ? U.ahora() : null;
             if (alta) {
                 var ref = col.doc();
-                return ref.set(Object.assign(out, { estado: 1, fecha_on: U.ahora(), key_usuario: quien })).then(function () { return ref; });
+                return ref.set(Object.assign(out, { estado: 1, pais: PAIS, fecha_on: U.ahora(), key_usuario: quien })).then(function () { return ref; });
             }
             var ref2 = col.doc(String(d.key));
             return ref2.get().then(function (x) {

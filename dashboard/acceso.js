@@ -10,6 +10,8 @@
     var HORAS = 24 * 30;
     var PAGINA_CM = "/centro_mando";                                   // página de permisos en el ERP
     var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";           // Calistenia Bolivia en el ERP
+    var KEY_EMPRESA_PY = "3433c7d4-a626-44de-b825-f924334e679c";        // Calistenia Paraguay en el ERP
+    var CLAVE_CTX = "cc_contexto";                                       // empresa y país elegidos (Capital Corp)
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
     var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc"];
 
@@ -32,8 +34,95 @@
         return permisos.todo ? TABLEROS.slice() : TABLEROS.filter(function (t) { return !!permisos[t]; });
     }
 
+    /* Permisos en el ERP de Calistenia Paraguay: /centro_mando (mismos nombres) y /accionistas (ingresos en vivo). */
+    function permisosPY(paginas) {
+        if (!paginas) return null;
+        var t = permisosERP(paginas) || [];
+        var acc = null;
+        Object.keys(paginas).forEach(function (k) { var v = paginas[k]; if (v && (v.url === "/accionistas" || k === "/accionistas")) acc = v; });
+        if (acc && acc.permisos && Object.keys(acc.permisos).length && t.indexOf("accionistas") < 0) t.push("accionistas");
+        return t;
+    }
+
+    /* ---------- Capital Corp: empresa → país → portal ---------- */
+    var sesionActual = null;
+    function leerCtx() { try { return JSON.parse(localStorage.getItem(CLAVE_CTX) || "null") || {}; } catch (e) { return {}; } }
+    function guardarCtx(c) { try { localStorage.setItem(CLAVE_CTX, JSON.stringify(c)); } catch (e) {} }
+    /* Tarjetas de Paraguay: ingresos con permiso del ERP de Paraguay (o Dirección); Legal y Redes usan los mismos
+       permisos de datos que en Bolivia (la sesión de datos es una sola). */
+    function tablerosPY(s) {
+        var bo = (s && s.tableros) || [], py = (s && s.tableros_py) || [], out = [];
+        if (py.indexOf("accionistas") >= 0 || py.indexOf("direccion") >= 0 || bo.indexOf("direccion") >= 0) out.push("accionistas");
+        if (bo.indexOf("legal") >= 0) out.push("legal");
+        if (bo.indexOf("marketing") >= 0) out.push("marketing");
+        return out;
+    }
+    var PASOS = ["acceso", "cc-empresa", "cc-pais", "portal", "portal-py"];
+    function ver(id) {
+        PASOS.forEach(function (p) { var n = document.getElementById(p); if (n) n.hidden = p !== id; });
+        document.body.classList.toggle("cc", id !== "portal" && id !== "portal-py");
+        nav.hidden = id === "acceso";
+        if (id !== "portal") document.querySelectorAll('#nav-portal a[href="#muro"], #nav-portal a[href="#equipo"]').forEach(function (el) { el.hidden = true; });
+        window.scrollTo(0, 0);
+    }
+    function pintarRuta(pais) {
+        var r = document.getElementById("cc-ruta"); if (!r) return;
+        r.textContent = "";
+        function b(txt, fn) { var x = document.createElement("button"); x.type = "button"; x.textContent = txt; x.onclick = fn; return x; }
+        function sep() { var x = document.createElement("span"); x.className = "cc-sep"; x.textContent = "›"; return x; }
+        r.appendChild(b("Capital Corp", function () { guardarCtx({}); irEmpresa(); }));
+        if (pais) {
+            r.appendChild(sep()); r.appendChild(b("Calistenia Company", function () { guardarCtx({ empresa: "calistenia" }); irPais(); }));
+            r.appendChild(sep()); var p = document.createElement("span"); p.textContent = pais === "paraguay" ? "Paraguay" : "Bolivia"; r.appendChild(p);
+        }
+        r.hidden = !pais;
+    }
+    function irEmpresa() {
+        pintarRuta(null);
+        var h = document.getElementById("cc-hola-empresa");
+        if (h) h.textContent = sesionActual && sesionActual.nombre ? "Buenos días, " + sesionActual.nombre + ". ¿Con qué empresa trabajamos?" : "";
+        if (h && sesionActual && sesionActual.nombre) { var hr = new Date().getHours(); h.textContent = (hr < 12 ? "Buenos días, " : hr < 19 ? "Buenas tardes, " : "Buenas noches, ") + sesionActual.nombre + ". ¿Con qué empresa trabajamos?"; }
+        ver("cc-empresa");
+    }
+    function irPais() {
+        pintarRuta(null);
+        var py = tablerosPY(sesionActual), bo = (sesionActual && sesionActual.tableros) || [];
+        var bPy = document.querySelector('[data-pais="paraguay"]'), bBo = document.querySelector('[data-pais="bolivia"]');
+        bPy.disabled = !py.length; bBo.disabled = !bo.length;
+        var nota = document.getElementById("cc-pais-nota");
+        nota.textContent = !py.length ? "Paraguay: tu usuario no tiene permisos en el ERP de Calistenia Paraguay (páginas /centro_mando o /accionistas)." : !bo.length ? "Bolivia: tu usuario no tiene permisos en /centro_mando del ERP de Calistenia Bolivia." : "";
+        ver("cc-pais");
+    }
+    function irPortal(pais) {
+        guardarCtx({ empresa: "calistenia", pais: pais });
+        pintarRuta(pais);
+        if (pais === "paraguay") {
+            var lista = tablerosPY(sesionActual);
+            document.querySelectorAll("[data-tablero-py]").forEach(function (el) { el.hidden = lista.indexOf(el.getAttribute("data-tablero-py")) < 0; });
+            document.getElementById("py-sin").hidden = lista.length > 0;
+            document.querySelectorAll('a[href="#muro"], a[href="#equipo"]').forEach(function (el) { el.hidden = true; });
+            ver("portal-py");
+        } else {
+            mostrarPortal(sesionActual.nombre, sesionActual.usuario, sesionActual.tableros);
+        }
+    }
+    /* Después de ingresar (o con la sesión recordada): vuelve a donde estaba o empieza por la empresa. */
+    function entrar(ses) {
+        sesionActual = ses;
+        hola.textContent = ses.nombre ? "Hola, " + ses.nombre : "";
+        var c = leerCtx();
+        if (c.empresa === "calistenia" && (c.pais === "bolivia" || c.pais === "paraguay")) {
+            if (c.pais === "paraguay" ? tablerosPY(ses).length : (ses.tableros || []).length) return irPortal(c.pais);
+        }
+        if (c.empresa === "calistenia") return irPais();
+        irEmpresa();
+    }
+    document.querySelectorAll("[data-empresa]").forEach(function (b) { b.addEventListener("click", function () { guardarCtx({ empresa: b.getAttribute("data-empresa") }); irPais(); }); });
+    document.querySelectorAll("[data-pais]").forEach(function (b) { b.addEventListener("click", function () { irPortal(b.getAttribute("data-pais")); }); });
+
     function mostrarPortal(nombre, usuario, permitidos) {
         var lista = permitidos || [];
+        pintarRuta("bolivia");
         /* data-tablero puede tener varios permisos separados por espacio (basta con uno). */
         document.querySelectorAll("[data-tablero]").forEach(function (el) {
             el.hidden = !el.getAttribute("data-tablero").split(/\s+/).some(function (t) { return lista.indexOf(t) >= 0; });
@@ -44,22 +133,19 @@
         document.getElementById("sin-permisos-erp").hidden = permitidos !== null;
         document.getElementById("sin-rol").hidden = permitidos === null;
         document.getElementById("mi-usuario").textContent = usuario ? "«" + usuario + "»" : "";
-        acceso.hidden = true;
-        portal.hidden = false;
-        nav.hidden = false;
+        ver("portal");
         hola.textContent = nombre ? "Hola, " + nombre : "";
     }
     function mostrarAcceso() {
         try { localStorage.removeItem(CLAVE); } catch (e) {}
-        portal.hidden = true;
-        nav.hidden = true;
-        acceso.hidden = false;
+        sesionActual = null;
+        ver("acceso");
         document.getElementById("acc-usuario").focus();
     }
 
     try {
         var s = JSON.parse(localStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now() && "tableros" in s) { mostrarPortal(s.nombre, s.usuario, s.tableros); actualizarPermisos(s); }
+        if (s && s.vence > Date.now() && "tableros" in s) { entrar(s); actualizarPermisos(s); }
     } catch (e) {}
 
     /* La sesión no vence mientras se use (cm-mcp.js la extiende), así que cada vez que se abre el portal se vuelven
@@ -90,7 +176,8 @@
                     if (JSON.stringify(nuevos) === JSON.stringify(actual.tableros)) return;
                     actual.tableros = nuevos;
                     try { localStorage.setItem(CLAVE, JSON.stringify(actual)); } catch (e) {}
-                    mostrarPortal(actual.nombre, actual.usuario, nuevos);
+                    sesionActual = actual;
+                    if (!portal.hidden) mostrarPortal(actual.nombre, actual.usuario, nuevos);
                 }
             }
         };
@@ -173,14 +260,16 @@
             /* Tras ingresar, en la misma conexión se piden los permisos del usuario en el ERP
                (servicio roles_permisos). Si no llegan en 10 s, se entra igual sin ellos. */
             var pidiendo = false, idPermisos = idUnico(), loginOk = null;
+            var pidiendoPy = false, idPermisosPy = idUnico(), paginasBo = null, keyUsuario = null;
             function pedirPermisos(m) {
                 loginOk = m;
                 var key = m.data && (m.data.key || m.data.key_usuario);
                 if (!key) { fin(); return resolver({ login: m, paginas: null }); }
+                keyUsuario = key;
                 pidiendo = true;
                 paso = "leyendo permisos del ERP";
                 clearTimeout(reloj);
-                reloj = setTimeout(function () { if (!terminado) { fin(); resolver({ login: m, paginas: null }); } }, 10000);
+                reloj = setTimeout(function () { if (!terminado) { fin(); resolver({ login: m, paginas: null, paginasPy: null }); } }, 10000);
                 ws.send(JSON.stringify({
                     version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
                     key_usuario: key, key_empresa: KEY_EMPRESA, _ssocket_promise: idPermisos
@@ -209,9 +298,17 @@
                         /* La respuesta del ingreso: la reconoce por su identificador o, si el ERP no lo devuelve, por su tipo. */
                         if (m.estado === "exito") { pedirPermisos(m); }
                         else if (m.estado === "error") { fin(); rechazar(new Error(m.error || "error_login")); }
-                    } else if (pidiendo && (m._ssocket_promise === idPermisos || (m.component === "usuarioPage" && m.type === "getAll"))) {
+                    } else if (pidiendo && !paginasBo && (m._ssocket_promise === idPermisos || (!pidiendoPy && m.component === "usuarioPage" && m.type === "getAll"))) {
+                        /* Permisos de Bolivia listos: en la misma conexión se piden los de Paraguay (5 s como máximo). */
+                        paginasBo = m.estado === "exito" ? (m.data || {}) : null;
+                        pidiendoPy = true;
+                        clearTimeout(reloj);
+                        reloj = setTimeout(function () { if (!terminado) { fin(); resolver({ login: loginOk, paginas: paginasBo, paginasPy: null }); } }, 5000);
+                        ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
+                            key_usuario: keyUsuario, key_empresa: KEY_EMPRESA_PY, _ssocket_promise: idPermisosPy }) + "\n");
+                    } else if (pidiendoPy && (m._ssocket_promise === idPermisosPy || (m.component === "usuarioPage" && m.type === "getAll"))) {
                         fin();
-                        resolver({ login: loginOk, paginas: m.estado === "exito" ? (m.data || {}) : null });
+                        resolver({ login: loginOk, paginas: paginasBo, paginasPy: m.estado === "exito" ? (m.data || {}) : null });
                     }
                 }
             };
@@ -237,21 +334,25 @@
             var r = res.login;
             var nombre = nombreDe(r, usuario);
             var tableros = permisosERP(res.paginas);
+            var tablerosPy = permisosPY(res.paginasPy) || [];
             /* Si no se pudieron leer los permisos, no se recuerda la sesión: al reingresar se vuelven a pedir. */
             if (tableros !== null) {
                 var dl = (r && r.data) || {};
-                try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, key_usuario: dl.key || dl.key_usuario || null, tableros: tableros, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
+                try { localStorage.setItem(CLAVE, JSON.stringify({ nombre: nombre, usuario: usuario, key_usuario: dl.key || dl.key_usuario || null, tableros: tableros, tableros_py: tablerosPy, vence: Date.now() + HORAS * 3600000 })); } catch (e2) {}
             }
             /* Con la misma contraseña se abre la sesión de datos de los módulos (Legal, Cuentas por pagar,
                CRM de los ATC): el puente del ERP en Firebase confirma el usuario y sus permisos. Si falla,
                el portal funciona igual y esos módulos avisan. */
             var md5Clave = md5(password);
             form.reset();
+            var hayAlgo = (tableros && tableros.length) || tablerosPy.length;
             var pDatos = (tableros && tableros.length && window.CMFB && window.CMFB.estado.configurado)
                 ? (boton.textContent = "Abriendo la sesión de datos…", window.CMFB.entrarConERP(usuario, md5Clave).catch(function (e) { console.warn("Sesión de datos:", e.message); }))
                 : Promise.resolve();
             return pDatos.then(function () {
-                mostrarPortal(nombre, usuario, tableros);
+                var dl2 = (r && r.data) || {};
+                if (!hayAlgo) mostrarPortal(nombre, usuario, tableros);   // sin permisos: el aviso de siempre
+                else entrar({ nombre: nombre, usuario: usuario, key_usuario: dl2.key || dl2.key_usuario || null, tableros: tableros || [], tableros_py: tablerosPy });
                 /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
                 if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
                     boton.textContent = "Conectando los datos de Calistenia…";

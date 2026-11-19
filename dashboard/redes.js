@@ -36,6 +36,9 @@
 
     var estado = { pestana: "aprobar", pais: "", comentarios: [], historial: [], config: {}, cuentas: [], escuchas: [] };
     try { estado.pestana = localStorage.getItem("rs_pestana") || "aprobar"; } catch (e) {}
+    /* Desde el portal de un país (Capital Corp → Calistenia Company → país) se abre filtrado por ese país. */
+    var mPais = /[?&]pais=(bolivia|paraguay)\b/.exec(location.search);
+    if (mPais) estado.pais = mPais[1];
 
     /* ---------- pestañas ---------- */
     var PESTANAS = [["aprobar", "Por aprobar"], ["tiktok", "TikTok"], ["historial", "Historial"], ["config", "Configuración"]];

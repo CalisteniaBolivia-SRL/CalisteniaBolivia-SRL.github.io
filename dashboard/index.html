@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centro de mando · Calistenia Company</title>
+    <title>Centro de mando · Capital Corp</title>
     <meta name="description" content="Acceso a las pantallas del centro de mando y a los tableros de gestión de Calistenia Company.">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#B8050F">
+    <meta name="theme-color" content="#000000">
     <link rel="icon" href="../images/132458707.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../index.css">
     <link rel="stylesheet" href="dasboard.css?v=9">
+    <link rel="stylesheet" href="capital.css?v=1">
 </head>
-<body>
+<body class="cc">
     <header class="nav">
-        <a href="../" class="nav__brand"><img src="../images/132458707.png" alt="Calistenia Company"><span>Calistenia <b>Company</b></span></a>
+        <span class="nav__brand nav__brand--cc cc-marca"><img src="../images/capital-corp-logo.png" alt="Capital Corp" onload="this.parentNode.classList.add('con-img')" onerror="this.remove()"><span class="cc-texto">Capital Corp</span></span>
+        <a href="../" class="nav__brand nav__brand--cal"><img src="../images/132458707.png" alt="Calistenia Company"><span>Calistenia <b>Company</b></span></a>
         <nav class="nav__links nav__links--static" id="nav-portal" hidden>
+            <span class="cc-ruta" id="cc-ruta" hidden></span>
             <a href="#muro" data-tablero="muro">Muro</a>
             <a href="#equipo">Equipo</a>
             <span class="cm-hola" id="hola"></span>
@@ -27,8 +30,8 @@
 
     <main class="cm cm-login" id="acceso">
         <section class="cm-login__box" aria-labelledby="acceso-titulo">
-            <p class="cm-eyebrow">Gestión interna</p>
-            <h1 id="acceso-titulo">Centro de <span class="red">mando</span></h1>
+            <span class="cc-marca cc-marca--grande"><img src="../images/capital-corp-logo.png" alt="Capital Corp" onload="this.parentNode.classList.add('con-img')" onerror="this.remove()"><span class="cc-texto">Capital Corp</span></span>
+            <h1 id="acceso-titulo">Centro de mando</h1>
             <p class="cm-lead">Ingresa con tu usuario y contraseña del ERP (serp.servisofts.com).</p>
             <form id="f-acceso" class="cm-form" novalidate>
                 <label for="acc-usuario">Usuario</label>
@@ -42,9 +45,93 @@
         </section>
     </main>
 
+    <!-- Paso 1: empresa del grupo -->
+    <main class="cm cc-paso" id="cc-empresa" hidden>
+        <section class="cc-paso__cab">
+            <span class="cc-marca cc-marca--grande"><img src="../images/capital-corp-logo.png" alt="Capital Corp" onload="this.parentNode.classList.add('con-img')" onerror="this.remove()"><span class="cc-texto">Capital Corp</span></span>
+            <h1>Elige la empresa</h1>
+            <p class="cm-lead" id="cc-hola-empresa"></p>
+        </section>
+        <div class="cc-opciones">
+            <button type="button" class="cc-opcion" data-empresa="calistenia">
+                <img src="../images/a7489e99-6c2f-40b8-a3c2-edafcf321451.png" alt="Calistenia Company">
+                <span class="cc-opcion__det">Gimnasios de calistenia · Bolivia y Paraguay</span>
+                <span class="cc-opcion__pie"><span>2 países</span><b>Entrar →</b></span>
+            </button>
+            <button type="button" class="cc-opcion" disabled>
+                <span class="cc-opcion__nombre">Otras empresas del grupo</span>
+                <span class="cc-opcion__det">Aparecen aquí a medida que se suman al centro de mando.</span>
+                <span class="cc-opcion__pie"><span>Próximamente</span></span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Paso 2: país -->
+    <main class="cm cc-paso" id="cc-pais" hidden>
+        <section class="cc-paso__cab">
+            <p class="cm-eyebrow">Capital Corp · Calistenia Company</p>
+            <h1>Elige el país</h1>
+        </section>
+        <div class="cc-opciones">
+            <button type="button" class="cc-opcion" data-pais="bolivia">
+                <span class="cc-codigo">BO</span>
+                <span><span class="cc-opcion__nombre">Bolivia</span><br><span class="cc-opcion__det">11 sucursales · muro de 9 pantallas, tableros por área, Atención al Cliente, Legal, Reportes y Redes sociales</span></span>
+                <span class="cc-opcion__pie"><span>Bs</span><b>Entrar →</b></span>
+            </button>
+            <button type="button" class="cc-opcion" data-pais="paraguay">
+                <span class="cc-codigo">PY</span>
+                <span><span class="cc-opcion__nombre">Paraguay</span><br><span class="cc-opcion__det">Ingresos en vivo del ERP de Paraguay, Legal y Redes sociales</span></span>
+                <span class="cc-opcion__pie"><span>Gs</span><b data-pie>Entrar →</b></span>
+            </button>
+        </div>
+        <p class="cm-nota" id="cc-pais-nota"></p>
+    </main>
+
+    <!-- Portal de Paraguay -->
+    <main class="cm" id="portal-py" hidden>
+        <section class="cm-hero">
+            <p class="cm-eyebrow">Calistenia Company · Paraguay</p>
+            <h1>Centro de <span class="red">mando</span></h1>
+            <p class="cm-lead">Tableros de Calistenia Paraguay. Los ingresos se leen en vivo del ERP de Paraguay (guaraníes).</p>
+        </section>
+        <section class="cm-block">
+            <div class="cm-head">
+                <h2>Tableros de <span class="red">Paraguay</span></h2>
+                <p>Cada tarjeta respeta los permisos de tu usuario en el ERP.</p>
+            </div>
+            <div class="cm-team">
+                <a class="cm-card" data-tablero-py="accionistas" href="../accionistas-py/">
+                    <span class="cm-area">Ingresos en vivo</span>
+                    <span class="cm-who">Dirección · Accionistas</span>
+                    <span class="cm-role">ERP de Calistenia Paraguay</span>
+                    <span class="cm-what">Cierres semanales y mensuales de membresías, snacks y alquileres, actualizados cada 8 segundos</span>
+                </a>
+                <a class="cm-card" data-tablero-py="legal" href="legal.html?pais=paraguay">
+                    <span class="cm-area">Legal</span>
+                    <span class="cm-who">Asesoría legal · Dirección</span>
+                    <span class="cm-role">Contratos, permisos y casos de Paraguay</span>
+                    <span class="cm-what">Vencimientos de contratos y licencias, procesos con su bitácora y calendario de plazos</span>
+                </a>
+                <a class="cm-card" data-tablero-py="marketing" href="redes.html?pais=paraguay">
+                    <span class="cm-area">Redes sociales</span>
+                    <span class="cm-who">Marketing · Paraguay</span>
+                    <span class="cm-role">Respuestas automáticas a comentarios</span>
+                    <span class="cm-what">Facebook e Instagram de Paraguay, casos por aprobar y borradores para TikTok</span>
+                </a>
+                <div class="cm-card cm-card--prox">
+                    <span class="cm-area">Muro, sucursales y clientes</span>
+                    <span class="cm-who">Próximamente</span>
+                    <span class="cm-role">Necesita los datos de Paraguay</span>
+                    <span class="cm-what">El muro de pantallas y los tableros por área se arman igual que en Bolivia cuando el MCP del ERP de Paraguay esté conectado</span>
+                </div>
+            </div>
+            <p class="cm-nota" id="py-sin" hidden>Tu usuario no tiene tableros de Paraguay. Dirección los asigna en la página /centro_mando del ERP de Calistenia Paraguay (o /accionistas para los ingresos).</p>
+        </section>
+    </main>
+
     <main class="cm" id="portal" hidden>
         <section class="cm-hero">
-            <p class="cm-eyebrow">Gestión interna</p>
+            <p class="cm-eyebrow">Calistenia Company · Bolivia</p>
             <h1>Centro de <span class="red">mando</span></h1>
             <p class="cm-lead">Pantallas y tableros con datos en vivo de las 11 sucursales. La primera vez que abras un tablero te pedirá entrar con tu usuario de Calistenia para leer los datos.</p>
         </section>
@@ -59,12 +146,13 @@
                 <li><a class="cm-screen" href="muro.html#p2"><span class="cm-num">2</span><span class="cm-name">Ventas</span><span class="cm-desc">12 meses, últimos 30 días y medios de pago</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p3"><span class="cm-num">3</span><span class="cm-name">Sucursales</span><span class="cm-desc">Ranking y tablero contra el mes anterior</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p4"><span class="cm-num">4</span><span class="cm-name">Paquetes y cajeros</span><span class="cm-desc">Qué se vende y quién lo vende</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p5"><span class="cm-num">5</span><span class="cm-name">Asistencia hoy</span><span class="cm-desc">Visitas por sucursal y por hora</span></a></li>
+                <li><a class="cm-screen cm-screen--cc" href="asistente.html"><span class="cm-num">5</span><span class="cm-name">Capital Corp · asistente</span><span class="cm-desc">Pantalla del medio: le habla, le dice qué atender hoy y responde por voz</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p6"><span class="cm-num">6</span><span class="cm-name">Asistencia 30 días</span><span class="cm-desc">Tendencia, ocupación y frecuencia</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p7"><span class="cm-num">7</span><span class="cm-name">Entrenadores</span><span class="cm-desc">Alumnos por turno y asistencia</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p8"><span class="cm-num">8</span><span class="cm-name">Retención</span><span class="cm-desc">Por vencer, en riesgo y vencidos por sucursal</span></a></li>
                 <li><a class="cm-screen" href="muro.html#p9"><span class="cm-num">9</span><span class="cm-name">Caja y molinetes</span><span class="cm-desc">Cajas abiertas, movimientos y molinetes</span></a></li>
             </ol>
+            <p class="cm-nota">La pantalla <a href="muro.html#p5">Asistencia hoy</a> (visitas por sucursal y por hora) sigue disponible para otro monitor.</p>
         </section>
 
         <section class="cm-block cm-sinacceso" id="sin-acceso" hidden>
@@ -109,7 +197,7 @@
                     <span class="cm-role">Entrenadores, supervisión y marketing</span>
                     <span class="cm-what">Proyección, paquetes, campañas y horas vacías</span>
                 </a>
-                <a class="cm-card" data-tablero="marketing" href="redes.html">
+                <a class="cm-card" data-tablero="marketing" href="redes.html?pais=bolivia">
                     <span class="cm-area">Redes sociales</span>
                     <span class="cm-who">Marketing · Bolivia y Paraguay</span>
                     <span class="cm-role">Respuestas automáticas a comentarios</span>
@@ -152,7 +240,7 @@
         </section>
     </main>
 
-    <footer class="cm-foot">Calistenia Company · Uso interno</footer>
+    <footer class="cm-foot">Capital Corp · Uso interno</footer>
     <script src="cm-mcp.js?v=2"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -160,6 +248,6 @@
     <script src="firebase-config.js?v=2"></script>
     <script>window.CM_FB_SIN_BARRA = true;</script>
     <script src="cm-firebase.js?v=10"></script>
-    <script src="acceso.js?v=18"></script>
+    <script src="acceso.js?v=19"></script>
 </body>
 </html>
