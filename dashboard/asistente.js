@@ -146,12 +146,12 @@
     /* ---------- arranque automático ----------
        El asistente arranca solo. Si este equipo todavía no autorizó sonido o micrófono para el sitio, el navegador lo frena:
        se avisa arriba y basta un toque o una tecla una sola vez. En el equipo del muro, la configuración de
-       dashboard/kiosco/ autoriza el sitio de forma permanente y ya no hace falta ni eso. */
+       dashboard/kiosco/autorizar-este-equipo.reg autoriza el sitio de forma permanente y ya no hace falta ni eso. */
     function avisar(t) { var a = $("as-aviso"); a.textContent = t || ""; a.hidden = !t; }
     function bloqueada(texto) {
         if (S.vozBloqueada) return;
         S.vozBloqueada = true; S.pendiente = texto;
-        avisar("El navegador de este equipo bloqueó el sonido: toque la pantalla o presione una tecla una vez. (En el muro se configura para que no lo pida: carpeta kiosco.)");
+        avisar("El navegador de este equipo bloqueó el sonido: toque la pantalla o presione una tecla una vez. (Para que no lo vuelva a pedir, use «Descargar autorización» abajo.)");
     }
     function alPrimerToque() {
         if (!S.vozBloqueada && !S.sinMic) return;
@@ -179,7 +179,7 @@
             var m = /\bcapital(?:\s+corp)?\b[,.\s]*(.*)$/i.exec(t);
             if (m && final) { detenerEscucha(); var resto = m[1].trim(); $("as-oye").textContent = "«" + t + "»"; resto.length > 3 ? atender(resto) : atender(null); }
         };
-        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: permítalo en el candado de la barra de direcciones (una sola vez) o configure el muro con la carpeta kiosco. Mientras tanto puede escribir."); } };
+        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: use «Descargar autorización» abajo (una sola vez). Mientras tanto puede escribir."); } };
         rec.onend = function () { var era = S.escuchando; S.escuchando = false; $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar("vigilia"); }, 400); if (S.estado === "escuchando") estado("espera"); };
         try { rec.start(); } catch (e) {}
     }
