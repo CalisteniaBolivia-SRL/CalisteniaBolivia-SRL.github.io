@@ -30,7 +30,9 @@
     var ES_ATC = TABLEROS_ERP.indexOf("atc") >= 0;
     /* Pestaña de Atención y retención (tablero de Atención al Cliente embebido). */
     var TAB_ATENCION = ["atencion", "Atención y retención"];
-    var SOLO_ATENCION = false;   // ATC Central sin sesión de datos todavía: ve solo Atención y retención
+    /* Pestaña «Plan de hoy» (recuperacion.js): grupos propuestos y 2 listas por sucursal para los ATC. */
+    var TAB_PLAN = ["plan", "Plan de hoy"];
+    var SOLO_ATENCION = false;   // ATC Central sin sesión de datos todavía: ve el Plan de hoy y Atención y retención
     function veAtencion() { return MASTER; }
 
     /* ---------- utilidades de interfaz ---------- */
@@ -127,7 +129,9 @@
     /* ================= Carga ================= */
     function cargar() {
         mensaje($("#co-estado"), "", "Cargando…");
-        var pV = cargarVencidos().then(function (v) {
+        /* Las ATC trabajan con su lista asignada: sin sesión de datos de Calistenia no se piden los vencidos. */
+        var conMcp = window.CM.conSesion();
+        var pV = (!MASTER && !conMcp ? Promise.resolve({ filas: [], cortado: false }) : cargarVencidos()).then(function (v) {
             S.vencidos = v.filas; S.cortado = v.cortado; S.errorVencidos = null;
             S.sinKeys = v.filas.length > 0 && !v.filas.some(function (c) { return c.key_usuario || c.key_cliente; });
         }).catch(function (e) { if (e.sinSesion) throw e; S.errorVencidos = e; S.vencidos = []; });
@@ -170,10 +174,13 @@
     /* ================= Pintar ================= */
     var TABS_MASTER = [["resumen", "Resumen"], ["equipo", "Equipo"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Comisiones"], ["actividad", "Actividad"]];
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
+    if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
     function pestanas() {
-        if (SOLO_ATENCION) return [TAB_ATENCION];
+        var plan = window.ATC_plan ? [TAB_PLAN] : [];
+        if (SOLO_ATENCION) return plan.concat([TAB_ATENCION]);
         var tabs = (MASTER ? TABS_MASTER : TABS_EJ).slice();
         if (veAtencion()) tabs.splice(1, 0, TAB_ATENCION);   // segunda, después de Resumen / Mi día
+        if (MASTER) tabs = plan.concat(tabs);                // ATC Central empieza por su plan de hoy
         return tabs;
     }
     /* El tablero de Atención se crea una sola vez y se muestra u oculta: así no se recarga al cambiar de pestaña. */
@@ -219,6 +226,13 @@
         c.hidden = enAtencion;
         mostrarAtencion(enAtencion);
         if (enAtencion) return;
+        if (S.tab === TAB_PLAN[0]) {
+            /* Con el rol de Jefa (y Firebase activo) puede asignar las listas a las ATC; si no, solo descargarlas. */
+            window.ATC_plan.montar(c, MASTER && !S.sinHerramientas ? { equipo: S.equipo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, recargar: cargar,
+                irA: function (t) { S.tab = t; try { history.replaceState(null, "", "#" + t); } catch (e) {} pintar(); } } : null);
+            return;
+        }
+        if (S.tab === "lista") { var fnL = VISTAS_EJ.lista; if (!MASTER && fnL) { fnL(c); return; } }
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
         if (S.cortado) c.appendChild(aviso("warn", null, "Hay más de 5.000 clientes vencidos en los últimos 6 meses: se muestran los primeros 5.000."));
@@ -328,6 +342,11 @@
     }
 
     var VISTAS_EJ = {
+        /* La lista que le asignó la Jefa de Atención al Cliente (mi-lista.js). */
+        lista: function (c) {
+            if (!yoListo(c)) return;
+            window.ATC_milista.montar(c, { yo: S.yo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, avisar: avisar });
+        },
         hoy: function (c) {
             if (!yoListo(c)) return;
             var mia = carteraDe(S.yo.key), h = hoy();
@@ -697,10 +716,10 @@
 
     /* ---------- arranque ---------- */
     function arrancar() {
-    $("#co-titulo").textContent = "Comercial y Atención al Cliente";
+    $("#co-titulo").textContent = "Atención al Cliente";
     $("#co-sub").textContent = MASTER
-        ? "ATC Central dirige a los ATC de cada sucursal: renovaciones y clientes en riesgo, reparto de clientes antiguos, tareas, guiones, resultados y comisiones."
-        : "Tus clientes antiguos por recuperar, tus seguimientos, las tareas de ATC Central y tu comisión.";
+        ? "ATC Central: lo urgente de hoy, clientes para recuperar y cuidar, las listas para los ATC de cada sucursal, tareas, guiones, resultados y comisiones."
+        : "Tus clientes para contactar, tus seguimientos, las tareas de ATC Central y tu comisión.";
     var mes = $("#co-mes");
     mes.value = S.periodo.desde.slice(0, 7); mes.max = hoy().slice(0, 7);
     mes.addEventListener("change", function () {
@@ -713,6 +732,12 @@
     cargar();
     setInterval(function () { if (!document.hidden && !raiz.querySelector(".co-subfila, .co-form")) cargar(); }, 10 * 60000);
     }
+    function pedirDatosCalistenia() {
+        if (window.CM.conSesion()) return false;
+        mensaje($("#co-estado"), "", "Conectando los datos de Calistenia…");
+        window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash);
+        return true;
+    }
     (window.CMFB ? CMFB.listo : Promise.resolve()).then(function () {
         if (!MASTER && !ES_ATC) {
             mensaje($("#co-estado"), "warn", "Tu usuario del ERP no tiene el permiso de ATC Central («atencion») ni de ATC («atc») en /centro_mando.");
@@ -722,13 +747,15 @@
             /* Sin sesión de datos: ATC Central igual ve Atención y retención (datos del MCP). */
             SOLO_ATENCION = true;
             $("#co-titulo").textContent = "Comercial y Atención al Cliente";
-            $("#co-sub").textContent = "Renovaciones, clientes en riesgo y recuperación por WhatsApp. Para el CRM de los ATC, vuelve a ingresar con tu usuario del ERP.";
+            $("#co-sub").textContent = "Lo urgente de hoy, clientes para recuperar y cuidar, y las listas para los ATC. Para el CRM de los ATC, vuelve a ingresar con tu usuario del ERP.";
             var herr = raiz.querySelector(".co-herr"); if (herr) herr.hidden = true;
             mensaje($("#co-estado"), "", "");
-            S.tab = TAB_ATENCION[0];
+            S.tab = window.ATC_plan ? TAB_PLAN[0] : TAB_ATENCION[0];
             pintar();
             return;
         }
+        /* Sin Firebase o con el rol de Jefa hacen falta los datos de Calistenia; la ATC entra sin ellos. */
+        if ((!window.CMFB || MASTER) && pedirDatosCalistenia()) return;
         arrancar();
     });
 })();
