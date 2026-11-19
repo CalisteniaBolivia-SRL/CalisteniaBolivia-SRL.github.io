@@ -278,9 +278,10 @@
     function modo2(t) { $("as-modo").textContent = t; }
     function preguntarIA() {
         if (!URL_IA || !window.firebase || !firebase.apps.length || !firebase.auth().currentUser) return Promise.reject(new Error("sin_sesion_datos"));
-        return firebase.auth().currentUser.getIdToken().then(function (tok) {
-            return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok },
-                body: JSON.stringify({ historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString("es-BO") }) });
+        var mcp = window.CM && CM.token ? CM.token().catch(function () { return null; }) : Promise.resolve(null);
+        return Promise.all([firebase.auth().currentUser.getIdToken(), mcp]).then(function (x) {
+            return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + x[0] },
+                body: JSON.stringify({ historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString("es-BO"), mcp_token: x[1] }) });
         }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.texto) throw Object.assign(new Error(j.error || "ia " + r.status), { status: r.status }); return j.texto; }); });
     }
     /* t = null: alguien se acercó (dijo «Capital» o tocó Hablar sin decir nada). */
