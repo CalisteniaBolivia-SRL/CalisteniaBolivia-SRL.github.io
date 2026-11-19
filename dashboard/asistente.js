@@ -237,6 +237,13 @@
         if (!m || /^(el|la|yo|de|un|una|nuevo|nueva)$/i.test(m[1])) return "";
         return m[1].charAt(0).toUpperCase() + m[1].slice(1);
     }
+    /* Respuesta corta a «¿Con quién tengo el gusto?»: «Con José Miguel», «José Miguel», «Habla Eliana»… */
+    function nombreSuelto(t) {
+        var limpio = String(t).replace(/[¿?¡!.,]/g, " ").replace(/^\s*(con|soy|habla|le habla|me llamo|mi nombre es|aqu[ií])\s+/i, "").replace(/^\s*(el|la|don|do[nñ]a|se[nñ]or|se[nñ]ora|licenciad[oa]|ingenier[oa])\s+/i, "").trim();
+        var ps = limpio.split(/\s+/).filter(Boolean);
+        if (!ps.length || ps.length > 4 || /^(no|s[ií]|qu[eé]|por|c[oó]mo|cu[aá]nto|d[oó]nde|hola|buenas?|buenos)$/i.test(ps[0])) return "";
+        return ps.slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(" ");
+    }
     function saludo() { var h = new Date().getHours(); return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches"; }
     function bs(v) { return v == null ? "sin dato" : Math.round(v).toLocaleString("es-BO") + " bolivianos"; }
     /* Modo básico: el resumen del día armado aquí. */
@@ -256,7 +263,7 @@
     }
     function respuestaBasica(t) {
         var d = S.datos || {}, x = t.toLowerCase();
-        if (/\b(abr[ei]r?|abra|ll[eé]vame|ir a)\b.*\bclaude\b|\bclaude\b.*\b(abr[ei]r?|abra)\b|tablero|dashboard|estudio|an[aá]lisis|suger|recomend|estrategia|marketing/.test(x)) { setTimeout(abrirClaude, 3500); return "Con gusto. Le abro Capital Corp en Claude, donde puedo consultar los datos en vivo y prepararle eso."; }
+        if (/claude|cloud|clod|claud|tablero|dashboard|estudio|an[aá]lisis|suger|recomend|estrategia|marketing|inteligencia/.test(x)) { setTimeout(abrirClaude, 3500); return "Con gusto. Le abro Capital Corp en Claude, donde puedo consultar los datos en vivo y prepararle eso."; }
         if (/resumen|pendiente|atender|c[oó]mo vamos|novedad/.test(x)) return resumen();
         if (/sucursal|ranking|mejor|peor|l[ií]der/.test(x) && d.sucursal_lider_mes) return "En el mes lidera " + d.sucursal_lider_mes.sucursal + " con " + bs(d.sucursal_lider_mes.total) + (d.sucursal_ultima_mes ? ", y la que más atrás va es " + d.sucursal_ultima_mes.sucursal + " con " + bs(d.sucursal_ultima_mes.total) : "") + ".";
         if (/ingres|venta|factur|plata|dinero/.test(x)) return "Hoy llevamos " + bs(d.ingresos_hoy) + " y en el mes " + bs(d.ingresos_mes) + (d.variacion_mes_pct != null ? ", " + Math.abs(d.variacion_mes_pct) + " por ciento " + (d.variacion_mes_pct >= 0 ? "arriba" : "abajo") + " del mes pasado a la misma fecha" : "") + ".";
@@ -264,7 +271,9 @@
         if (/venc|renov|retenc|riesgo/.test(x)) return n(d.por_vencer_7_dias) + " clientes vencen en siete días, " + n(d.sin_venir_14_dias) + " no vienen hace dos semanas y " + n(d.vencidos_30_dias) + " vencieron en el último mes. Atención al Cliente tiene las listas.";
         if (/caja/.test(x)) return "Hay " + n(d.cajas_abiertas) + " cajas abiertas, " + n(d.cajas_abiertas_mas_de_2_dias) + " de ellas hace más de dos días.";
         if (/gracias/.test(x)) return "Es un placer" + (S.quien ? ", " + S.quien : "") + ". Aquí estaré.";
-        return "Por ahora trabajo en modo básico: puedo darle el resumen del día, ingresos, visitas, vencimientos, cajas y sucursales. Para conversar con libertad, pedirme tableros, estudios o sugerencias, diga «abrir Claude» o toque «Hablar con Capital Corp».";
+        /* Lo que esta pantalla no sabe responder se continúa en Claude, con los datos en vivo. */
+        setTimeout(abrirClaude, 4500);
+        return "Eso se lo respondo mejor en Claude, con los datos en vivo. Le abro la ventana de Capital Corp: repítame ahí su pregunta.";
     }
     function modo2(t) { $("as-modo").textContent = t; }
     function preguntarIA() {
@@ -278,11 +287,17 @@
     function atender(t) {
         var mio = S.turno = (S.turno || 0) + 1;   // si llega otra pregunta en el medio, esta respuesta ya no sigue escuchando
         S.ultimo = Date.now();
-        if (t) { S.historial.push({ rol: "usuario", texto: t }); var nom = nombreDe(t); if (nom) S.quien = nom; }
+        var nombreNuevo = false;
+        if (t) {
+            S.historial.push({ rol: "usuario", texto: t });
+            var nom = nombreDe(t) || (S.esperaNombre ? nombreSuelto(t) : "");
+            if (nom) { S.quien = nom; nombreNuevo = true; }
+            S.esperaNombre = false;
+        }
         S.pensando = true; estado("pensando");
         var local = function () {
             if (!t) return S.quien ? saludo() + ", " + S.quien + ". " + resumen() : saludo() + ". Soy Capital Corp, a su servicio. ¿Con quién tengo el gusto?";
-            if (!S.historial.slice(0, -1).some(function (m) { return m.rol === "usuario"; }) && S.quien && nombreDe(t)) return "Un gusto, " + S.quien + ". " + resumen();
+            if (nombreNuevo) return "Un gusto, " + S.quien + ". " + resumen();
             return respuestaBasica(t);
         };
         var p = S.modoIA === false ? Promise.resolve(local()) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
@@ -294,6 +309,7 @@
         return p.then(function (resp) {
             S.pensando = false;
             if (mio !== S.turno) return;   // mientras pensaba le hicieron otra pregunta
+            if (/con qui[eé]n tengo el gusto/i.test(resp)) S.esperaNombre = true;
             S.historial.push({ rol: "asistente", texto: resp });
             return decir(resp);
         }).then(function () { if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
