@@ -204,5 +204,6 @@
     function cerrarSesion() { guardar(K.pkce, null); sesionMcp = null; }
     function conSesion() { return !!leerTokens(); }
 
-    window.CM = { iniciarSesion: iniciarSesion, atenderVuelta: atenderVuelta, llamar: llamar, cerrarSesion: cerrarSesion, conSesion: conSesion };
+    /* token(): acceso vigente a Calistenia (lo usa el asistente para que Claude consulte el MCP con los permisos de este usuario). */
+    window.CM = { iniciarSesion: iniciarSesion, atenderVuelta: atenderVuelta, llamar: llamar, cerrarSesion: cerrarSesion, conSesion: conSesion, token: acceso };
 })();
