@@ -132,12 +132,33 @@
             if (voz) { u.voice = voz; u.lang = voz.lang; } else u.lang = "es-419";
             u.rate = 0.98; u.pitch = 0.88;
             S.hablando = true; detenerEscucha(); estado("hablando");
-            var listo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; estado("espera"); fin(); };
-            u.onend = cerrar; u.onerror = cerrar;
+            var listo = false, empezo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; estado("espera"); fin(); };
+            u.onstart = function () { empezo = true; S.vozBloqueada = false; avisar(""); };
+            u.onend = cerrar;
+            u.onerror = function (e) { if (e && e.error === "not-allowed") bloqueada(texto); cerrar(); };
+            /* Si el navegador no deja sonar sin un toque previo, no empieza nunca: se avisa y se repite al primer toque. */
+            setTimeout(function () { if (!empezo && !listo && !speechSynthesis.speaking) { bloqueada(texto); cerrar(); } }, 2500);
             setTimeout(cerrar, Math.max(6000, texto.length * 95));   // por si el navegador no avisa el final
             speechSynthesis.speak(u);
         });
     }
+
+    /* ---------- arranque automático ----------
+       El asistente arranca solo. Si este equipo todavía no autorizó sonido o micrófono para el sitio, el navegador lo frena:
+       se avisa arriba y basta un toque o una tecla una sola vez. En el equipo del muro, la configuración de
+       dashboard/kiosco/ autoriza el sitio de forma permanente y ya no hace falta ni eso. */
+    function avisar(t) { var a = $("as-aviso"); a.textContent = t || ""; a.hidden = !t; }
+    function bloqueada(texto) {
+        if (S.vozBloqueada) return;
+        S.vozBloqueada = true; S.pendiente = texto;
+        avisar("El navegador de este equipo bloqueó el sonido: toque la pantalla o presione una tecla una vez. (En el muro se configura para que no lo pida: carpeta kiosco.)");
+    }
+    function alPrimerToque() {
+        if (!S.vozBloqueada && !S.sinMic) return;
+        var t = S.pendiente; S.vozBloqueada = false; S.pendiente = null; S.sinMic = false; avisar("");
+        if (t) decir(t).then(function () { escuchar("turno"); }); else escuchar("vigilia");
+    }
+    ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { document.addEventListener(ev, alPrimerToque, true); });
 
     /* ---------- escucha ---------- */
     var Rec = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null;
@@ -158,7 +179,7 @@
             var m = /\bcapital(?:\s+corp)?\b[,.\s]*(.*)$/i.exec(t);
             if (m && final) { detenerEscucha(); var resto = m[1].trim(); $("as-oye").textContent = "«" + t + "»"; resto.length > 3 ? atender(resto) : atender(null); }
         };
-        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; modo2("El navegador no dio permiso al micrófono: use el botón Hablar o escriba."); } };
+        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: permítalo en el candado de la barra de direcciones (una sola vez) o configure el muro con la carpeta kiosco. Mientras tanto puede escribir."); } };
         rec.onend = function () { var era = S.escuchando; S.escuchando = false; $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar("vigilia"); }, 400); if (S.estado === "escuchando") estado("espera"); };
         try { rec.start(); } catch (e) {}
     }
@@ -234,16 +255,17 @@
     }, 20000);
 
     /* ---------- controles ---------- */
-    $("as-iniciar").addEventListener("click", function () {
-        S.activo = true; $("as-activar").hidden = true;
-        if (!Rec) modo2("Este navegador no permite hablarme: escriba su pregunta. (Use Chrome para conversar por voz.)");
-        atender(null);
-    });
+    /* Arranca solo: saluda en cuanto están los datos (o a los 4 segundos) y queda escuchando. */
+    S.activo = true;
+    if (!Rec) modo2("Este navegador no permite hablarme: escriba su pregunta. (Use Chrome para conversar por voz.)");
+    var saludado = false;
+    function arrancar() { if (saludado) return; saludado = true; atender(null); }
+    setTimeout(arrancar, 4000);
     $("as-mic").addEventListener("click", function () { if (!S.activo) return; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; escuchar("turno"); });
-    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; $("as-activar").hidden = true; if (window.speechSynthesis) speechSynthesis.cancel(); detenerEscucha(); atender(t); });
+    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; if (window.speechSynthesis) speechSynthesis.cancel(); detenerEscucha(); atender(t); });
     $("as-full").addEventListener("click", function () { var d = document.documentElement; (d.requestFullscreen ? d.requestFullscreen() : Promise.resolve()).catch(function () {}); });
 
-    cargarDatos().catch(function () {});
+    cargarDatos().catch(function () {}).then(function () { setTimeout(arrancar, 300); });
     setInterval(function () { if (!document.hidden) cargarDatos().catch(function () {}); }, DATOS_MS);
     $("as-dice").textContent = "Diga «Capital» para hablar conmigo.";
 })();
