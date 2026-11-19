@@ -121,3 +121,9 @@ exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, max
 });
 
 exports._internos = { loginERP, permisosERP, ingresar };
+
+/* Redes sociales: respuestas automáticas a comentarios (redes.js). */
+const redes = require("./redes");
+exports.metaWebhook = redes.metaWebhook;
+exports.rsNuevoComentario = redes.rsNuevoComentario;
+exports.rsComentarioCambio = redes.rsComentarioCambio;

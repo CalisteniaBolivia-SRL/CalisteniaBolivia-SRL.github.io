@@ -1,0 +1,18 @@
+/* Redes sociales: se apoya en legal.css (misma identidad) y agrega las tarjetas de comentarios. */
+.rs-barra { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; }
+.rs-barra .lg-muted { flex: 1 1 320px; }
+.rs-lista { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.rs-card, .rs-form { background: var(--color-panel); border: 1px solid var(--color-border-line); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rs-card.is-delicado { border-left: 3px solid var(--color-bad); }
+.rs-cab { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.rs-fecha { margin-left: auto; }
+.rs-pub { margin: 0; font-size: .85em; color: var(--color-fg-muted); overflow-wrap: anywhere; }
+.rs-com { margin: 0; padding: 8px 12px; border-left: 3px solid #5B6068; background: var(--color-bg); overflow-wrap: anywhere; line-height: 1.45; }
+.rs-nota { font-style: italic; }
+.rs-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.rs-fila { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.rs-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.rs-form textarea { min-height: 3em; }
+.rs .rs-check { flex-direction: row; align-items: center; gap: 8px; text-transform: none; letter-spacing: normal; font-weight: 400; font-size: .9em; color: var(--color-fg); }
+.rs-check input { width: 18px; height: 18px; accent-color: var(--lg-red); }
+.rs-vacio { padding: 24px 0; }

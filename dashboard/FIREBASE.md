@@ -38,3 +38,22 @@ Requiere el **plan Blaze** de Firebase (las Cloud Functions lo exigen para conec
 
 - **Comisiones:** se calculan cruzando los contactos registrados por cada ATC con las ventas de `listar_ventas` (MCP).
 - **Clientes antiguos:** `clientes_vencidos` del MCP entrega hasta 180 días; el CRM toma los vencidos hace entre 1 y 6 meses.
+
+## Redes sociales (permiso `marketing`)
+
+Tablero **Redes sociales** (`redes.html`). Cada comentario nuevo en las páginas de Facebook y las cuentas de Instagram conectadas se responde solo, con humor y con los datos que Marketing carga en *Configuración* (por país: Bolivia y Paraguay). Las críticas se responden con calma y se llevan a privado o al WhatsApp. Los casos delicados (lesiones, cobros, denuncias, insultos) quedan en *Por aprobar*. TikTok no permite responder por API: se pega el comentario y se copia el borrador.
+
+Piezas (en `functions/`):
+- `metaWebhook`: recibe los avisos de Meta (firma verificada con el secreto de la app).
+- `rsNuevoComentario` / `rsComentarioCambio`: redactan la respuesta con Claude (`redes-ia.js`, modelo `claude-opus-5-5`) y la publican, o la dejan por aprobar.
+- Freno: máximo de respuestas automáticas por hora y cuenta (60 por defecto, se cambia en Configuración).
+
+Instalación (una sola vez, con el plan Blaze activo):
+1. Secretos de Firebase (se cargan en la consola o con `firebase functions:secrets:set`, nunca en el código ni en el chat):
+   - `ANTHROPIC_API_KEY`: clave de la API de Claude (console.anthropic.com).
+   - `META_APP_SECRET`: secreto de la app de Meta.
+   - `META_VERIFY_TOKEN`: una palabra larga inventada, la misma que se pone en Meta al configurar el webhook.
+2. Publicar las funciones `metaWebhook`, `rsNuevoComentario` y `rsComentarioCambio` (región `southamerica-east1`) y las reglas.
+3. En developers.facebook.com: crear una app de tipo empresa, agregar **Webhooks** (objetos *Page* → campo `feed` e *Instagram* → campo `comments`) con la URL de `metaWebhook` y el `META_VERIFY_TOKEN`. Permisos: `pages_manage_engagement`, `pages_read_user_content`, `pages_read_engagement`, `pages_manage_metadata`, `instagram_basic`, `instagram_manage_comments`. Para usarla con el público, Meta pide la revisión de la app.
+4. Suscribir cada página a la app y sacar su token de página de larga duración. En el tablero → Configuración → *Agregar cuenta*: el id de la página (Facebook) o de la cuenta profesional de Instagram, su país y el token.
+5. Cargar en Configuración los datos de cada país (precios, sucursales, horarios, promociones, WhatsApp) y activar las respuestas automáticas.
