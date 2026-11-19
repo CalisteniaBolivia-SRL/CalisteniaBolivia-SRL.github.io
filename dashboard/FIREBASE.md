@@ -64,3 +64,12 @@ Instalación (una sola vez, con el plan Blaze activo):
 - **Logo:** sube el logo de Capital Corp en blanco sobre fondo transparente como `images/capital-corp-logo.png` y reemplaza el nombre escrito en todas las pantallas.
 - **Paraguay:** los permisos se leen en el ERP de Calistenia Paraguay (`/centro_mando` y `/accionistas`). Ingresos en vivo usa el ERP de Paraguay; Legal y Redes sociales usan los mismos permisos de datos que Bolivia, separados por país. Las sucursales de Paraguay para Legal se cargan en `config/sucursales_paraguay` (campo `lista`).
 - **Asistente «Capital Corp»** (`asistente.html`, pantalla 5 del muro): escucha la palabra «Capital», saluda, pregunta con quién habla y dice lo que hay que atender. Sin publicar la función `asistente` trabaja en modo básico (resumen y respuestas simples); con la función y el secreto `ANTHROPIC_API_KEY` conversa con IA (Claude). Necesita Chrome para la voz.
+
+### Asistente sin tocar nada (equipo del muro)
+
+El asistente arranca solo: saluda y queda escuchando. Lo único que el navegador frena por su cuenta es el sonido y el micrófono la primera vez en un equipo nuevo. En el equipo de la pantalla central se configura una vez:
+1. Descargar y ejecutar como administrador `dashboard/kiosco/permitir-sitio-chrome.reg`: Chrome deja al sitio usar micrófono y sonido sin preguntar (solo a este sitio).
+2. Poner `dashboard/kiosco/muro-capital-corp.bat` en el Inicio de Windows (Win+R → `shell:startup`): al encender, abre el asistente a pantalla completa, con sonido y micrófono.
+3. La primera vez, ingresar al centro de mando con el usuario del muro dentro de esa ventana; la sesión queda guardada.
+
+En cualquier otro equipo, si el navegador bloquea el sonido, aparece un aviso arriba y basta tocar la pantalla una vez.

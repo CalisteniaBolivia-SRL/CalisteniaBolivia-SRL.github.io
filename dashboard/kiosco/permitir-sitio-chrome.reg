@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+; Permite al sitio del centro de mando usar el microfono y reproducir sonido sin preguntar.
+; Vale solo para https://calisteniabolivia-srl.github.io en este equipo (politicas de Google Chrome).
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\AudioCaptureAllowedUrls]
+"1"="https://calisteniabolivia-srl.github.io"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\AutoplayAllowlist]
+"1"="https://calisteniabolivia-srl.github.io"
