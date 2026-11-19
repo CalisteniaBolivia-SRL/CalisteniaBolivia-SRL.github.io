@@ -268,11 +268,25 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   var sesion = leer(K_SESION);
   if (sesion && !(sesion.vence > Date.now() && sesion.key)) { sesion = null; guardar(K_SESION, null); }
 
+  /* Un solo ingreso: quien ya entró al centro de mando con su usuario del ERP no vuelve a poner la contraseña.
+     Pasa directo si tiene en el ERP de Calistenia Paraguay el permiso de /accionistas o Dirección en /centro_mando,
+     o Dirección en /centro_mando de Calistenia Bolivia. Los demás ven el formulario de siempre. */
+  var desdePortal = false;
+  (function () {
+    var cm = leer("cb_centro_mando");
+    if (!cm || !(cm.vence > Date.now()) || !cm.key_usuario) return;
+    var py = cm.tableros_py || [], bo = cm.tableros || [];
+    if (py.indexOf("accionistas") < 0 && py.indexOf("direccion") < 0 && bo.indexOf("direccion") < 0) return;
+    desdePortal = true;
+    if (!sesion || sesion.key !== cm.key_usuario) sesion = { nombre: cm.nombre || cm.usuario, usuario: cm.usuario, key: cm.key_usuario, vence: cm.vence, portal: true };
+  })();
+
   function mostrarUsuario() {
     $("usuario-barra").hidden = !sesion;
     $("hola").textContent = sesion ? "Hola, " + sesion.nombre : "";
   }
   function salir() {
+    if (desdePortal) { detener(); ERP.cerrar(); location.href = "../dashboard/"; return; }
     detener();
     guardar(K_SESION, null); guardar(K_CACHE, null);
     sesion = null; ventas = {}; modelos = null;
@@ -602,6 +616,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 
   /* ================= Inicio ================= */
   mostrarUsuario();
+  if (desdePortal) $("salir").textContent = "← Centro de mando";
   if (sesion) arrancar(); else { vista("v-login"); }
 })();
 </script>
