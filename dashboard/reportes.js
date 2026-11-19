@@ -179,6 +179,18 @@
             return r;
         });
     }
+    /* Junta todas las páginas de una herramienta del MCP (filas + siguiente_offset), hasta "max" filas. */
+    function todas(tool, args, max) {
+        var acc = [], tope = max || 5000;
+        function pagina(offset) {
+            return llamar(tool, Object.assign({}, args, { limite: 200, offset: offset })).then(function (r) {
+                acc = acc.concat(filas(r));
+                var sig = r && r.siguiente_offset;
+                return sig != null && acc.length < tope ? pagina(sig) : { filas: acc, cortado: sig != null };
+            });
+        }
+        return pagina(0);
+    }
     /* Junta páginas de listar_ventas (filas + siguiente_offset), hasta 3.000 filas. */
     function todasLasVentas(args) {
         var acc = [];
@@ -196,7 +208,7 @@
     var REPORTES = {
         traspasos: {
             titulo: "Traspasos de mensualidad",
-            cargar: function (a) { return llamar(TOOLS.traspasos, a).then(function (r) { return { filas: filas(r) }; }); },
+            cargar: function (a) { return todas(TOOLS.traspasos, a); },
             kpis: function (l) {
                 var de = {}, a = {};
                 l.forEach(function (r) { de[r.key_usuario_anterior] = 1; a[r.key_usuario_nuevo] = 1; });
@@ -216,7 +228,7 @@
         },
         eliminados: {
             titulo: "Paquetes eliminados",
-            cargar: function (a) { return llamar(TOOLS.eliminados, a).then(function (r) { return { filas: filas(r) }; }); },
+            cargar: function (a) { return todas(TOOLS.eliminados, a); },
             kpis: function (l) {
                 var anuladas = l.filter(function (r) { return r.origen !== "paquete_quitado"; });
                 return [["Ventas anuladas", anuladas.length], ["Monto anulado", bs(anuladas.reduce(function (s, r) { return s + num(r.monto); }, 0))],
@@ -238,7 +250,7 @@
         fechas: {
             titulo: "Modificaciones de fecha",
             cargar: function (a) {
-                return llamar(TOOLS.fechas, a).then(function (r) { return { filas: filas(r) }; }).catch(function (e) {
+                return todas(TOOLS.fechas, a).catch(function (e) {
                     if (!esNoDisponible(e)) throw e;
                     /* listar_prorrogas admite hasta 200 filas por página: se juntan hasta 2.000. */
                     var acc = [];
@@ -282,7 +294,11 @@
         convenios: {
             titulo: "Convenios de empresa y recargas",
             cargar: function (a) {
-                return llamar(TOOLS.convenios, a).then(function (r) { return { filas: filas(r) }; }).catch(function (e) {
+                return todas(TOOLS.convenios, a).then(function (res) {
+                    /* El MCP llama "recarga" al número de compra de convenio del cliente y "empresa" a la empresa. */
+                    res.filas = res.filas.map(function (r) { return Object.assign({}, r, { numero_recarga: r.numero_recarga != null ? r.numero_recarga : r.recarga, empresa_paquete: r.empresa_paquete || r.empresa }); });
+                    return res;
+                }).catch(function (e) {
                     if (!esNoDisponible(e)) throw e;
                     return todasLasVentas(a).then(function (v) {
                         return {
@@ -316,8 +332,8 @@
             titulo: "Cumpleañeros del mes",
             porMes: true,
             cargar: function () {
-                return llamar(TOOLS.cumpleanos, { mes: estado.mesCumple }).then(function (r) {
-                    return { filas: cumpleanerosDelMes(filas(r), estado.mesCumple, iso(new Date())) };
+                return todas(TOOLS.cumpleanos, { mes: estado.mesCumple }, 6000).then(function (r) {
+                    return { filas: cumpleanerosDelMes(r.filas, estado.mesCumple, iso(new Date())), cortado: r.cortado };
                 });
             },
             kpis: function (l) {
@@ -415,7 +431,7 @@
         var lista = d.filas;
         var resumen = estado.tab === "convenios" ? resumenConvenios(lista) : null;
         if (d.parcial) cont.appendChild(el("div", { class: "rp-aviso is-warn" }, [el("p", { text: d.parcial })]));
-        if (d.cortado) cont.appendChild(el("div", { class: "rp-aviso is-warn" }, [el("p", { text: "Hay más de 3.000 ventas en el período: acorta las fechas para verlas todas." })]));
+        if (d.cortado) cont.appendChild(el("div", { class: "rp-aviso is-warn" }, [el("p", { text: "Hay más registros de los que se pueden mostrar de una vez: acorta las fechas para verlos todos." })]));
         cont.appendChild(el("div", { class: "rp-kpis" }, R.kpis(lista, resumen).map(function (k) {
             return el("article", { class: "rp-kpi" }, [el("h3", { text: k[0] }), el("p", { text: typeof k[1] === "number" ? k[1].toLocaleString("es-BO") : k[1] })]);
         })));
