@@ -131,8 +131,9 @@
             var u = new SpeechSynthesisUtterance(texto);
             if (voz) { u.voice = voz; u.lang = voz.lang; } else u.lang = "es-419";
             u.rate = 0.98; u.pitch = 0.88;
-            S.hablando = true; detenerEscucha(); estado("hablando");
-            var listo = false, empezo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; estado("espera"); fin(); };
+            S.hablando = true; S.interrumpido = false; detenerEscucha(); estado("hablando");
+            vigilarInterrupcion(texto);
+            var listo = false, empezo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; if (!S.interrumpido) { pararInterrupcion(); estado("espera"); } fin(); };
             u.onstart = function () { empezo = true; S.vozBloqueada = false; avisar(""); };
             u.onend = cerrar;
             u.onerror = function (e) { if (e && e.error === "not-allowed") bloqueada(texto); cerrar(); };
@@ -162,6 +163,52 @@
 
     /* ---------- escucha ---------- */
     var Rec = window.SpeechRecognition || window.webkitSpeechRecognition, rec = null;
+    /* ---------- se calla si le hablan ----------
+       Mientras habla, el micrófono sigue atento. Si la persona habla (algo que no sea el eco de su propia voz por los
+       parlantes) o dice «silencio», «basta», «espere»…, se calla al instante, escucha lo que le dicen y responde a eso. */
+    var recInt = null;
+    var CALLAR = /^(silencio|basta|para|pare|parale|callate|calla|cállate|espera|espere|alto|stop|un|momento|ya|ok|okay|gracias|capital|corp)$/;
+    function palabras(x) { return String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ\s]/g, " ").split(/\s+/).filter(Boolean); }
+    function esEco(oido, dicho) {
+        var p = palabras(oido); if (!p.length) return true;
+        var dic = {}; palabras(dicho).forEach(function (w) { dic[w] = 1; });
+        return p.filter(function (w) { return dic[w]; }).length / p.length >= 0.6;
+    }
+    function callar() { S.interrumpido = true; S.ultimo = Date.now(); if (window.speechSynthesis) speechSynthesis.cancel(); estado("escuchando"); }
+    function pararInterrupcion() { if (recInt) { var r = recInt; recInt = null; try { r.onend = null; r.abort(); } catch (e) {} } }
+    function vigilarInterrupcion(dicho) {
+        if (!Rec || S.sinMic) return;
+        pararInterrupcion();
+        var r = new Rec(), cortado = false, ultimo = "";
+        r.lang = "es-BO"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
+        r.onresult = function (ev) {
+            var t = "", final = false;
+            for (var i = ev.resultIndex; i < ev.results.length; i++) { t += ev.results[i][0].transcript; if (ev.results[i].isFinal) final = true; }
+            t = t.trim(); if (!t) return;
+            if (!cortado) {
+                var ps = palabras(t), orden = ps.some(function (w) { return /^(silencio|basta|callate|calla|espera|espere|alto|stop)$/.test(w); });
+                if (esEco(t, dicho) && !(orden && ps.length <= 3)) return;   // es su propia voz por los parlantes
+                if (!orden && ps.length < 2) return;                         // un ruido suelto no lo interrumpe
+                cortado = true; callar();
+            }
+            ultimo = t; $("as-oye").textContent = "«" + t + "»";
+            if (final) {
+                pararInterrupcion(); S.interrumpido = false;
+                if (palabras(t).every(function (w) { return CALLAR.test(w); })) { estado("espera"); escuchar("turno"); }   // solo le pidieron silencio
+                else atender(t);
+            }
+        };
+        r.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") S.sinMic = true; };
+        r.onend = function () {
+            if (recInt !== r) return;
+            recInt = null;
+            if (cortado) { S.interrumpido = false; if (ultimo && !palabras(ultimo).every(function (w) { return CALLAR.test(w); })) atender(ultimo); else escuchar("turno"); }
+            else if (S.hablando) vigilarInterrupcion(dicho);
+        };
+        recInt = r;
+        try { r.start(); } catch (e) {}
+    }
+
     function detenerEscucha() { if (rec) { try { rec.onend = null; rec.abort(); } catch (e) {} rec = null; } S.escuchando = false; $("as-mic").classList.remove("is-on"); }
     /* modo "vigilia": espera la palabra «Capital»; modo "turno": toma una frase completa como pregunta. */
     function escuchar(modo) {
@@ -229,6 +276,7 @@
     }
     /* t = null: alguien se acercó (dijo «Capital» o tocó Hablar sin decir nada). */
     function atender(t) {
+        var mio = S.turno = (S.turno || 0) + 1;   // si llega otra pregunta en el medio, esta respuesta ya no sigue escuchando
         S.ultimo = Date.now();
         if (t) { S.historial.push({ rol: "usuario", texto: t }); var nom = nombreDe(t); if (nom) S.quien = nom; }
         S.pensando = true; estado("pensando");
@@ -245,9 +293,10 @@
         });
         return p.then(function (resp) {
             S.pensando = false;
+            if (mio !== S.turno) return;   // mientras pensaba le hicieron otra pregunta
             S.historial.push({ rol: "asistente", texto: resp });
             return decir(resp);
-        }).then(function () { $("as-oye").textContent = ""; escuchar("turno"); });
+        }).then(function () { if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
     }
 
     /* Reposo: sin conversación por 3 minutos, se olvida con quién hablaba (puede acercarse otra persona). */
@@ -279,8 +328,10 @@
     var saludado = false;
     function arrancar() { if (saludado) return; saludado = true; atender(null); }
     setTimeout(arrancar, 4000);
-    $("as-mic").addEventListener("click", function () { if (!S.activo) return; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; escuchar("turno"); });
-    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; if (window.speechSynthesis) speechSynthesis.cancel(); detenerEscucha(); atender(t); });
+    $("as-mic").addEventListener("click", function () { if (!S.activo) return; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
+    /* Tocar la pantalla mientras habla también lo hace callar y escuchar. */
+    document.querySelector(".as-voz").addEventListener("click", function () { if (!S.hablando) return; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
+    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.interrumpido = false; detenerEscucha(); atender(t); });
     $("as-full").addEventListener("click", function () { var d = document.documentElement; (d.requestFullscreen ? d.requestFullscreen() : Promise.resolve()).catch(function () {}); });
 
     cargarDatos().catch(function () {}).then(function () { setTimeout(arrancar, 300); });
