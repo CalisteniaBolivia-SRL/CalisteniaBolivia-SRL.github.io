@@ -1,4 +1,4 @@
-/* Plan de hoy de la Jefa de Atención al Cliente.
+/* Plan de hoy de el Jefe de ATC.
    - Propone grupos de clientes para recuperar o cuidar (vencen pronto, vencidos por rango de fechas,
      pases diarios, en riesgo, pagaron y no vinieron, cumpleañeros sin plan), cada uno con su promoción
      y su mensaje de WhatsApp.
@@ -433,7 +433,7 @@
         return t;
     }
 
-    /* ---------- asignar listas a las ATC (necesita el rol de Jefa de Atención al Cliente) ---------- */
+    /* ---------- asignar listas a las ATC (necesita el rol de Jefe de ATC) ---------- */
     function activa(e) { return Number(e.estado == null ? 1 : e.estado) > 0; }
     function equipoDe(suc) {
         var act = ((P.ctx && P.ctx.equipo) || []).filter(activa), k = norm(suc);
@@ -533,7 +533,7 @@
             P.prefs.max = Math.max(0, Math.min(500, parseInt(e.target.value, 10) || 0)); guardarPrefs(); pintar();
         } });
         var partes = [];
-        if (!P.ctx) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Solo descarga en Excel" }), el("p", { text: "Para asignar las listas dentro del sistema, sal del centro de mando y vuelve a ingresar con el usuario de ATC Central del ERP (permiso «atencion»). Mientras tanto puedes descargarlas en Excel." })]));
+        if (!P.ctx) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Solo descarga en Excel" }), el("p", { text: "Para asignar las listas dentro del sistema, sal del centro de mando y vuelve a ingresar con el usuario de Jefe de ATC del ERP (permiso «atencion»). Mientras tanto puedes descargarlas en Excel." })]));
         else if (!conEquipo) partes.push(el("div", { class: "co-aviso is-warn" }, [el("strong", { text: "Primero agrega a las ATC" }),
             el("p", { text: "Todavía no hay ATC en tu equipo. Cada ATC aparece en la pestaña Equipo la primera vez que entra al centro de mando con su usuario del ERP (permiso «atc» en /centro_mando); ahí le asignas su sucursal y después aparece aquí para darle su lista." }),
             el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Ir a Equipo", onclick: function () { P.ctx.irA("equipo"); } })]));
@@ -630,7 +630,7 @@
     }
 
     window.ATC_plan = {
-        /* ctx (opcional, solo con el rol de Jefa): { equipo, asignaciones, ultimas, llamar(tool, args), recargar(), irA(pestaña) } */
+        /* ctx (opcional, solo con el rol de Jefe de ATC): { equipo, asignaciones, ultimas, llamar(tool, args), recargar(), irA(pestaña) } */
         montar: function (cont, ctx) {
             P.cont = cont; P.ctx = ctx || null;
             if (!P.cargado && !P.cargando) cargar(); else pintar();

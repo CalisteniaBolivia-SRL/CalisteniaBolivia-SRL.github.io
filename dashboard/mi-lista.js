@@ -1,6 +1,6 @@
-/* «Mi lista» de cada ATC: los clientes que le asignó la Jefa de Atención al Cliente en el Plan de hoy.
+/* «Mi lista» de cada ATC: los clientes que le asignó el Jefe de ATC en el Plan de hoy.
    Por cliente: llamar, abrir WhatsApp con el mensaje ya escrito y anotar cómo le fue (queda en el CRM:
-   seguimientos, avance que ve ATC Central y comisión). Se monta desde comercial.js:
+   seguimientos, avance que ve Jefe de ATC y comisión). Se monta desde comercial.js:
    window.ATC_milista.montar(contenedor, { yo, asignaciones, ultimas, llamar(tool, args), avisar(texto, tono) }). */
 (function () {
     "use strict";
@@ -117,9 +117,9 @@
                 el("p", { class: "co-muted", text: todos.length ? "Clientes que te asignó Atención al Cliente" + (todos[0] && todos[0].sucursal ? " para " + todos[0].sucursal : "") + ". Empieza por arriba: ya están ordenados por prioridad." : "" })]),
             todos.length ? el("div", { class: "ml-prog" }, [el("span", {}, [el("b", { text: contactados + " de " + todos.length }), " contactados · " + vuelven + " vuelven"]), el("span", { class: "co-meta" }, [el("span", { style: "width:" + pct + "%" })])]) : null
         ]));
-        if (notaJefa) cont.appendChild(el("div", { class: "co-aviso ml-nota" }, [el("strong", { text: "Mensaje de Atención al Cliente" }), el("p", { text: notaJefa })]));
+        if (notaJefa) cont.appendChild(el("div", { class: "co-aviso ml-nota" }, [el("strong", { text: "Mensaje del Jefe de ATC" }), el("p", { text: notaJefa })]));
         if (!todos.length) {
-            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "⚠ No tienes lista para hoy." }), " Avísale ya a ATC Central (Eliana): cada cliente que vuelve son Bs 5 para ti. La lista aparece aquí apenas te la asignen."]));
+            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "⚠ No tienes lista para hoy." }), " Avísale ya a Jefe de ATC (Eliana): cada cliente que vuelve son Bs 5 para ti. La lista aparece aquí apenas te la asignen."]));
             return;
         }
         cont.appendChild(el("ol", { class: "ml-como" }, [
@@ -129,9 +129,9 @@
         ]));
         /* Lista por terminarse o de otro día: aviso urgente para pedir más (la idea es que nunca quede vacía). */
         var vieja = todos.some(function (c) { return c.lote; }) && todos.map(function (c) { return String(c.lote || ""); }).sort().pop().slice(0, 10) < new Date().toISOString().slice(0, 10);
-        if (!cuenta.pendiente && !cuenta.seguir) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes a ATC Central ahora mismo: mientras más contactos, más comisión."]));
-        else if (cuenta.pendiente + cuenta.seguir < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + (cuenta.pendiente + cuenta.seguir) + " clientes." }), " Avísale a ATC Central para que te cargue más."]));
-        else if (vieja) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Esta lista no es de hoy." }), " Termínala y pide la de hoy a ATC Central."]));
+        if (!cuenta.pendiente && !cuenta.seguir) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes a Jefe de ATC ahora mismo: mientras más contactos, más comisión."]));
+        else if (cuenta.pendiente + cuenta.seguir < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + (cuenta.pendiente + cuenta.seguir) + " clientes." }), " Avísale a Jefe de ATC para que te cargue más."]));
+        else if (vieja) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Esta lista no es de hoy." }), " Termínala y pide la de hoy a Jefe de ATC."]));
         var FILTROS = [["pendientes", "Por contactar (" + cuenta.pendiente + ")"], ["seguir", "Volver a intentar hoy (" + cuenta.seguir + ")"], ["espera", "Más adelante (" + cuenta.espera + ")"], ["hecho", "Terminados (" + cuenta.hecho + ")"]];
         if (M.filtro === "pendientes" && !cuenta.pendiente && cuenta.seguir) M.filtro = "seguir";
         cont.appendChild(el("div", { class: "co-tabs ml-filtros", role: "tablist" }, FILTROS.map(function (f) {
