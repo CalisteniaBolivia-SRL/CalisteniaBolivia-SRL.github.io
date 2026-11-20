@@ -69,6 +69,14 @@ service cloud.firestore {
       allow read: if veComercial();
       allow write: if central();
     }
+    // Comisiones confirmadas con las ventas del ERP (las escribe el tablero del Jefe de ATC o Administración).
+    // Cada ATC lee solo las suyas.
+    match /com_comision_conf/{id} {
+      allow read: if central() || permiso('administracion') || permiso('direccion')
+        || (esATC() && resource.data.key_ejecutiva == yo());
+      allow create, update: if central() || permiso('administracion');
+      allow delete: if false;
+    }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
       allow write: if central();

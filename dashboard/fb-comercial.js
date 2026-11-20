@@ -125,7 +125,39 @@
                     key_ejecutiva: g.key_ejecutiva, ejecutiva: nom[g.key_ejecutiva] || g.key_ejecutiva, fecha_contacto: g.fecha_on, canal: g.canal, resultado: g.resultado,
                     anulada: !!an, motivo_anulacion: an ? an.motivo : null, comision: an ? 0 : COMISION_BS });
             });
-            return out.sort(function (x, y) { return String(y.fecha_venta).localeCompare(String(x.fecha_venta)); });
+            out.sort(function (x, y) { return String(y.fecha_venta).localeCompare(String(x.fecha_venta)); });
+            if (!keyEj) sincronizar(out, desde);
+            return out;
+        });
+    }
+    /* ---------- Comisiones confirmadas, guardadas para que cada ATC las vea sin conexión al ERP ----------
+       Quien tiene las ventas del ERP (Jefe de ATC o Administración) deja confirmadas en com_comision_conf las
+       comisiones que calculó; cada ATC lee solo las suyas desde ahí (aviso «¡Se cerró!» y «Confirmadas»). */
+    var CAMPOS_CONF = ["fecha_venta", "key_cliente", "cliente", "paquete", "sucursal", "monto", "key_ejecutiva", "ejecutiva", "fecha_contacto", "canal", "anulada", "motivo_anulacion", "comision"];
+    function idConf(k) { return String(k).replace(/\//g, "-").slice(0, 300); }
+    function sincronizar(lista, desde) {
+        if (!lista.length || !(CMFB.tieneRol("jefe_atc") || CMFB.tieneRol("administracion"))) return;
+        U.docs(col("com_comision_conf").where("fecha_venta", ">=", String(desde).slice(0, 10))).then(function (ya) {
+            var previo = {}; ya.forEach(function (d) { previo[d.key] = d; });
+            var cambios = lista.filter(function (c) {
+                var p = previo[idConf(c.key_paquete_venta_usuario)];
+                return !p || p.anulada !== c.anulada || p.comision !== c.comision || p.key_ejecutiva !== c.key_ejecutiva;
+            });
+            for (var i = 0; i < cambios.length; i += 400) {
+                var lote = U.db().batch();
+                cambios.slice(i, i + 400).forEach(function (c) {
+                    var d = { key_paquete_venta_usuario: String(c.key_paquete_venta_usuario), fecha_confirmacion: U.ahora(), key_usuario_registro: CMFB.usuarioKey() };
+                    CAMPOS_CONF.forEach(function (k) { d[k] = c[k] == null ? null : c[k]; });
+                    lote.set(col("com_comision_conf").doc(idConf(c.key_paquete_venta_usuario)), d);
+                });
+                lote.commit().catch(function () {});
+            }
+        }).catch(function () {});
+    }
+    function comisionesConfirmadas(keyEj, desde, hasta) {
+        return U.docs(col("com_comision_conf").where("key_ejecutiva", "==", keyEj)).then(function (l) {
+            return l.filter(function (c) { var f = String(c.fecha_venta || "").slice(0, 10); return f >= desde && f <= hasta; })
+                .sort(function (x, y) { return String(y.fecha_venta).localeCompare(String(x.fecha_venta)); });
         });
     }
 
@@ -173,20 +205,13 @@
     CMFB.registrar("comercial_mi_trabajo", function (a) {
         var r = rango(a);
         return yo().then(function (e) {
-            /* Las comisiones necesitan las ventas del MCP; si la ATC no tiene sesión de Calistenia, su lista igual carga. */
-            /* Se calculan las del equipo para saber el puesto de la ATC (su incentivo); a ella solo se le muestran las suyas. */
-            var com = comisiones(r.desde, r.hasta).catch(function () { return null; });
+            /* Las comisiones de la ATC salen de las confirmadas (las deja el tablero del Jefe de ATC con las ventas
+               del ERP): la ATC no necesita conexión con Calistenia. */
+            var com = comisionesConfirmadas(e.key, r.desde, r.hasta).catch(function () { return null; });
             return Promise.all([equipo(), asignaciones(), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), com]).then(function (x) {
                 var nom = nombresEquipo(x[0]), todas = x[5];
                 var mias = todas ? todas.filter(function (c) { return c.key_ejecutiva === e.key; }) : null;
-                var ranking = null;
-                if (todas) {
-                    var suma = {}; x[0].forEach(function (q) { if (Number(q.estado == null ? 1 : q.estado) > 0) suma[q.key] = 0; });
-                    todas.forEach(function (c) { if (!c.anulada) suma[c.key_ejecutiva] = (suma[c.key_ejecutiva] || 0) + (Number(c.comision) || 0); });
-                    var orden = Object.keys(suma).sort(function (p, q) { return suma[q] - suma[p]; });
-                    var h = hoy(), deHoy = mias.filter(function (c) { return !c.anulada && String(c.fecha_venta).slice(0, 10) === h; });
-                    ranking = { puesto: orden.indexOf(e.key) + 1, de: orden.length, lider: suma[orden[0]] || 0, ventas_hoy: deHoy.length, comision_hoy: deHoy.length * COMISION_BS };
-                }
+                var ranking = null;   // el puesto en el equipo ya no se muestra a la ATC
                 x[5] = mias;
                 return { data: { ejecutiva: e, ranking: ranking, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key || !a.lote; }), ultimas_gestiones: ultimas(x[2], nom),
                     tareas: x[3].map(function (t) { return Object.assign({}, t, { ejecutiva: t.key_ejecutiva ? nom[t.key_ejecutiva] : null }); }),
