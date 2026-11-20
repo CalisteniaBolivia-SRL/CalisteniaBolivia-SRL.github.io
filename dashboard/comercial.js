@@ -312,7 +312,7 @@
         var total = nuevas.reduce(function (a, c) { return a + num(c.comision); }, 0);
         var quien = nuevas.map(function (c) { return String(c.cliente || "Un cliente").split(" ").slice(0, 2).join(" "); });
         var t = el("div", { class: "co-festejo", role: "status", "aria-live": "assertive" }, [
-            el("span", { class: "co-festejo-ico", text: "🎉" }),
+            el("span", { class: "co-festejo-ico" }, [window.CMI ? window.CMI("checkCirculo") : null]),
             el("div", {}, [el("b", { text: "¡Se cerró! +" + bs(total) }), el("p", { text: (quien.length === 1 ? quien[0] + " compró." : quien.length + " clientes compraron.") + " Ya suma a tu comisión." })])
         ]);
         document.body.appendChild(t);
@@ -343,7 +343,7 @@
         var datosInc = [
             [String(tot.ventas), tot.ventas === 1 ? "cliente volvió" : "clientes volvieron"],
             [rk ? bs(rk.comision_hoy) : "—", "hoy" + (rk && rk.ventas_hoy ? " (" + rk.ventas_hoy + ")" : "")],
-            meta ? [Math.round(tot.ventas / meta * 100) + "%", "de tu meta (" + meta + ")" + (tot.ventas < meta ? " · faltan " + (meta - tot.ventas) : " ✔")] : null,
+            meta ? [Math.round(tot.ventas / meta * 100) + "%", "de tu meta (" + meta + ")" + (tot.ventas < meta ? " · faltan " + (meta - tot.ventas) : " · cumplida")] : null,
             rk && rk.puesto ? ["#" + rk.puesto, "de " + rk.de + " en el equipo"] : null
         ].filter(Boolean);
         caja.appendChild(el("div", { class: "co-inc-datos" }, datosInc.map(function (d) { return el("div", {}, [el("b", { text: d[0] }), el("span", { text: d[1] })]); })));
@@ -375,7 +375,7 @@
         var listas = estadoListas().filter(function (x) { return x.problema; });
         if (listas.length) {
             caja.appendChild(el("div", { class: "co-urgente", role: "alert" }, [
-                el("b", { text: "⚠ " + listas.length + (listas.length === 1 ? " ATC necesita" : " ATC necesitan") + " lista hoy: " }),
+                window.CMI ? window.CMI("alerta") : null, el("b", { text: listas.length + (listas.length === 1 ? " ATC necesita" : " ATC necesitan") + " lista hoy: " }),
                 listas.slice(0, 8).map(function (x) { return String(x.e.nombre).split(" ")[0] + " (" + x.problema + ")"; }).join(" · ") + (listas.length > 8 ? " y " + (listas.length - 8) + " más" : "") + ". ",
                 window.ATC_plan && S.tab !== TAB_PLAN[0] ? el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Cargar listas ahora", onclick: function () { S.tab = TAB_PLAN[0]; try { history.replaceState(null, "", "#" + S.tab); } catch (e) {} pintar(); } }) : null
             ]));
@@ -677,7 +677,7 @@
                     ["Vendidos a la lista", String(camps.reduce(function (a, x) { return a + x.vendidas; }, 0)), "ventas del paquete exclusivo", "ok"],
                     ["Ventas fuera de la lista", String(al.length), al.length ? "revisar con la sucursal y el cajero" : "todo en orden", al.length ? "bad" : "ok"]
                 ]));
-                if (al.length) caja.appendChild(el("div", { class: "co-card co-alerta-caja" }, [el("h3", { class: "co-h3", text: "⚠ Paquete exclusivo vendido a personas fuera de la lista" }), tabla([
+                if (al.length) caja.appendChild(el("div", { class: "co-card co-alerta-caja" }, [el("h3", { class: "co-h3 co-h3-ico" }, [window.CMI ? window.CMI("alerta") : null, "Paquete exclusivo vendido a personas fuera de la lista"]), tabla([
                     { t: "Fecha", v: function (f) { return fecha(f.fecha) + " " + String(f.fecha).slice(11, 16); } }, { t: "Paquete", v: function (f) { return f.paquete; } },
                     { t: "Cliente", v: function (f) { return f.cliente || "—"; } }, { t: "Sucursal", v: function (f) { return f.sucursal; } },
                     { t: "Cajero", v: function (f) { return f.cajero || "—"; } }, { t: "Monto", num: 1, v: function (f) { return bs(f.monto); } }
