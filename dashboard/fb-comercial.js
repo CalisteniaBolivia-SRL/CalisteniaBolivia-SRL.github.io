@@ -19,7 +19,7 @@
         }
         return c.p.then(function (l) { return Array.isArray(l) ? l.slice() : l; });
     }
-    var LECTURA = /^comercial_(equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
+    var LECTURA = /^comercial_(roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
     CMFB.registrar = function (nombre, fn) {
         window.CMFB.registrar(nombre, LECTURA.test(nombre) ? fn : function (a, n) {
             MEMO = {};
@@ -196,6 +196,18 @@
     });
 
     /* ---------- escritura: Atención al Cliente ---------- */
+    /* Planilla de ATC por sucursal (la carga el Jefe de ATC): con ella, cada ATC queda en su sucursal sola
+       la primera vez que entra. Se guarda en Firestore (no en el código, que es público). */
+    CMFB.registrar("comercial_roster", function () {
+        return col("com_config").doc("atc_sucursales").get().then(function (x) { return { filas: (x.exists && x.data().filas) || [] }; });
+    });
+    CMFB.registrar("comercial_roster_guardar", function (a) {
+        var filas = (Array.isArray(a.filas) ? a.filas : []).slice(0, 300).map(function (f) {
+            return { sucursal: String(f.sucursal || "").trim().slice(0, 120), nombre: String(f.nombre || "").trim().slice(0, 120) };
+        }).filter(function (f) { return f.sucursal && f.nombre; });
+        return col("com_config").doc("atc_sucursales").set({ filas: filas, fecha_edicion: U.ahora(), key_usuario_registro: CMFB.usuarioKey() })
+            .then(function () { return { estado: "exito", n: filas.length }; });
+    });
     CMFB.registrar("comercial_ejecutiva_guardar", function (a) {
         var d = a.data || {}, k = clave(d.key || d.key_usuario);
         if (!k) throw U.err("Falta el ATC.");
