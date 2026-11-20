@@ -137,6 +137,7 @@
                 c.estado === "espera" && g && g.proximo_seguimiento ? el("span", { class: "ml-dato", text: "Vuelve a aparecer el " + corta(g.proximo_seguimiento) }) : null,
                 !M.ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Cambiar", onclick: function () { M.abierto[c.key_cliente] = true; pintar(); } }) : null
             ]));
+            if (M.ctx.gestionar) cuerpo.push(barraJefe(c));
             return el("article", { class: "ml-cli is-hecho" }, cuerpo);
         }
         cuerpo.push(
@@ -155,7 +156,23 @@
                 return el("button", { type: "button", class: "ml-r" + (r.grande ? " is-compra" : "") + (r.ancho ? " is-ancho" : ""), disabled: guardando, onclick: function () { M.abierto[c.key_cliente] = false; registrar(c, r.id); } }, [ico(r.ico), el("span", { text: r.texto })]);
             }))
         ]));
+        if (M.ctx.gestionar) cuerpo.push(barraJefe(c));
         return el("article", { class: "ml-cli" + (c.intentos ? " is-repite" : "") }, cuerpo);
+    }
+
+    /* Solo para el Jefe de ATC en «Ver una lista»: quitar al cliente o pasarlo a otra chica. */
+    function barraJefe(c) {
+        var g = M.ctx.gestionar, otras = (g.equipo || []).filter(function (e) { return e.key !== M.ctx.yo.key; });
+        var sel = el("select", { class: "ml-pasar", "aria-label": "Pasar a otra ATC", onchange: function (e) {
+            var k = e.target.value; if (!k) return;
+            var quien = otras.filter(function (x) { return x.key === k; })[0];
+            if (!confirm("¿Pasar a " + c.cliente + " a la lista de " + quien.nombre + "?")) { e.target.value = ""; return; }
+            g.pasar(c, k);
+        } }, [el("option", { value: "", text: "Pasar a otra ATC…" })].concat(otras.map(function (e) { return el("option", { value: e.key, text: e.nombre + ((e.sucursales || []).length ? " · " + e.sucursales.join(", ") : "") }); })));
+        return el("div", { class: "ml-jefe" }, [
+            el("button", { type: "button", class: "ml-quitar", onclick: function () { if (confirm("¿Quitar a " + c.cliente + " de la lista de " + M.ctx.yo.nombre + "?")) g.quitar(c); } }, [ico("x"), "Quitar de la lista"]),
+            otras.length ? sel : null
+        ]);
     }
 
     function pintar() {

@@ -442,7 +442,35 @@
         return { yo: ej, asignaciones: S.asignaciones, ultimas: S.ultimas, gestiones: S.ultimas, guiones: S.guiones,
             tareas: soloVer ? [] : S.tareas.filter(function (t) { return !t.key_ejecutiva || t.key_ejecutiva === ej.key; }),
             comisiones: soloVer ? (S.comRecientes || []).filter(function (x) { return x.key_ejecutiva === ej.key && String(x.fecha_venta).slice(0, 7) === hoy().slice(0, 7); }) : S.comisiones,
-            llamar: llamar, avisar: avisar, soloVer: soloVer };
+            llamar: llamar, avisar: avisar, soloVer: soloVer, gestionar: soloVer ? gestionLista() : null };
+    }
+    /* Quitar o pasar clientes de una lista ya asignada (Jefe de ATC, en «Ver una lista»). */
+    function gestionLista() {
+        function sacarLocal(k) { S.asignaciones = S.asignaciones.filter(function (a) { return a.key_cliente !== k && a.key !== k; }); }
+        return {
+            equipo: S.equipo.filter(activa),
+            quitar: function (c) {
+                llamar("comercial_lista_quitar", { key_cliente: c.key_cliente }).then(function () { sacarLocal(c.key_cliente); avisar(c.cliente + " salió de la lista."); pintar(); },
+                    function (e) { avisar("No se pudo quitar: " + textoError(e), "bad"); });
+            },
+            pasar: function (c, k) {
+                var quien = (S.equipo.filter(function (e) { return e.key === k; })[0] || {}).nombre || "otra ATC";
+                llamar("comercial_lista_pasar", { key_cliente: c.key_cliente, key_ejecutiva: k }).then(function () {
+                    S.asignaciones.forEach(function (a) { if (a.key_cliente === c.key_cliente || a.key === c.key_cliente) a.key_ejecutiva = k; });
+                    avisar(c.cliente + " pasó a la lista de " + quien + "."); pintar();
+                }, function (e) { avisar("No se pudo pasar: " + textoError(e), "bad"); });
+            }
+        };
+    }
+    /* Quitar la lista completa de una chica (todas sus sucursales). */
+    function quitarListaCompleta(ej, boton) {
+        var sucs = {}; S.asignaciones.forEach(function (a) { if (a.lote && a.key_ejecutiva === ej.key && a.sucursal) sucs[a.sucursal] = 1; });
+        var l = Object.keys(sucs);
+        if (!l.length) { avisar(ej.nombre + " no tiene lista asignada."); return; }
+        if (!confirm("¿Quitar toda la lista de " + ej.nombre + "? Ya no verá esos clientes (lo que anotó queda guardado).")) return;
+        boton.disabled = true;
+        Promise.all(l.map(function (s) { return llamar("comercial_plan_quitar", { key_ejecutiva: ej.key, sucursal: s }); }))
+            .then(function () { avisar("Se quitó la lista de " + ej.nombre + "."); cargar(); }, function (e) { boton.disabled = false; avisar("No se pudo quitar: " + textoError(e), "bad"); });
     }
     /* «Ver una lista»: el Jefe de ATC ve la lista de cualquier chica tal como la ve ella (solo para mirar). */
     function vistaVerLista(c) {
@@ -450,9 +478,10 @@
         if (!S.verKey || !eq.some(function (e) { return e.key === S.verKey; })) S.verKey = eq[0] ? eq[0].key : null;
         c.appendChild(el("div", { class: "co-verlista" }, [el("label", {}, ["Lista de", el("select", { onchange: function (e) { S.verKey = e.target.value; pintar(); } },
             eq.map(function (e) { return el("option", { value: e.key, selected: e.key === S.verKey, text: e.nombre + ((e.sucursales || []).length ? " · " + e.sucursales.join(", ") : "") }); }))]),
-            el("p", { class: "co-muted", text: "Así ve su lista. Desde aquí solo se mira: los resultados los anota cada chica." })]));
+            el("p", { class: "co-muted", text: "Así ve su lista. Los resultados los anota cada chica; desde aquí podés quitar clientes o pasarlos a otra chica." })]));
         var ej = eq.filter(function (e) { return e.key === S.verKey; })[0];
         if (!ej) { c.appendChild(el("p", { class: "co-muted", text: "Todavía no hay chicas en el equipo." })); return; }
+        c.appendChild(el("div", { class: "co-verlista" }, [el("button", { type: "button", class: "co-btn", text: "Quitar toda la lista de " + ej.nombre, onclick: function (e) { quitarListaCompleta(ej, e.currentTarget); } })]));
         var box = el("div", { class: "co-verlista-caja" }); c.appendChild(box);
         window.ATC_milista.montar(box, ctxLista(ej, true));
     }
