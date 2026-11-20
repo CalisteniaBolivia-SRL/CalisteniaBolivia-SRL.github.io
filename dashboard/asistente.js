@@ -226,6 +226,8 @@
             var m = /\bcapital(?:\s+corp)?\b[,.\s]*(.*)$/i.exec(t);
             if (m && final) { detenerEscucha(); var resto = m[1].trim(); $("as-oye").textContent = "«" + t + "»"; resto.length > 3 ? atender(resto) : atender(null); }
         };
+        /* Si el micrófono arrancó sin preguntar, este equipo ya está autorizado: el aviso de autorización no vuelve. */
+        rec.onaudiostart = function () { if (window.CC_equipoAutorizado) window.CC_equipoAutorizado(); };
         rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: use «Descargar autorización» abajo (una sola vez). Mientras tanto puede escribir."); } };
         rec.onend = function () { var era = S.escuchando; S.escuchando = false; $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar("vigilia"); }, 400); if (S.estado === "escuchando") estado("espera"); };
         try { rec.start(); } catch (e) {}
