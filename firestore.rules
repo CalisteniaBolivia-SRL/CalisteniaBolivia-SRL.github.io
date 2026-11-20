@@ -64,6 +64,11 @@ service cloud.firestore {
         && request.resource.data.meta_mensual == 0 && request.resource.data.estado == 1 && texto('nombre', 120));
       allow update, delete: if central();
     }
+    // Planilla de ATC por sucursal (la usa el Jefe de ATC para ubicar sola a cada ATC nueva).
+    match /com_config/{id} {
+      allow read: if veComercial();
+      allow write: if central();
+    }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
       allow write: if central();

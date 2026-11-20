@@ -186,3 +186,5 @@
     @keyframes co-sube { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
 }
 #co-aviso:empty { display: none; }
+.co-planilla { width: 100%; box-sizing: border-box; font: inherit; font-size: .9em; line-height: 1.5; padding: 10px 12px; background: #0D0E10; color: #FFFFFF; border: 1px solid #2B2E33; border-radius: 0; resize: vertical; margin: 8px 0; }
+.co-planilla:focus { outline: none; border-color: #FFFFFF; }

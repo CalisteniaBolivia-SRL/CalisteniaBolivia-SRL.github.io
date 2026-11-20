@@ -170,8 +170,55 @@
             /* Panel de ventas: la semana (de sábado a viernes) y los pagos. */
             llamar(T.gestiones, { desde: hace(8), hasta: hoy() }).then(function (r) { S.gestSemana = filas(r); }),
             llamar("comercial_pagos").then(function (r) { S.pagos = filas(r); }, function () { S.pagos = []; }),
+            llamar("comercial_roster").then(function (r) { S.roster = filas(r); }, function () { S.roster = S.roster || []; }),
             S.sucursales.length ? null : llamar(T.sucursales).then(function (r) { S.sucursales = filas(r).map(function (s) { return String(s.descripcion || s).trim(); }); })
-        ]).then(function () { S.sinHerramientas = false; }).catch(sinHerr);
+        ]).then(function () { S.sinHerramientas = false; return ubicarSolas(); }).catch(sinHerr);
+    }
+    /* ---------- Planilla: cada ATC queda en su sucursal sola ----------
+       Se compara el nombre del ERP con la planilla (mismo primer nombre y al menos un apellido en común). */
+    function palabras(t) { return L.norm(t).split(/[^a-z0-9ñ]+/).filter(function (w) { return w.length > 1; }); }
+    function puntaje(nombreErp, nombreLista) {
+        var a = palabras(nombreErp), b = palabras(nombreLista);
+        if (!a.length || !b.length || a[0] !== b[0]) return 0;
+        var comunes = b.filter(function (w) { return a.indexOf(w) >= 0; }).length;
+        return comunes >= 2 ? comunes : 0;
+    }
+    function filaDe(e) {
+        var mejor = null, max = 0, empate = false;
+        (S.roster || []).forEach(function (f) { var p = puntaje(e.nombre, f.nombre); if (p > max) { max = p; mejor = f; empate = false; } else if (p && p === max) empate = true; });
+        return max && !empate ? mejor : null;
+    }
+    function sucursalOficial(t) { var n = L.norm(t); return S.sucursales.filter(function (x) { return L.norm(x) === n; })[0] || String(t).trim(); }
+    function ubicarSolas() {
+        if (!S.roster || !S.roster.length) return Promise.resolve();
+        var nuevas = S.equipo.filter(function (e) { return Number(e.estado == null ? 1 : e.estado) > 0 && !(e.sucursales || []).length && filaDe(e); });
+        if (!nuevas.length) return Promise.resolve();
+        return Promise.all(nuevas.map(function (e) {
+            var suc = sucursalOficial(filaDe(e).sucursal);
+            return llamar(T.ejecutivaGuardar, { data: { key: e.key, nombre: e.nombre, telefono: e.telefono || undefined, sucursales: [suc], meta_mensual: Number(e.meta_mensual) || 0, estado: 1 } })
+                .then(function () { e.sucursales = [suc]; return e.nombre + " → " + suc; }, function () { return null; });
+        })).then(function (l) { l = l.filter(Boolean); if (l.length) avisar("Ubicadas según la planilla: " + l.join(", ") + "."); });
+    }
+    function tarjetaPlanilla() {
+        var caja = el("div", { class: "co-card" });
+        var area = el("textarea", { rows: "8", class: "co-planilla", placeholder: "Una por línea: Sucursal, Nombre y apellidos\nBerea, Tania Teran Marin\nBerea, Lourdes Yara Garnica Mamani" });
+        area.value = (S.roster || []).map(function (f) { return f.sucursal + ", " + f.nombre; }).join("\n");
+        var msg = el("p", { class: "co-muted" });
+        var entraron = {}; S.equipo.forEach(function (e) { var f = filaDe(e); if (f) entraron[f.sucursal + "|" + f.nombre] = e; });
+        var faltan = (S.roster || []).filter(function (f) { return !entraron[f.sucursal + "|" + f.nombre]; });
+        caja.appendChild(el("h3", { class: "co-h3", text: "Planilla: sucursal de cada ATC" }));
+        caja.appendChild(el("p", { class: "co-muted", text: "Cuando una ATC entra por primera vez al centro de mando con su usuario del ERP, queda sola en la sucursal que dice esta planilla (se reconoce por su nombre). Podés pegar las columnas desde Excel." }));
+        caja.appendChild(area);
+        caja.appendChild(el("div", { class: "co-acciones" }, [el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Guardar planilla", onclick: function (ev) {
+            var filasP = area.value.split(/\n/).map(function (l) {
+                var partes = l.split(/\t|;|,/).map(function (x) { return x.trim(); }).filter(Boolean);
+                return partes.length >= 2 ? { sucursal: partes[0], nombre: partes.slice(1).join(" ") } : null;
+            }).filter(Boolean);
+            ev.currentTarget.disabled = true;
+            llamar("comercial_roster_guardar", { filas: filasP }).then(function () { avisar("Planilla guardada: " + filasP.length + " personas."); cargar(); }, function (e) { mensaje(msg, "bad", textoError(e)); ev.currentTarget.disabled = false; });
+        } }), msg]));
+        if (S.roster && S.roster.length) caja.appendChild(el("p", { class: "co-muted", text: faltan.length ? "Todavía no entraron (" + faltan.length + "): " + faltan.map(function (f) { return f.nombre + " (" + f.sucursal + ")"; }).join(", ") + "." : "Ya entraron todas las personas de la planilla." }));
+        return caja;
     }
     /* Lo que necesita las ventas del ERP. Al refrescar el Panel solo se actualizan las comisiones recientes. */
     function cargarMasterPesado(ligero) {
@@ -713,9 +760,10 @@
         equipo: function (c) {
             c.appendChild(el("h2", { class: "co-h2", text: "Equipo ATC" }));
             if (pendienteMaster(c)) return;
-            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC aparece aquí la primera vez que ingresa al centro de mando con su usuario del ERP (permiso «atencion»). Asígnale sus sucursales y su meta con «Editar»." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC aparece aquí la primera vez que ingresa al centro de mando con su usuario del ERP (rol «Atención al Cliente · CM», permiso «atencion»). Si está en la planilla de abajo, queda sola en su sucursal; si no, asígnasela con «Editar»." }));
             c.appendChild(el("div", { id: "co-form-ej" }));
             c.appendChild(el("div", { class: "co-card" }, [tablaEquipo(true)]));
+            c.appendChild(tarjetaPlanilla());
         },
         reparto: function (c) {
             var rep = L.repartir(clientesBase(), S.equipo, S.asignaciones), porSuc = {};
