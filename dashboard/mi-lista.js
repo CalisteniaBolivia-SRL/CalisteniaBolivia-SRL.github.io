@@ -84,18 +84,43 @@
     function rellenar(t, c) {
         var nombre = String(c.cliente || "").trim().split(/\s+/)[0] || "";
         nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase();
-        return String(t || "").replace(/\{nombre\}/g, nombre).replace(/\{sucursal\}/g, c.sucursal || "").replace(/\{promo\}/g, c.promo || "").replace(/\{atc\}/g, String((M.ctx.yo && M.ctx.yo.nombre) || "").split(" ")[0]);
+        return String(t || "").replace(/\{nombre\}/g, nombre).replace(/\{sucursal\}/g, c.sucursal || "").replace(/\{promo\}/g, promoEnFrase(c.promo)).replace(/\{atc\}/g, nombreAtc());
     }
+    /* «Promo Reactívate…» dentro de una frase va en minúscula; «PLAN MENSUAL…» queda igual. */
+    function promoEnFrase(p) { p = String(p || ""); return /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]/.test(p) && !/^(Promo|Plan)\b/.test(p) ? p.charAt(0).toLowerCase() + p.slice(1) : p; }
+    function nombreAtc() {
+        var n = String((M.ctx.yo && M.ctx.yo.nombre) || "").trim().split(/\s+/)[0] || "";
+        return n ? n.charAt(0).toUpperCase() + n.slice(1).toLowerCase() : "el equipo";
+    }
+    /* Guion de llamada de cada grupo (vendedor de primera: saludo con energía, conexión, oferta, cierre con dos opciones
+       y respuestas a las objeciones típicas). Si el Jefe de ATC escribió un guion propio, se muestra además. */
+    var CIERRE = "\n\nSi dice «lo voy a pensar»: «¡Claro! ¿Qué es lo que te hace dudar: el precio o el horario?» Resolvé eso y volvé a cerrar.\nSi dice «no tengo tiempo»: «Justamente por eso tenemos clases de una hora en varios horarios. ¿Cuál te queda mejor?»\n{caro}Cerrá siempre con dos opciones (¿hoy o mañana?, ¿mañana o tarde?), nunca con un «¿sí o no?».";
+    var GUIONES = {
+        vencen: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}, ¿cómo estás? ¿Tenés un minutito?»\n2. «Te llamo porque tu plan vence pronto y me encanta cómo venís entrenando. ¿Cómo te sentís con tus avances?» (Escuchá y felicitá su avance.)\n3. «Para que no cortes el ritmo, si renovás antes tenés {promo}»\n4. Cierre: «¿Te lo dejo listo hoy o preferís pasar mañana por caja?»",
+        nunca: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Qué bueno tenerte con nosotros! ¿Cómo estás?»\n2. «Vi que tu plan ya está activo y todavía no pudiste venir. ¿Qué te complicó?» (Escuchá: horario, miedo a no poder, trabajo.)\n3. «Tranqui, a todos nos pasa al principio. Las clases son para todos los niveles y el coach te acompaña desde cero.»\n4. Cierre: «¿Te anoto para mañana en la mañana o en la tarde?»",
+        v1: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Te extrañamos!»\n2. «Tu plan terminó hace poquito y sería una pena perder lo que avanzaste. ¿Qué te gustó más de entrenar con nosotros?»\n3. «Para que vuelvas esta semana te guardé {promo}»\n4. Cierre: «¿Te reservo tu lugar para mañana o pasado?»",
+        pases: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Gracias por venir a entrenar con nosotros!»\n2. «¿Qué te pareció la clase?» (Escuchá y reforzá lo bueno.)\n3. «Te cuento algo que te conviene: con {promo} Entrenás todo el mes sin pagar cada día.»\n4. Cierre: «¿Te lo activo hoy para que arranques esta semana?»",
+        v16: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Hace rato no te vemos!»\n2. «¿Cómo estás? ¿Seguís entrenando por tu cuenta?» (Escuchá.)\n3. «Tenemos una promo solo para quienes ya entrenaron con nosotros: {promo} Es por pocos días.»\n4. Cierre: «¿Te la reservo a tu nombre para que pases esta semana?»",
+        riesgo: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¿Cómo estás?»\n2. «Hace unos días que no te vemos y queríamos saber si está todo bien.» (Escuchá con interés de verdad.)\n3. «Tu plan sigue activo, ¡aprovechémoslo! Si el horario se te complicó, te busco uno que te acomode.»\n4. Cierre: «¿Te anoto esta semana en la mañana o en la tarde?»",
+        cumple: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Feliz cumpleaños!» (Con mucha alegría.)\n2. «Todo el equipo te manda un abrazo. ¿Lo vas a celebrar?»\n3. «Queremos regalarte algo: {promo}»\n4. Cierre: «¿Te lo activo para que lo estrenes esta semana?»",
+        v46: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. ¡Cuánto tiempo!»\n2. «¿Cómo estás? ¿Qué te hizo dejar de venir?» (Escuchá y no discutas.)\n3. «Para que la vuelta sea más fácil tenemos {promo} Si venís con alguien, mejor todavía.»\n4. Cierre: «¿Te animás a venir esta semana? ¿Con alguien o te anoto primero a vos?»",
+        v91: "1. «¡Hola {nombre}! Te habla {atc} de Calistenia {sucursal}. Estamos invitando a quienes ya entrenaron con nosotros a volver y me acordé de vos.»\n2. «¿Seguís haciendo ejercicio?» (Escuchá.)\n3. «Tenemos {promo} Es ideal para volver con alguien y motivarse juntos.»\n4. Cierre: «¿Con quién te animarías a venir?»"
+    };
     function guionPara(c) {
-        var gs = M.ctx.guiones || [], lista = LISTA_CRM[c.grupo] || "antiguos";
-        var g = gs.filter(function (x) { return (x.lista || "antiguos") === lista; })[0] || gs[0];
+        var base = GUIONES[c.grupo] || GUIONES.v1, yaPago = c.grupo === "nunca" || c.grupo === "riesgo";
+        var cierre = CIERRE.replace("{caro}", yaPago ? "" : "Si dice «está caro»: «Sale menos de Bs 9 por día, menos que un refresco. Y la promo es solo por estos días.»\n");
+        return rellenar(base + cierre, c).replace(/\s+([,.?!])/g, "$1");
+    }
+    function guionJefe(c) {
+        var g = (M.ctx.guiones || [])[0];
         return g && g.guion_llamada ? rellenar(g.guion_llamada, c) : "";
     }
+    function mensajeDe(c) { return rellenar(c.mensaje || "", c); }
 
     function tarjeta(c) {
         var tel = digitos(c.telefono), wa = tel ? "https://wa.me/" + tel : "", g = c.ultima, guardando = M.guardando[c.key_cliente];
         var marcar = function (canal) { return function () { M.canal[c.key_cliente] = canal; }; };
-        var guion = guionPara(c);
+        var guion = guionPara(c), propio = guionJefe(c), msj = mensajeDe(c);
         var hecho = c.estado === "hecho" || c.estado === "espera";
         var cuerpo = [
             el("div", { class: "ml-cab" }, [el("span", { class: "ml-intento" + (c.intentos ? " is-repite" : ""), text: INTENTO[Math.min(c.intentos, 3)] }), c.sucursal ? el("span", { class: "ml-suc" }, [ico("lugar"), c.sucursal]) : null]),
@@ -118,10 +143,11 @@
             el("p", { class: "ml-paso", text: "Llamá primero. Si no atiende, mandá el mensaje por WhatsApp." }),
             el("div", { class: "ml-acc" }, [
                 tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, [ico("telefono"), "Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
-                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null
+                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(msj), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null
             ]),
             guion ? el("details", { class: "ml-det" }, [el("summary", {}, [ico("guion"), "Guion de la llamada", ico("flecha", "ml-chev")]), el("p", { text: guion })]) : null,
-            c.mensaje ? el("details", { class: "ml-det ml-det-wa" }, [el("summary", {}, [ico("whatsapp"), "Mensaje que se envía", ico("flecha", "ml-chev")]), el("p", { class: "ml-burbuja", text: c.mensaje })]) : null
+            propio ? el("details", { class: "ml-det" }, [el("summary", {}, [ico("nota"), "Guion del Jefe de ATC", ico("flecha", "ml-chev")]), el("p", { text: propio })]) : null,
+            msj ? el("details", { class: "ml-det ml-det-wa" }, [el("summary", {}, [ico("whatsapp"), "Mensaje que se envía", ico("flecha", "ml-chev")]), el("p", { class: "ml-burbuja", text: msj })]) : null
         );
         if (!M.ctx.soloVer) cuerpo.push(el("div", { class: "ml-res" }, [
             el("p", { class: "ml-res-t", text: "¿Cómo te fue?" }),
