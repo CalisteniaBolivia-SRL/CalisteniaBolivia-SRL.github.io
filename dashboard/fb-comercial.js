@@ -1,6 +1,6 @@
 /* Herramientas comercial_* sobre Firestore (mismas reglas que el componente "comercial" del servidor).
    - Cada ATC se identifica por su usuario del ERP (id del documento en com_ejecutiva = key del usuario).
-     La primera vez que un ATC entra queda registrado solo; ATC Central le asigna sucursales y meta.
+     La primera vez que un ATC entra queda registrado solo; Jefe de ATC le asigna sucursales y meta.
    - Comisión: Bs 5 por venta (monto > 0) de un cliente cuyo último contacto registrado por una ejecutiva fue
      dentro de los 15 días anteriores a la compra. Las ventas salen de listar_ventas (MCP); el cliente se
      reconoce por su clave si la venta la trae, o por su nombre. */
@@ -28,7 +28,7 @@
         var ref = col("com_ejecutiva").doc(CMFB.usuarioKey());
         return ref.get().then(function (x) {
             if (x.exists) {
-                if (Number(x.data().estado) <= 0) throw U.err("Tu usuario está dado de baja en el equipo ATC. Habla con ATC Central.");
+                if (Number(x.data().estado) <= 0) throw U.err("Tu usuario está dado de baja en el equipo ATC. Habla con Jefe de ATC.");
                 return Object.assign({ key: x.id }, x.data());
             }
             var d = { nombre: CMFB.nombre() || "ATC", key_usuario: CMFB.usuarioKey(), sucursales: [], meta_mensual: 0, estado: 1, fecha_on: U.ahora(), autoregistro: true };

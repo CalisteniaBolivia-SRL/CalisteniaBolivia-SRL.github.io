@@ -1,5 +1,5 @@
 /* Comisiones de los ATC (para Administración y Dirección, que las pagan): por cada ATC, clientes contactados,
-   clientes que volvieron (Bs 5 cada uno), conversión y total a pagar del mes. Mismos datos que ve ATC Central. */
+   clientes que volvieron (Bs 5 cada uno), conversión y total a pagar del mes. Mismos datos que ve Jefe de ATC. */
 (function () {
     "use strict";
     var raiz = document.getElementById("a-comisiones");
