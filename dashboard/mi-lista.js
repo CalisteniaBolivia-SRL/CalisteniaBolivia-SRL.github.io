@@ -26,16 +26,18 @@
     function digitos(t) { var d = String(t || "").replace(/\D/g, ""); if (d.length === 8) d = "591" + d; return d.length >= 10 ? d : ""; }
     function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
     function fechaLarga() { var t = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" }); return t.charAt(0).toUpperCase() + t.slice(1); }
+    /* Ícono (iconos.js); si no cargó, nada. */
+    function ico(n, c) { return window.CMI ? window.CMI(n, c) : null; }
     var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
 
     /* «¿Cómo te fue?» → resultado del CRM y cuándo vuelve a aparecer. */
     var RES = [
-        { id: "agendado", texto: "Compró o va a pagar", final: true, grande: true },
-        { id: "interesado", texto: "Lo va a pensar", seguir: 2 },
-        { id: "no_contesta", texto: "Sin respuesta, le escribí", seguir: 1 },
-        { id: "no_interesado", texto: "No le interesa", final: true },
-        { id: "ya_activo", texto: "Ya estaba activo antes de contactarlo", final: true },
-        { id: "numero_errado", texto: "No contactar (lo pidió o número equivocado)", final: true, ancho: true }
+        { id: "agendado", texto: "Compró o va a pagar", final: true, grande: true, ico: "check" },
+        { id: "interesado", texto: "Lo va a pensar", seguir: 2, ico: "reloj" },
+        { id: "no_contesta", texto: "Sin respuesta, le escribí", seguir: 1, ico: "mensaje" },
+        { id: "no_interesado", texto: "No le interesa", final: true, ico: "x" },
+        { id: "ya_activo", texto: "Ya estaba activo antes de contactarlo", final: true, ico: "usuarioOk" },
+        { id: "numero_errado", texto: "No contactar (lo pidió o número equivocado)", final: true, ancho: true, ico: "prohibido" }
     ];
     var RESX = {}; RES.forEach(function (r) { RESX[r.id] = r; });
     var LISTA_CRM = { vencen: "por_vencer", nunca: "en_riesgo", riesgo: "en_riesgo", v1: "vencidos", v16: "vencidos", v46: "vencidos", v91: "vencidos", pases: "vencidos", cumple: "otro" };
@@ -72,7 +74,7 @@
             for (var i = arr.length - 1; i >= 0; i--) if (arr[i].key_cliente === c.key_cliente) arr.splice(i, 1);
             arr.push(g);
             (M.ctx.gestiones || (M.ctx.gestiones = [])).push(g);
-            M.ctx.avisar(res === "agendado" ? "¡Bien! " + c.cliente + " compra. Cuando se registre la venta, suman Bs 5 a tu comisión 💰"
+            M.ctx.avisar(res === "agendado" ? "¡Bien! " + c.cliente + " compra. Cuando se registre la venta, suman Bs 5 a tu comisión."
                 : c.cliente + ": " + r.texto + (r.seguir ? ". Vuelve a aparecer el " + corta(masDias(r.seguir)) + "." : "."), "ok");
         }).catch(function (e) {
             M.ctx.avisar("No se guardó (" + c.cliente + "): " + ((e && e.message) || e), "bad");
@@ -96,33 +98,35 @@
         var guion = guionPara(c);
         var hecho = c.estado === "hecho" || c.estado === "espera";
         var cuerpo = [
-            el("div", { class: "ml-cab" }, [el("span", { class: "ml-intento" + (c.intentos ? " is-repite" : ""), text: INTENTO[Math.min(c.intentos, 3)] }), el("span", { class: "ml-suc", text: c.sucursal || "" })]),
+            el("div", { class: "ml-cab" }, [el("span", { class: "ml-intento" + (c.intentos ? " is-repite" : ""), text: INTENTO[Math.min(c.intentos, 3)] }), c.sucursal ? el("span", { class: "ml-suc" }, [ico("lugar"), c.sucursal]) : null]),
             el("h3", { class: "ml-nombre", text: c.cliente || "Cliente" }),
             el("p", { class: "ml-dato", text: [c.dato ? c.dato.charAt(0).toUpperCase() + c.dato.slice(1) : null, c.grupo_titulo].filter(Boolean).join(" · ") }),
-            c.promo ? el("p", { class: "ml-ofrece" }, [el("b", { text: "Ofrecé: " }), c.promo]) : null,
-            c.paquete_nombre ? el("p", { class: "ml-exclusivo" }, [el("b", { text: "Paquete exclusivo: " }), c.paquete_nombre]) : null
+            c.promo || c.paquete_nombre ? el("div", { class: "ml-oferta" }, [
+                c.promo ? el("p", { class: "ml-ofrece" }, [ico("etiqueta"), el("span", {}, [el("b", { text: "Ofrecé " }), c.promo])]) : null,
+                c.paquete_nombre ? el("p", { class: "ml-exclusivo" }, [ico("candado"), el("span", {}, [el("b", { text: "Paquete exclusivo " }), c.paquete_nombre])]) : null
+            ]) : null
         ];
         if (hecho && !M.abierto[c.key_cliente]) {
             cuerpo.push(el("div", { class: "ml-hecho" }, [
-                el("span", { class: "ml-res-chip is-" + (g && g.resultado === "agendado" ? "ok" : "muted"), text: (g ? (RESX[g.resultado] || { texto: g.resultado }).texto : "") + (g ? " · " + corta(g.fecha_on) + " " + hora(g.fecha_on) : "") }),
+                el("span", { class: "ml-res-chip is-" + (g && g.resultado === "agendado" ? "ok" : "muted") }, [ico(g && RESX[g.resultado] ? RESX[g.resultado].ico : "check"), (g ? (RESX[g.resultado] || { texto: g.resultado }).texto : "") + (g ? " · " + corta(g.fecha_on) + " " + hora(g.fecha_on) : "")]),
                 c.estado === "espera" && g && g.proximo_seguimiento ? el("span", { class: "ml-dato", text: "Vuelve a aparecer el " + corta(g.proximo_seguimiento) }) : null,
                 !M.ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Cambiar", onclick: function () { M.abierto[c.key_cliente] = true; pintar(); } }) : null
             ]));
             return el("article", { class: "ml-cli is-hecho" }, cuerpo);
         }
         cuerpo.push(
-            el("p", { class: "ml-paso", text: "Llamá. Si no atiende, mandá el mensaje por WhatsApp." }),
+            el("p", { class: "ml-paso", text: "Llamá primero. Si no atiende, mandá el mensaje por WhatsApp." }),
             el("div", { class: "ml-acc" }, [
-                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, ["📞 Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
-                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, ["💬 Mandar mensaje"]) : null
+                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, [ico("telefono"), "Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
+                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null
             ]),
-            guion ? el("details", { class: "ml-det" }, [el("summary", { text: "Guion de la llamada" }), el("p", { text: guion })]) : null,
-            c.mensaje ? el("details", { class: "ml-det" }, [el("summary", { text: "Ver mensaje de WhatsApp" }), el("p", { text: c.mensaje })]) : null
+            guion ? el("details", { class: "ml-det" }, [el("summary", {}, [ico("guion"), "Guion de la llamada", ico("flecha", "ml-chev")]), el("p", { text: guion })]) : null,
+            c.mensaje ? el("details", { class: "ml-det ml-det-wa" }, [el("summary", {}, [ico("whatsapp"), "Mensaje que se envía", ico("flecha", "ml-chev")]), el("p", { class: "ml-burbuja", text: c.mensaje })]) : null
         );
         if (!M.ctx.soloVer) cuerpo.push(el("div", { class: "ml-res" }, [
             el("p", { class: "ml-res-t", text: "¿Cómo te fue?" }),
             el("div", { class: "ml-res-b" }, RES.map(function (r) {
-                return el("button", { type: "button", class: "ml-r" + (r.grande ? " is-compra" : "") + (r.ancho ? " is-ancho" : ""), disabled: guardando, onclick: function () { M.abierto[c.key_cliente] = false; registrar(c, r.id); } }, [r.texto]);
+                return el("button", { type: "button", class: "ml-r" + (r.grande ? " is-compra" : "") + (r.ancho ? " is-ancho" : ""), disabled: guardando, onclick: function () { M.abierto[c.key_cliente] = false; registrar(c, r.id); } }, [ico(r.ico), el("span", { text: r.texto })]);
             }))
         ]));
         return el("article", { class: "ml-cli" + (c.intentos ? " is-repite" : "") }, cuerpo);
@@ -146,7 +150,7 @@
 
         /* Encabezado: quién, qué día y cómo va */
         cont.appendChild(el("header", { class: "ml-top" }, [
-            el("div", { class: "ml-quien" }, [el("b", { text: "Calistenia" }), el("span", { text: [String(ctx.yo.nombre || "").toUpperCase(), lista0.sucursal, lista0.lista_n ? (lista0.lista_n === 2 ? "tarde" : "mañana") : null].filter(Boolean).join(", ") })]),
+            el("div", { class: "ml-quien" }, [el("b", { text: "Calistenia · Atención al Cliente" }), el("span", { text: [String(ctx.yo.nombre || "").toUpperCase(), lista0.sucursal, lista0.lista_n ? (lista0.lista_n === 2 ? "tarde" : "mañana") : null].filter(Boolean).join(", ") })]),
             el("h2", { class: "ml-fecha", text: fechaLarga() }),
             el("div", { class: "ml-segs", "aria-hidden": "true" }, Array.from({ length: Math.min(meta, 60) }, function (_, i) { return el("i", { class: i < Math.round(Math.min(contactosHoy, meta) / meta * Math.min(meta, 60)) ? "is-on" : "" }); })),
             el("div", { class: "ml-cuenta" }, [el("span", {}, [el("b", { text: String(contactosHoy) }), " de " + meta + " contactos hechos hoy"]), el("span", { text: ventasHoy + (ventasHoy === 1 ? " venta hoy" : " ventas hoy") })]),
@@ -155,11 +159,11 @@
         ]));
 
         var nota = todos.map(function (c) { return c.nota_jefa; }).filter(Boolean)[0];
-        if (nota) cont.appendChild(el("div", { class: "ml-nota" }, [el("b", { text: "Del Jefe de ATC: " }), nota]));
+        if (nota) cont.appendChild(el("div", { class: "ml-nota" }, [ico("nota"), el("div", {}, [el("b", { text: "Del Jefe de ATC" }), el("span", { text: nota })])]));
         var tareas = (ctx.tareas || []).filter(function (t) { return !t.hecha; });
         tareas.forEach(function (t) {
-            cont.appendChild(el("div", { class: "ml-nota is-tarea" }, [el("b", { text: "Tarea: " }), t.titulo + (t.indicaciones ? " — " + t.indicaciones : ""),
-                !ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Marcar hecha", onclick: function () { ctx.llamar("comercial_tarea_completar", { key: t.key }).then(function () { t.hecha = true; pintar(); ctx.avisar("Tarea hecha."); }, function (e) { ctx.avisar((e && e.message) || "No se pudo", "bad"); }); } }) : null]));
+            cont.appendChild(el("div", { class: "ml-nota is-tarea" }, [ico("lista"), el("div", {}, [el("b", { text: "Tarea" }), el("span", { text: t.titulo + (t.indicaciones ? " — " + t.indicaciones : "") })]),
+                !ctx.soloVer ? el("button", { type: "button", class: "ml-tarea-ok", text: "Marcar hecha", onclick: function () { ctx.llamar("comercial_tarea_completar", { key: t.key }).then(function () { t.hecha = true; pintar(); ctx.avisar("Tarea hecha."); }, function (e) { ctx.avisar((e && e.message) || "No se pudo", "bad"); }); } }) : null]));
         });
         if (!todos.length) {
             cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), " Avísale al Jefe de ATC: cada cliente que compra son Bs 5 para ti."]));
