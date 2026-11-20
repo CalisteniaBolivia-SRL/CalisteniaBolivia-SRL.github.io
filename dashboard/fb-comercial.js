@@ -10,7 +10,7 @@
     var U = CMFB.util;
     var COMISION_BS = 5, VENTANA_DIAS = 15;
     var CANALES = ["whatsapp", "llamada", "presencial", "otro"];
-    var RESULTADOS = ["no_contesta", "interesado", "agendado", "no_interesado", "numero_errado", "otro"];
+    var RESULTADOS = ["no_contesta", "interesado", "agendado", "no_interesado", "numero_errado", "ya_activo", "otro"];
     var col = function (n) { return U.db().collection(n); };
     var hoy = function () { return new Date().toISOString().slice(0, 10); };
     var norm = function (s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
@@ -296,6 +296,15 @@
             }).sort(function (p, q) { return String(q.fecha).localeCompare(String(p.fecha)); });
             return { filas: filas, alertas: alertas.sort(function (p, q) { return String(q.fecha).localeCompare(String(p.fecha)); }) };
         });
+    });
+    /* Pagos de comisiones: el Jefe de ATC (o Administración) marca como pagada la comisión confirmada de una semana. */
+    CMFB.registrar("comercial_pagos", function () { return U.docs(col("com_pago")).then(function (l) { return { filas: U.vigentes(l) }; }); });
+    CMFB.registrar("comercial_pago_registrar", function (a) {
+        var ej = clave(a.key_ejecutiva), semana = U.txt(a, "semana", 10, true), monto = Number(a.monto), ventas = parseInt(a.ventas, 10) || 0;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(semana)) throw U.err("Semana no válida.");
+        if (!(monto > 0)) throw U.err("Monto no válido.");
+        return col("com_pago").doc(ej + "_" + semana).set({ key_ejecutiva: ej, semana: semana, monto: monto, ventas: ventas, estado: 1, fecha_on: U.ahora(), pagado_por: CMFB.usuarioKey() })
+            .then(function () { return { estado: "exito" }; });
     });
     CMFB.registrar("comercial_tarea_guardar", function (a) {
         var d = a.data || {}, ej = d.key_ejecutiva ? clave(d.key_ejecutiva) : null;

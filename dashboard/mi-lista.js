@@ -1,7 +1,8 @@
-/* «Mi lista» de cada ATC: los clientes que le asignó el Jefe de ATC en el Plan de hoy.
-   Por cliente: llamar, abrir WhatsApp con el mensaje ya escrito y anotar cómo le fue (queda en el CRM:
-   seguimientos, avance que ve Jefe de ATC y comisión). Se monta desde comercial.js:
-   window.ATC_milista.montar(contenedor, { yo, asignaciones, ultimas, llamar(tool, args), avisar(texto, tono) }). */
+/* Lista de clientes de cada ATC (Atención al Cliente): los que le asignó el Jefe de ATC en el Plan de hoy.
+   Pantalla simple, pensada para el celular: avance del día, lo que reportó en el mes, y por cliente
+   Llamar, Mandar mensaje (WhatsApp con el texto y su nombre), guion, y «¿Cómo te fue?».
+   Se monta desde comercial.js: window.ATC_milista.montar(contenedor, ctx)
+   ctx = { yo, asignaciones, ultimas, gestiones, guiones, tareas, comisiones, llamar(tool, args), avisar(texto, tono), soloVer } */
 (function () {
     "use strict";
     function el(tag, attrs, hijos) {
@@ -21,26 +22,31 @@
     function masDias(n) { var d = new Date(); d.setDate(d.getDate() + n); return iso(d); }
     var hoy = function () { return iso(new Date()); };
     function corta(s) { var p = String(s || "").slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : "—"; }
-    function hora(s) { var t = String(s || ""); var d = new Date(t); return isNaN(d) ? "" : pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+    function hora(s) { var d = new Date(String(s || "")); return isNaN(d) ? "" : pad(d.getHours()) + ":" + pad(d.getMinutes()); }
     function digitos(t) { var d = String(t || "").replace(/\D/g, ""); if (d.length === 8) d = "591" + d; return d.length >= 10 ? d : ""; }
+    function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+    function fechaLarga() { var t = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" }); return t.charAt(0).toUpperCase() + t.slice(1); }
+    var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
 
-    /* Botones de resultado → resultado del CRM y cuándo volver a intentar. */
+    /* «¿Cómo te fue?» → resultado del CRM y cuándo vuelve a aparecer. */
     var RES = [
-        { id: "agendado", texto: "Vuelve / compra", tono: "ok", final: true },
-        { id: "interesado", texto: "Lo va a pensar", tono: "ok", seguir: 2 },
-        { id: "no_contesta", texto: "No contesta", tono: "warn", seguir: 1 },
-        { id: "no_interesado", texto: "No le interesa", tono: "muted", final: true },
-        { id: "numero_errado", texto: "Número equivocado", tono: "bad", final: true }
+        { id: "agendado", texto: "Compró o va a pagar", final: true, grande: true },
+        { id: "interesado", texto: "Lo va a pensar", seguir: 2 },
+        { id: "no_contesta", texto: "Sin respuesta, le escribí", seguir: 1 },
+        { id: "no_interesado", texto: "No le interesa", final: true },
+        { id: "ya_activo", texto: "Ya estaba activo antes de contactarlo", final: true },
+        { id: "numero_errado", texto: "No contactar (lo pidió o número equivocado)", final: true, ancho: true }
     ];
     var RESX = {}; RES.forEach(function (r) { RESX[r.id] = r; });
     var LISTA_CRM = { vencen: "por_vencer", nunca: "en_riesgo", riesgo: "en_riesgo", v1: "vencidos", v16: "vencidos", v46: "vencidos", v91: "vencidos", pases: "vencidos", cumple: "otro" };
+    var INTENTO = ["Primer contacto", "Segundo contacto", "Tercer contacto", "Cuarto contacto"];
 
-    var M = { cont: null, ctx: null, canal: {}, abierto: {}, filtro: "pendientes", guardando: {} };
+    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {} };
 
     function misClientes() {
         var ctx = M.ctx, yo = ctx.yo && ctx.yo.key, ult = {};
         (ctx.ultimas || []).forEach(function (g) { ult[g.key_cliente] = g; });
-        return (ctx.asignaciones || []).filter(function (a) { return a.lote && a.key_ejecutiva === yo; }).map(function (a) {
+        return (ctx.asignaciones || []).filter(function (a) { return a.lote && a.key_ejecutiva === yo && Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) {
             var g = ult[a.key_cliente], tocado = g && String(g.fecha_on) >= String(a.fecha_on);
             var r = tocado ? RESX[g.resultado] : null, estado = "pendiente";
             if (tocado) {
@@ -49,105 +55,141 @@
                 else if (g.proximo_seguimiento) estado = "espera";
                 else estado = "hecho";
             }
-            return Object.assign({}, a, { ultima: tocado ? g : null, estado: estado });
-        }).sort(function (x, y) { return (x.orden || 0) - (y.orden || 0); });
+            return Object.assign({}, a, { ultima: tocado ? g : null, estado: estado, intentos: tocado ? (g.contactos || 1) : 0 });
+        }).sort(function (x, y) { return (x.estado === "seguir" ? 0 : 1) - (y.estado === "seguir" ? 0 : 1) || (x.orden || 0) - (y.orden || 0); });
     }
 
-    function registrar(c, res, nota) {
-        if (M.guardando[c.key_cliente]) return;
+    function registrar(c, res) {
+        if (M.guardando[c.key_cliente] || M.ctx.soloVer) return;
         M.guardando[c.key_cliente] = true;
         var r = RESX[res], canal = M.canal[c.key_cliente] || "llamada";
         var args = { key_cliente: c.key_cliente, cliente: c.cliente, sucursal: c.sucursal, lista: LISTA_CRM[c.grupo] || "otro", canal: canal, resultado: res,
-            nota: nota || (r.id === "agendado" ? "Vuelve o compra" : null), proximo_seguimiento: r.seguir ? masDias(r.seguir) : null };
+            nota: res === "agendado" ? "Compró o va a pagar" : null, proximo_seguimiento: r.seguir ? masDias(r.seguir) : null };
         pintar();
         M.ctx.llamar("comercial_gestion_registrar", args).then(function (x) {
-            var g = Object.assign({ key_cliente: c.key_cliente, fecha_on: new Date().toISOString(), contactos: 1 }, (x && x.data) || args);
-            /* Se cambia la misma lista que usa comercial.js, así el resultado no se pierde al repintar. */
+            var g = Object.assign({ key_cliente: c.key_cliente, fecha_on: new Date().toISOString(), contactos: (c.intentos || 0) + 1, key_ejecutiva: M.ctx.yo.key }, (x && x.data) || args);
             var arr = M.ctx.ultimas || (M.ctx.ultimas = []);
             for (var i = arr.length - 1; i >= 0; i--) if (arr[i].key_cliente === c.key_cliente) arr.splice(i, 1);
             arr.push(g);
-            M.abierto[c.key_cliente] = false;
-            M.ctx.avisar(r.id === "agendado" ? "¡Bien! " + c.cliente + " vuelve. Apenas se cobre en caja, suman Bs 5 a tu contador 💰"
+            (M.ctx.gestiones || (M.ctx.gestiones = [])).push(g);
+            M.ctx.avisar(res === "agendado" ? "¡Bien! " + c.cliente + " compra. Cuando se registre la venta, suman Bs 5 a tu comisión 💰"
                 : c.cliente + ": " + r.texto + (r.seguir ? ". Vuelve a aparecer el " + corta(masDias(r.seguir)) + "." : "."), "ok");
         }).catch(function (e) {
             M.ctx.avisar("No se guardó (" + c.cliente + "): " + ((e && e.message) || e), "bad");
         }).then(function () { M.guardando[c.key_cliente] = false; pintar(); });
     }
 
-    function tarjeta(c, i) {
-        var tel = digitos(c.telefono), wa = tel ? "https://wa.me/" + tel : "", g = c.ultima;
-        var marcarCanal = function (canal) { return function () { M.canal[c.key_cliente] = canal; M.abierto[c.key_cliente] = true; setTimeout(pintar, 300); }; };
-        var guardando = M.guardando[c.key_cliente];
-        var nota = el("input", { type: "text", maxlength: "300", placeholder: "Nota (opcional): horario que prefiere, qué le frena…" });
-        return el("article", { class: "ml-cli is-" + c.estado }, [
-            el("div", { class: "ml-cab" }, [
-                el("span", { class: "ml-n", text: String(i + 1) }),
-                el("div", { class: "ml-quien" }, [el("h3", { text: c.cliente || "Cliente" }), el("p", { class: "co-muted", text: (c.grupo_titulo || "") + (c.dato ? " · " + c.dato : "") })]),
-                g ? el("span", { class: "co-chip co-" + ((RESX[g.resultado] || {}).tono || "muted"), text: (RESX[g.resultado] || { texto: g.resultado }).texto + " · " + corta(g.fecha_on) + " " + hora(g.fecha_on) }) : el("span", { class: "co-chip co-warn", text: "Por contactar" })
-            ]),
-            c.promo ? el("p", { class: "ml-promo" }, [el("b", { text: "Ofrecé: " }), c.promo]) : null,
-            c.paquete_nombre ? el("p", { class: "ml-exclusivo" }, [el("b", { text: "Paquete exclusivo: " }), c.paquete_nombre, el("span", { text: " · solo para los clientes de esta lista" })]) : null,
-            /* Dos botones: llamada normal y WhatsApp con el mensaje ya escrito (con su nombre). */
+    function rellenar(t, c) {
+        var nombre = String(c.cliente || "").trim().split(/\s+/)[0] || "";
+        nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase();
+        return String(t || "").replace(/\{nombre\}/g, nombre).replace(/\{sucursal\}/g, c.sucursal || "").replace(/\{promo\}/g, c.promo || "").replace(/\{atc\}/g, String((M.ctx.yo && M.ctx.yo.nombre) || "").split(" ")[0]);
+    }
+    function guionPara(c) {
+        var gs = M.ctx.guiones || [], lista = LISTA_CRM[c.grupo] || "antiguos";
+        var g = gs.filter(function (x) { return (x.lista || "antiguos") === lista; })[0] || gs[0];
+        return g && g.guion_llamada ? rellenar(g.guion_llamada, c) : "";
+    }
+
+    function tarjeta(c) {
+        var tel = digitos(c.telefono), wa = tel ? "https://wa.me/" + tel : "", g = c.ultima, guardando = M.guardando[c.key_cliente];
+        var marcar = function (canal) { return function () { M.canal[c.key_cliente] = canal; }; };
+        var guion = guionPara(c);
+        var hecho = c.estado === "hecho" || c.estado === "espera";
+        var cuerpo = [
+            el("div", { class: "ml-cab" }, [el("span", { class: "ml-intento" + (c.intentos ? " is-repite" : ""), text: INTENTO[Math.min(c.intentos, 3)] }), el("span", { class: "ml-suc", text: c.sucursal || "" })]),
+            el("h3", { class: "ml-nombre", text: c.cliente || "Cliente" }),
+            el("p", { class: "ml-dato", text: [c.dato ? c.dato.charAt(0).toUpperCase() + c.dato.slice(1) : null, c.grupo_titulo].filter(Boolean).join(" · ") }),
+            c.promo ? el("p", { class: "ml-ofrece" }, [el("b", { text: "Ofrecé: " }), c.promo]) : null,
+            c.paquete_nombre ? el("p", { class: "ml-exclusivo" }, [el("b", { text: "Paquete exclusivo: " }), c.paquete_nombre]) : null
+        ];
+        if (hecho && !M.abierto[c.key_cliente]) {
+            cuerpo.push(el("div", { class: "ml-hecho" }, [
+                el("span", { class: "ml-res-chip is-" + (g && g.resultado === "agendado" ? "ok" : "muted"), text: (g ? (RESX[g.resultado] || { texto: g.resultado }).texto : "") + (g ? " · " + corta(g.fecha_on) + " " + hora(g.fecha_on) : "") }),
+                c.estado === "espera" && g && g.proximo_seguimiento ? el("span", { class: "ml-dato", text: "Vuelve a aparecer el " + corta(g.proximo_seguimiento) }) : null,
+                !M.ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Cambiar", onclick: function () { M.abierto[c.key_cliente] = true; pintar(); } }) : null
+            ]));
+            return el("article", { class: "ml-cli is-hecho" }, cuerpo);
+        }
+        cuerpo.push(
+            el("p", { class: "ml-paso", text: "Llamá. Si no atiende, mandá el mensaje por WhatsApp." }),
             el("div", { class: "ml-acc" }, [
-                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcarCanal("llamada") }, ["📞 Llamar"]) : el("span", { class: "co-muted", text: "Sin teléfono válido" }),
-                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcarCanal("whatsapp") }, ["💬 WhatsApp"]) : null
+                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, ["📞 Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
+                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, ["💬 Mandar mensaje"]) : null
             ]),
-            c.mensaje ? el("details", { class: "ml-msj" }, [el("summary", { text: "Ver el mensaje" }), el("p", { text: c.mensaje })]) : null,
-            el("div", { class: "ml-res" + (M.abierto[c.key_cliente] || c.estado === "seguir" ? " is-destacado" : "") }, [
-                el("p", { class: "ml-res-t", text: "¿Cómo te fue?" + (M.canal[c.key_cliente] ? " (" + (M.canal[c.key_cliente] === "whatsapp" ? "por mensaje" : "por llamada") + ")" : "") }),
-                el("div", { class: "ml-res-b" }, RES.map(function (r) {
-                    return el("button", { type: "button", class: "co-btn ml-r is-" + r.tono, disabled: guardando, onclick: function () { registrar(c, r.id, nota.value.trim()); } }, [r.texto]);
-                })),
-                nota
-            ])
-        ]);
+            guion ? el("details", { class: "ml-det" }, [el("summary", { text: "Guion de la llamada" }), el("p", { text: guion })]) : null,
+            c.mensaje ? el("details", { class: "ml-det" }, [el("summary", { text: "Ver mensaje de WhatsApp" }), el("p", { text: c.mensaje })]) : null
+        );
+        if (!M.ctx.soloVer) cuerpo.push(el("div", { class: "ml-res" }, [
+            el("p", { class: "ml-res-t", text: "¿Cómo te fue?" }),
+            el("div", { class: "ml-res-b" }, RES.map(function (r) {
+                return el("button", { type: "button", class: "ml-r" + (r.grande ? " is-compra" : "") + (r.ancho ? " is-ancho" : ""), disabled: guardando, onclick: function () { M.abierto[c.key_cliente] = false; registrar(c, r.id); } }, [r.texto]);
+            }))
+        ]));
+        return el("article", { class: "ml-cli" + (c.intentos ? " is-repite" : "") }, cuerpo);
     }
 
     function pintar() {
         var cont = M.cont; if (!cont) return;
-        var y = window.scrollY;
+        var ctx = M.ctx, y = window.scrollY;
         cont.textContent = "";
-        var todos = misClientes();
-        var cuenta = { pendiente: 0, seguir: 0, espera: 0, hecho: 0 }; todos.forEach(function (c) { cuenta[c.estado]++; });
-        var contactados = todos.length - cuenta.pendiente, pct = todos.length ? Math.round(contactados / todos.length * 100) : 0;
-        var vuelven = todos.filter(function (c) { return c.ultima && c.ultima.resultado === "agendado"; }).length;
-        var notaJefa = todos.map(function (c) { return c.nota_jefa; }).filter(Boolean)[0];
-        cont.appendChild(el("section", { class: "ml-intro" }, [
-            el("div", {}, [el("h2", { class: "co-h2", text: "Mi lista" }),
-                el("p", { class: "co-muted", text: todos.length ? "Clientes que te asignó el Jefe de ATC" + (todos[0] && todos[0].sucursal ? " para " + todos[0].sucursal : "") + ". Empieza por arriba: ya están ordenados por prioridad." : "" })]),
-            todos.length ? el("div", { class: "ml-prog" }, [el("span", {}, [el("b", { text: contactados + " de " + todos.length }), " contactados · " + vuelven + " vuelven"]), el("span", { class: "co-meta" }, [el("span", { style: "width:" + pct + "%" })])]) : null
+        var todos = misClientes(), h = hoy();
+        var pend = todos.filter(function (c) { return c.estado === "pendiente" || c.estado === "seguir"; });
+        var hechos = todos.filter(function (c) { return c.estado === "hecho" || c.estado === "espera"; });
+        var mias = (ctx.gestiones || []).filter(function (g) { return g.key_ejecutiva === ctx.yo.key; });
+        var hoyG = mias.filter(function (g) { return String(g.fecha_on).slice(0, 10) === h; });
+        var clientesHoy = {}; hoyG.forEach(function (g) { clientesHoy[g.key_cliente] = 1; });
+        var contactosHoy = Object.keys(clientesHoy).length, ventasHoy = hoyG.filter(function (g) { return g.resultado === "agendado"; }).length;
+        var mes = h.slice(0, 7), ventasMes = mias.filter(function (g) { return g.resultado === "agendado" && String(g.fecha_on).slice(0, 7) === mes; }).length;
+        var confirmadas = (ctx.comisiones || []).filter(function (x) { return !x.anulada && x.key_ejecutiva === ctx.yo.key; });
+        var meta = todos.length || 40;
+        var lista0 = todos[0] || {};
+
+        /* Encabezado: quién, qué día y cómo va */
+        cont.appendChild(el("header", { class: "ml-top" }, [
+            el("div", { class: "ml-quien" }, [el("b", { text: "Calistenia" }), el("span", { text: [String(ctx.yo.nombre || "").toUpperCase(), lista0.sucursal, lista0.lista_n ? (lista0.lista_n === 2 ? "tarde" : "mañana") : null].filter(Boolean).join(", ") })]),
+            el("h2", { class: "ml-fecha", text: fechaLarga() }),
+            el("div", { class: "ml-segs", "aria-hidden": "true" }, Array.from({ length: Math.min(meta, 60) }, function (_, i) { return el("i", { class: i < Math.round(Math.min(contactosHoy, meta) / meta * Math.min(meta, 60)) ? "is-on" : "" }); })),
+            el("div", { class: "ml-cuenta" }, [el("span", {}, [el("b", { text: String(contactosHoy) }), " de " + meta + " contactos hechos hoy"]), el("span", { text: ventasHoy + (ventasHoy === 1 ? " venta hoy" : " ventas hoy") })]),
+            el("p", { class: "ml-mes" }, ["Este mes reportaste ", el("b", { text: ventasMes + (ventasMes === 1 ? " venta" : " ventas") }), ": " + bs(ventasMes * 5) + ". ",
+                confirmadas.length ? el("span", { class: "ml-ok", text: "Confirmadas por el registro de ventas: " + confirmadas.length + " (" + bs(confirmadas.length * 5) + ")." }) : "La comisión se confirma con el registro de ventas."])
         ]));
-        if (notaJefa) cont.appendChild(el("div", { class: "co-aviso ml-nota" }, [el("strong", { text: "Mensaje del Jefe de ATC" }), el("p", { text: notaJefa })]));
+
+        var nota = todos.map(function (c) { return c.nota_jefa; }).filter(Boolean)[0];
+        if (nota) cont.appendChild(el("div", { class: "ml-nota" }, [el("b", { text: "Del Jefe de ATC: " }), nota]));
+        var tareas = (ctx.tareas || []).filter(function (t) { return !t.hecha; });
+        tareas.forEach(function (t) {
+            cont.appendChild(el("div", { class: "ml-nota is-tarea" }, [el("b", { text: "Tarea: " }), t.titulo + (t.indicaciones ? " — " + t.indicaciones : ""),
+                !ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Marcar hecha", onclick: function () { ctx.llamar("comercial_tarea_completar", { key: t.key }).then(function () { t.hecha = true; pintar(); ctx.avisar("Tarea hecha."); }, function (e) { ctx.avisar((e && e.message) || "No se pudo", "bad"); }); } }) : null]));
+        });
         if (!todos.length) {
-            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "⚠ No tienes lista para hoy." }), " Avísale ya a Jefe de ATC (Eliana): cada cliente que vuelve son Bs 5 para ti. La lista aparece aquí apenas te la asignen."]));
+            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), " Avísale al Jefe de ATC: cada cliente que compra son Bs 5 para ti."]));
             return;
         }
-        cont.appendChild(el("ol", { class: "ml-como" }, [
-            el("li", {}, [el("b", { text: "Llamá" }), " con el botón 📞 o por WhatsApp."]),
-            el("li", {}, [el("b", { text: "Si no atiende, mandá el mensaje" }), ": se abre WhatsApp con el texto ya escrito."]),
-            el("li", {}, [el("b", { text: "Anotá cómo te fue" }), ". «No contesta» lo vuelve a poner mañana; «Lo va a pensar», en 2 días."])
-        ]));
-        /* Lista por terminarse o de otro día: aviso urgente para pedir más (la idea es que nunca quede vacía). */
-        var vieja = todos.some(function (c) { return c.lote; }) && todos.map(function (c) { return String(c.lote || ""); }).sort().pop().slice(0, 10) < new Date().toISOString().slice(0, 10);
-        if (!cuenta.pendiente && !cuenta.seguir) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes a Jefe de ATC ahora mismo: mientras más contactos, más comisión."]));
-        else if (cuenta.pendiente + cuenta.seguir < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + (cuenta.pendiente + cuenta.seguir) + " clientes." }), " Avísale a Jefe de ATC para que te cargue más."]));
-        else if (vieja) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Esta lista no es de hoy." }), " Termínala y pide la de hoy a Jefe de ATC."]));
-        var FILTROS = [["pendientes", "Por contactar (" + cuenta.pendiente + ")"], ["seguir", "Volver a intentar hoy (" + cuenta.seguir + ")"], ["espera", "Más adelante (" + cuenta.espera + ")"], ["hecho", "Terminados (" + cuenta.hecho + ")"]];
-        if (M.filtro === "pendientes" && !cuenta.pendiente && cuenta.seguir) M.filtro = "seguir";
-        cont.appendChild(el("div", { class: "co-tabs ml-filtros", role: "tablist" }, FILTROS.map(function (f) {
-            return el("button", { type: "button", role: "tab", class: "co-tab" + (M.filtro === f[0] ? " is-on" : ""), "aria-selected": M.filtro === f[0] ? "true" : "false", text: f[1], onclick: function () { M.filtro = f[0]; pintar(); } });
+        if (!pend.length) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes al Jefe de ATC: más contactos, más comisión."]));
+        else if (pend.length < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + pend.length + " clientes." }), " Avísale al Jefe de ATC para que te cargue más."]));
+
+        var F = [["pendientes", "Pendientes (" + pend.length + ")"], ["hechos", "Hechos (" + hechos.length + ")"], ["buscar", "Buscar"]];
+        cont.appendChild(el("div", { class: "ml-tabs", role: "tablist" }, F.map(function (f) {
+            return el("button", { type: "button", role: "tab", class: M.filtro === f[0] ? "is-on" : "", "aria-selected": M.filtro === f[0] ? "true" : "false", text: f[1], onclick: function () { M.filtro = f[0]; pintar(); } });
         })));
-        var est = M.filtro === "pendientes" ? "pendiente" : M.filtro;
-        var lista = todos.filter(function (c) { return c.estado === est; });
-        if (!lista.length) cont.appendChild(el("p", { class: "co-vacio", text: est === "pendiente" ? "¡Contactaste a todos! Revisa «Volver a intentar hoy»." : "No hay clientes aquí." }));
+        var lista = M.filtro === "pendientes" ? pend : M.filtro === "hechos" ? hechos : [];
+        if (M.filtro === "buscar") {
+            var inp = el("input", { type: "search", class: "ml-buscar", placeholder: "Nombre o teléfono", value: M.buscar, "aria-label": "Buscar cliente" });
+            inp.addEventListener("input", function () { M.buscar = inp.value; clearTimeout(M.t); M.t = setTimeout(function () { pintar(); var b = M.cont.querySelector(".ml-buscar"); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }, 250); });
+            cont.appendChild(inp);
+            var q = norm(M.buscar).trim();
+            lista = q ? todos.filter(function (c) { return norm(c.cliente + " " + c.telefono).indexOf(q) >= 0; }) : [];
+        }
+        if (!lista.length) cont.appendChild(el("p", { class: "ml-vacio", text: M.filtro === "pendientes" ? "No te quedan clientes pendientes." : M.filtro === "hechos" ? "Todavía no contactaste a nadie de esta lista." : (M.buscar ? "No hay clientes con ese nombre o teléfono." : "Escribe un nombre o un teléfono.") }));
         var ul = el("div", { class: "ml-lista" });
-        lista.forEach(function (c) { ul.appendChild(tarjeta(c, todos.indexOf(c))); });
+        lista.forEach(function (c) { ul.appendChild(tarjeta(c)); });
         cont.appendChild(ul);
         window.scrollTo(0, y);
     }
 
     window.ATC_milista = {
         montar: function (cont, ctx) { M.cont = cont; M.ctx = ctx; pintar(); },
+        RES: RES,
         _interno: { M: M, misClientes: misClientes, registrar: registrar }
     };
 })();

@@ -55,6 +55,7 @@
     var bs = function (v) { return "Bs " + Math.round(num(v)).toLocaleString("es-BO"); };
     var fecha = function (s) { if (!s) return "—"; var p = String(s).slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0].slice(2) : String(s); };
     var hoy = function () { return L.iso(new Date()); };
+    var hace = function (n) { var d = new Date(); d.setDate(d.getDate() - n); return L.iso(d); };
     var mesActual = function () { var h = new Date(); return { desde: L.iso(new Date(h.getFullYear(), h.getMonth(), 1)), hasta: hoy() }; };
     function chip(tono, t) { return el("span", { class: "co-chip co-" + tono, text: t }); }
     function aviso(tono, titulo, txt) { return el("div", { class: "co-aviso is-" + tono, role: "status" }, [titulo ? el("strong", { text: titulo }) : null, el("p", { text: txt })]); }
@@ -156,6 +157,10 @@
             llamar(T.comisiones, p).then(function (r) { S.comisiones = filas(r); }),
             llamar(T.resumen, p).then(function (r) { S.resumen = filas(r); }),
             llamar(T.gestiones, { desde: p.desde, hasta: p.hasta }).then(function (r) { S.gestiones = filas(r); }),
+            /* Panel de ventas: la semana (de sábado a viernes), las comisiones confirmadas de las últimas semanas y los pagos. */
+            llamar(T.gestiones, { desde: hace(8), hasta: hoy() }).then(function (r) { S.gestSemana = filas(r); }),
+            llamar(T.comisiones, { desde: hace(42), hasta: hoy() }).then(function (r) { S.comRecientes = filas(r); }),
+            llamar("comercial_pagos").then(function (r) { S.pagos = filas(r); }, function () { S.pagos = []; }),
             S.sucursales.length ? null : llamar(T.sucursales).then(function (r) { S.sucursales = filas(r).map(function (s) { return String(s.descripcion || s).trim(); }); })
         ]).then(function () { S.sinHerramientas = false; }).catch(sinHerr);
     }
@@ -175,15 +180,20 @@
     }
 
     /* ================= Pintar ================= */
-    var TABS_MASTER = [["resumen", "Resumen"], ["equipo", "Equipo"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Comisiones"], ["campanas", "Campañas y control de caja"], ["actividad", "Actividad"]];
+    /* Jefe de ATC: lo principal en pestañas; lo demás en «Más». */
+    var TABS_MASTER = [["panel", "Panel"], ["verlista", "Ver una lista"], ["campanas", "Campañas"], ["comisiones", "Comisiones"], ["equipo", "Equipo"],
+        ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["actividad", "Actividad"]];
+    var PRINCIPALES = 5;   // Panel, Plan de hoy, Ver una lista, Campañas, Comisiones
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
     if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
     function pestanas() {
         var plan = window.ATC_plan ? [TAB_PLAN] : [];
         if (SOLO_ATENCION) return plan.concat([TAB_ATENCION]);
-        var tabs = (MASTER ? TABS_MASTER : TABS_EJ).slice();
-        if (veAtencion()) tabs.splice(1, 0, TAB_ATENCION);   // segunda, después de Resumen / Mi día
-        if (MASTER) tabs = plan.concat(tabs);                // Jefe de ATC empieza por su plan de hoy
+        if (!MASTER) return [["lista", "Mi lista"]];
+        var tabs = TABS_MASTER.slice();
+        tabs.splice(1, 0, plan[0] || null);                  // Panel, Plan de hoy, …
+        tabs = tabs.filter(Boolean);
+        if (veAtencion()) tabs.push(TAB_ATENCION);
         return tabs;
     }
     /* El tablero de Atención se crea una sola vez y se muestra u oculta: así no se recarga al cambiar de pestaña. */
@@ -220,16 +230,27 @@
         if (!S.tab) { var h = location.hash.slice(1); S.tab = tabs.some(function (t) { return t[0] === h; }) ? h : tabs[0][0]; }
         if (!tabs.some(function (t) { return t[0] === S.tab; })) S.tab = tabs[0][0];
         var nav = $("#co-tabs"); nav.textContent = "";
-        tabs.forEach(function (t) {
-            nav.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1],
-                onclick: function () { S.tab = t[0]; try { history.replaceState(null, "", "#" + t[0]); } catch (e) {} pintar(); } }));
+        nav.hidden = !MASTER;
+        /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
+        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0]].indexOf(S.tab) >= 0;
+        var ir = function (t) { S.tab = t; try { history.replaceState(null, "", location.search + "#" + t); } catch (e) {} pintar(); };
+        var principales = SOLO_ATENCION ? tabs : tabs.slice(0, PRINCIPALES), resto = SOLO_ATENCION ? [] : tabs.slice(PRINCIPALES);
+        principales.forEach(function (t) {
+            nav.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1], onclick: function () { ir(t[0]); } }));
         });
+        if (resto.length) {
+            var enResto = resto.some(function (t) { return t[0] === S.tab; });
+            var sel = el("select", { class: "co-mas" + (enResto ? " is-on" : ""), "aria-label": "Más secciones", onchange: function (e) { if (e.target.value) ir(e.target.value); } },
+                [el("option", { value: "", text: enResto ? "" : "Más…" })].concat(resto.map(function (t) { return el("option", { value: t[0], selected: S.tab === t[0], text: t[1] }); })));
+            if (enResto) sel.options[0].remove();
+            nav.appendChild(sel);
+        }
         var c = $("#co-contenido"); c.textContent = "";
         var enAtencion = S.tab === TAB_ATENCION[0];
         c.hidden = enAtencion;
         mostrarAtencion(enAtencion);
         if (enAtencion) return;
-        var banner = MASTER ? (S.sinHerramientas ? null : tableroIncentivos()) : (S.yo ? incentivoATC() : null);
+        var banner = null;   // el Panel (jefe) y el encabezado de la lista (ATC) ya muestran avance y comisiones
         var ponerBanner = function () { if (banner) c.insertBefore(banner, c.firstChild); };
         if (S.tab === TAB_PLAN[0]) {
             /* Con el rol de Jefe de ATC (y Firebase activo) puede asignar las listas a las ATC; si no, solo descargarlas. */
@@ -238,7 +259,14 @@
             ponerBanner();
             return;
         }
-        if (S.tab === "lista") { var fnL = VISTAS_EJ.lista; if (!MASTER && fnL) { fnL(c); ponerBanner(); return; } }
+        if (!MASTER) { if (yoListo(c)) window.ATC_milista.montar(c, ctxLista(S.yo, false)); return; }
+        if (S.tab === "panel" && window.ATC_panel && !S.sinHerramientas) {
+            window.ATC_panel.montar(c, { equipo: S.equipo, asignaciones: S.asignaciones, gestiones: S.gestSemana || [], comisiones: S.comRecientes || [], pagos: S.pagos || [],
+                ultimoContacto: ultimoPorChica(), llamar: llamar, avisar: avisar, recargar: cargar,
+                verLista: function (k) { S.verKey = k; ir("verlista"); }, irAPlan: window.ATC_plan ? function () { ir(TAB_PLAN[0]); } : null });
+            return;
+        }
+        if (S.tab === "verlista" && !S.sinHerramientas) { vistaVerLista(c); return; }
         ponerBanner();
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
@@ -265,7 +293,7 @@
         var quien = nuevas.map(function (c) { return String(c.cliente || "Un cliente").split(" ").slice(0, 2).join(" "); });
         var t = el("div", { class: "co-festejo", role: "status", "aria-live": "assertive" }, [
             el("span", { class: "co-festejo-ico", text: "🎉" }),
-            el("div", {}, [el("b", { text: "¡Se cerró! +" + bs(total) }), el("p", { text: (quien.length === 1 ? quien[0] + " volvió a entrenar." : quien.length + " clientes volvieron: " + quien.slice(0, 3).join(", ") + (quien.length > 3 ? "…" : "")) + " Ya suma a tu contador." })])
+            el("div", {}, [el("b", { text: "¡Se cerró! +" + bs(total) }), el("p", { text: (quien.length === 1 ? quien[0] + " compró." : quien.length + " clientes compraron.") + " Ya suma a tu comisión." })])
         ]);
         document.body.appendChild(t);
         try { var ac = new (window.AudioContext || window.webkitAudioContext)(); [523, 659, 784].forEach(function (f, i) { var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .08; o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + i * .12); o.stop(ac.currentTime + i * .12 + .18); }); } catch (e) {}
@@ -340,6 +368,26 @@
             return el("li", {}, [el("b", { text: String(f.ejecutiva || "?").split(" ")[0] }), " " + bs(f.comision) + " · " + f.ventas + (f.ventas === 1 ? " venta" : " ventas")]);
         })));
         return caja;
+    }
+
+    function ultimoPorChica() { var u = {}; (S.ultimas || []).forEach(function (g) { if (g.key_ejecutiva && (!u[g.key_ejecutiva] || g.fecha_on > u[g.key_ejecutiva])) u[g.key_ejecutiva] = g.fecha_on; }); return u; }
+    function ctxLista(ej, soloVer) {
+        return { yo: ej, asignaciones: S.asignaciones, ultimas: S.ultimas, gestiones: S.ultimas, guiones: S.guiones,
+            tareas: soloVer ? [] : S.tareas.filter(function (t) { return !t.key_ejecutiva || t.key_ejecutiva === ej.key; }),
+            comisiones: soloVer ? (S.comRecientes || []).filter(function (x) { return x.key_ejecutiva === ej.key && String(x.fecha_venta).slice(0, 7) === hoy().slice(0, 7); }) : S.comisiones,
+            llamar: llamar, avisar: avisar, soloVer: soloVer };
+    }
+    /* «Ver una lista»: el Jefe de ATC ve la lista de cualquier chica tal como la ve ella (solo para mirar). */
+    function vistaVerLista(c) {
+        var eq = S.equipo.filter(activa).sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre)); });
+        if (!S.verKey || !eq.some(function (e) { return e.key === S.verKey; })) S.verKey = eq[0] ? eq[0].key : null;
+        c.appendChild(el("div", { class: "co-verlista" }, [el("label", {}, ["Lista de", el("select", { onchange: function (e) { S.verKey = e.target.value; pintar(); } },
+            eq.map(function (e) { return el("option", { value: e.key, selected: e.key === S.verKey, text: e.nombre + ((e.sucursales || []).length ? " · " + e.sucursales.join(", ") : "") }); }))]),
+            el("p", { class: "co-muted", text: "Así ve su lista. Desde aquí solo se mira: los resultados los anota cada chica." })]));
+        var ej = eq.filter(function (e) { return e.key === S.verKey; })[0];
+        if (!ej) { c.appendChild(el("p", { class: "co-muted", text: "Todavía no hay chicas en el equipo." })); return; }
+        var box = el("div", { class: "co-verlista-caja" }); c.appendChild(box);
+        window.ATC_milista.montar(box, ctxLista(ej, true));
     }
 
     /* ---------- piezas compartidas ---------- */
@@ -863,6 +911,8 @@
     $("#co-actualizar").addEventListener("click", cargar);
     cargar();
     setInterval(function () { if (!document.hidden && !raiz.querySelector(".co-subfila, .co-form")) cargar(); }, 10 * 60000);
+    /* El Panel de ventas se actualiza solo cada 2 minutos. */
+    setInterval(function () { if (MASTER && S.tab === "panel" && !document.hidden) cargar(); }, 2 * 60000);
     }
     function pedirDatosCalistenia() {
         if (window.CM.conSesion()) return false;
