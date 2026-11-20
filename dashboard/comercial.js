@@ -129,40 +129,60 @@
     function clientesBase() { return L.antiguos(S.vencidos, hoy()); }
 
     /* ================= Carga ================= */
-    function cargar() {
-        mensaje($("#co-estado"), "", "Cargando…");
-        /* Las ATC trabajan con su lista asignada: sin sesión de datos de Calistenia no se piden los vencidos. */
-        var conMcp = window.CM.conSesion();
-        var pV = (!MASTER && !conMcp ? Promise.resolve({ filas: [], cortado: false }) : cargarVencidos()).then(function (v) {
-            S.vencidos = v.filas; S.cortado = v.cortado; S.errorVencidos = null;
-            S.sinKeys = v.filas.length > 0 && !v.filas.some(function (c) { return c.key_usuario || c.key_cliente; });
-        }).catch(function (e) { if (e.sinSesion) throw e; S.errorVencidos = e; S.vencidos = []; });
-        var pC = MASTER ? cargarMaster() : cargarEjecutiva();
-        return Promise.all([pV, pC]).then(function () {
-            mensaje($("#co-estado"), S.sinHerramientas ? "warn" : "", S.sinHerramientas
-                ? "El sistema comercial está listo, pero todavía no está activo: por ahora solo se ven los clientes antiguos por sucursal."
-                : "Actualizado a las " + new Date().toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }));
-            pintar();
+    /* Carga en dos tiempos: primero lo liviano (equipo, listas, la semana) y se muestra enseguida;
+       después, sin bloquear, las comisiones del mes y los clientes vencidos (que pesan mucho). */
+    function puedeRepintar() { return !raiz.querySelector(".co-subfila, .co-form, textarea:focus, input:focus"); }
+    function listo(txt, tono) {
+        mensaje($("#co-estado"), S.sinHerramientas ? "warn" : (tono || ""), S.sinHerramientas
+            ? "El sistema comercial está listo, pero todavía no está activo: por ahora solo se ven los clientes antiguos por sucursal."
+            : txt || "Actualizado a las " + new Date().toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" }));
+    }
+    function cargar(opc) {
+        var ligero = !!(opc && opc.ligero);
+        if (!ligero) mensaje($("#co-estado"), "", "Cargando…");
+        if (!MASTER) {
+            /* La ATC trabaja solo con su lista asignada: no se piden los clientes vencidos. */
+            return cargarEjecutiva().then(function () { listo(); pintar(); })
+                .catch(function (e) { mensaje($("#co-estado"), "bad", "No se pudo cargar: " + textoError(e)); pintar(); });
+        }
+        var vuelta = (cargar.vuelta = (cargar.vuelta || 0) + 1);
+        return cargarMasterRapido().then(function () {
+            listo(ligero ? null : "Cargando comisiones y clientes…"); pintar();
+            var pesado = [cargarMasterPesado(ligero)];
+            if (!ligero) pesado.push(cargarVencidos().then(function (v) {
+                S.vencidos = v.filas; S.cortado = v.cortado; S.errorVencidos = null;
+                S.sinKeys = v.filas.length > 0 && !v.filas.some(function (c) { return c.key_usuario || c.key_cliente; });
+            }).catch(function (e) { S.errorVencidos = e; S.vencidos = []; }));
+            return Promise.all(pesado).then(function () {
+                if (vuelta !== cargar.vuelta) return;
+                listo(); if (puedeRepintar()) pintar();
+            });
         }).catch(function (e) { mensaje($("#co-estado"), "bad", "No se pudo cargar: " + textoError(e)); pintar(); });
     }
     function sinHerr(e) { if (e && e.noDisponible) { S.sinHerramientas = true; return; } throw e; }
-    function cargarMaster() {
-        var p = S.periodo;
+    function cargarMasterRapido() {
         return Promise.all([
             llamar(T.equipo).then(function (r) { S.equipo = filas(r); }),
             llamar(T.asignaciones).then(function (r) { S.asignaciones = filas(r); }),
             llamar(T.ultimas).then(function (r) { S.ultimas = filas(r); }),
             llamar(T.tareas, { incluir_hechas: true }).then(function (r) { S.tareas = filas(r); }),
             llamar(T.guiones).then(function (r) { S.guiones = filas(r); }),
-            llamar(T.comisiones, p).then(function (r) { S.comisiones = filas(r); }),
-            llamar(T.resumen, p).then(function (r) { S.resumen = filas(r); }),
-            llamar(T.gestiones, { desde: p.desde, hasta: p.hasta }).then(function (r) { S.gestiones = filas(r); }),
-            /* Panel de ventas: la semana (de sábado a viernes), las comisiones confirmadas de las últimas semanas y los pagos. */
+            /* Panel de ventas: la semana (de sábado a viernes) y los pagos. */
             llamar(T.gestiones, { desde: hace(8), hasta: hoy() }).then(function (r) { S.gestSemana = filas(r); }),
-            llamar(T.comisiones, { desde: hace(42), hasta: hoy() }).then(function (r) { S.comRecientes = filas(r); }),
             llamar("comercial_pagos").then(function (r) { S.pagos = filas(r); }, function () { S.pagos = []; }),
             S.sucursales.length ? null : llamar(T.sucursales).then(function (r) { S.sucursales = filas(r).map(function (s) { return String(s.descripcion || s).trim(); }); })
         ]).then(function () { S.sinHerramientas = false; }).catch(sinHerr);
+    }
+    /* Lo que necesita las ventas del ERP. Al refrescar el Panel solo se actualizan las comisiones recientes. */
+    function cargarMasterPesado(ligero) {
+        if (S.sinHerramientas) return Promise.resolve();
+        var p = S.periodo, nada = function () {};
+        var l = [llamar(T.comisiones, { desde: hace(42), hasta: hoy() }).then(function (r) { S.comRecientes = filas(r); }, nada)];
+        if (!ligero) l.push(
+            llamar(T.comisiones, p).then(function (r) { S.comisiones = filas(r); }, nada),
+            llamar(T.gestiones, { desde: p.desde, hasta: p.hasta }).then(function (r) { S.gestiones = filas(r); }, nada),
+            llamar(T.resumen, p).then(function (r) { S.resumen = filas(r); }, nada));
+        return Promise.all(l);
     }
     function cargarEjecutiva() {
         return llamar(T.miTrabajo, S.periodo).then(function (r) {
@@ -908,11 +928,11 @@
         S.periodo = { desde: L.iso(ini), hasta: L.iso(fin) < hoy() ? L.iso(fin) : hoy() };
         cargar();
     });
-    $("#co-actualizar").addEventListener("click", cargar);
+    $("#co-actualizar").addEventListener("click", function () { if (window.CM && window.CM.borrarMemoria) window.CM.borrarMemoria(); cargar(); });
     cargar();
     setInterval(function () { if (!document.hidden && !raiz.querySelector(".co-subfila, .co-form")) cargar(); }, 10 * 60000);
     /* El Panel de ventas se actualiza solo cada 2 minutos. */
-    setInterval(function () { if (MASTER && S.tab === "panel" && !document.hidden) cargar(); }, 2 * 60000);
+    setInterval(function () { if (MASTER && S.tab === "panel" && !document.hidden && puedeRepintar()) cargar({ ligero: true }); }, 2 * 60000);
     }
     function pedirDatosCalistenia() {
         if (window.CM.conSesion()) return false;

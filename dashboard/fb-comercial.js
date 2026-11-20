@@ -7,6 +7,25 @@
 (function () {
     "use strict";
     if (!window.CMFB) return;
+    /* Memoria corta de lecturas: en una misma carga varias herramientas piden el equipo, las gestiones y las
+       comisiones anuladas; se leen una sola vez. Cualquier escritura la borra. */
+    var CMFB = Object.create(window.CMFB);
+    var MEMO = {};
+    function memo(k, fn, ms) {
+        var c = MEMO[k], t = Date.now();
+        if (!c || t - c.t > (ms || 30000)) {
+            var p = fn(); c = MEMO[k] = { t: t, p: p };
+            p.catch(function () { if (MEMO[k] && MEMO[k].p === p) delete MEMO[k]; });
+        }
+        return c.p.then(function (l) { return Array.isArray(l) ? l.slice() : l; });
+    }
+    var LECTURA = /^comercial_(equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
+    CMFB.registrar = function (nombre, fn) {
+        window.CMFB.registrar(nombre, LECTURA.test(nombre) ? fn : function (a, n) {
+            MEMO = {};
+            return Promise.resolve().then(function () { return fn(a, n); }).then(function (r) { MEMO = {}; return r; }, function (e) { MEMO = {}; throw e; });
+        });
+    };
     var U = CMFB.util;
     var COMISION_BS = 5, VENTANA_DIAS = 15;
     var CANALES = ["whatsapp", "llamada", "presencial", "otro"];
@@ -22,7 +41,7 @@
     }
     function menosDias(iso, n) { var d = new Date(iso.slice(0, 10) + "T00:00:00"); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
-    function equipo() { return U.docs(col("com_ejecutiva")).then(function (l) { return U.vigentes(l); }); }
+    function equipo() { return memo("equipo", function () { return U.docs(col("com_ejecutiva")).then(function (l) { return U.vigentes(l); }); }); }
     /* El ATC que está usando la página. Si es la primera vez, se registra solo (sin sucursales todavía). */
     function yo() {
         var ref = col("com_ejecutiva").doc(CMFB.usuarioKey());
@@ -40,8 +59,9 @@
         return U.docs(col("com_asignacion")).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); });
     }
     function gestionesDesde(desde) {
-        return U.docs(col("com_gestion").where("fecha_on", ">=", desde)).then(function (l) { return U.vigentes(l).sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); });
+        return memo("gest:" + desde, function () { return U.docs(col("com_gestion").where("fecha_on", ">=", desde)).then(function (l) { return U.vigentes(l).sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); }); });
     }
+
     function ultimas(lista, nombres) {
         var u = {}, cont = {};
         lista.forEach(function (g) { cont[g.key_cliente] = (cont[g.key_cliente] || 0) + 1; if (!u[g.key_cliente]) u[g.key_cliente] = g; });
@@ -81,7 +101,7 @@
         return { claves: claves, nombres: nombres };
     }
     function comisiones(desde, hasta, keyEj) {
-        return Promise.all([ventas(desde, hasta), gestionesDesde(menosDias(desde, VENTANA_DIAS)), equipo(), U.docs(col("com_comision_anulada"))]).then(function (a) {
+        return Promise.all([ventas(desde, hasta), gestionesDesde(menosDias(desde, VENTANA_DIAS)), equipo(), memo("anuladas", function () { return U.docs(col("com_comision_anulada")); })]).then(function (a) {
             var gest = a[1], nom = nombresEquipo(a[2]), anul = {};
             a[3].forEach(function (x) { if (Number(x.estado == null ? 1 : x.estado) > 0) anul[x.key] = x; });
             var porClave = {}, porNombre = {};

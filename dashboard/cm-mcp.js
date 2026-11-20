@@ -200,10 +200,49 @@
         });
     }
 
+    /* Memoria de consultas de solo lectura: lo que ya se leyó no se vuelve a pedir enseguida (las listas de clientes
+       pesan miles de filas). Vive en la pestaña (memoria + sessionStorage) y se borra al salir. */
+    var DURA = { clientes_vencidos: 15, clientes_por_vencer: 15, clientes_sin_asistir: 15, clientes_cumpleanos: 30, listar_paquetes: 30, listar_sucursales: 60, listar_servicios: 60, listar_ventas: 3 };
+    var MEM = {}, PREF = "cm.cache:";
+    function claveCache(nombre, args) {
+        var a = args || {}, o = {}; Object.keys(a).sort().forEach(function (k) { o[k] = a[k]; });
+        return PREF + nombre + ":" + JSON.stringify(o);
+    }
+    function leerCache(k) {
+        var c = MEM[k];
+        if (!c) { try { c = JSON.parse(sessionStorage.getItem(k) || "null"); } catch (e) { c = null; } if (c) MEM[k] = c; }
+        return c && c.vence > Date.now() ? c : null;
+    }
+    function guardarCache(k, min, dato) {
+        var c = { vence: Date.now() + min * 60000, dato: dato }; MEM[k] = c;
+        try { sessionStorage.setItem(k, JSON.stringify(c)); } catch (e) { /* sin lugar: queda solo en memoria */ }
+    }
+    function borrarCache() {
+        MEM = {}; enCurso = {};
+        try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf(PREF) === 0) sessionStorage.removeItem(k); }); } catch (e) {}
+    }
+    var enCurso = {};
+    function copia(d) { return d == null ? d : JSON.parse(JSON.stringify(d)); }
+    function llamarConMemoria(nombre, args) {
+        var min = DURA[nombre];
+        if (!min) return llamar(nombre, args);
+        var k = claveCache(nombre, args), c = leerCache(k);
+        if (c) return Promise.resolve(copia(c.dato));
+        if (!enCurso[k]) {
+            enCurso[k] = llamar(nombre, args).then(function (d) {
+                delete enCurso[k];
+                var err = d && typeof d === "object" && (d.estado === "error" || typeof d.error === "string");
+                if (!err && d != null) guardarCache(k, min, d);
+                return d;
+            }, function (e) { delete enCurso[k]; throw e; });
+        }
+        return enCurso[k].then(copia);
+    }
+
     /* Salir del portal NO borra la conexión con Calistenia: queda guardada para ese usuario del ERP. */
-    function cerrarSesion() { guardar(K.pkce, null); sesionMcp = null; }
+    function cerrarSesion() { guardar(K.pkce, null); sesionMcp = null; borrarCache(); }
     function conSesion() { return !!leerTokens(); }
 
     /* token(): acceso vigente a Calistenia (lo usa el asistente para que Claude consulte el MCP con los permisos de este usuario). */
-    window.CM = { iniciarSesion: iniciarSesion, atenderVuelta: atenderVuelta, llamar: llamar, cerrarSesion: cerrarSesion, conSesion: conSesion, token: acceso };
+    window.CM = { iniciarSesion: iniciarSesion, atenderVuelta: atenderVuelta, llamar: llamarConMemoria, borrarMemoria: borrarCache, cerrarSesion: cerrarSesion, conSesion: conSesion, token: acceso };
 })();
