@@ -300,3 +300,8 @@
 .pj-alerta { background: #16181B; border: 1px solid #2B2E33; border-left: 2px solid #E30613; color: #D6D8DC; }
 .pj-lbl, .pj-encab { letter-spacing: .02em; }
 .pj-chica:hover, .pj-chica:focus-visible { background: #1D2024; }
+/* Acciones del Jefe de ATC en «Ver una lista» */
+.ml-jefe { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px dashed #3A3E44; }
+.ml-quitar { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .86em; font-weight: 600; color: #F3C6C1; background: none; border: 1px solid #5A2E2B; border-radius: 0; padding: 8px 12px; cursor: pointer; }
+.ml-quitar:hover { border-color: #D9776F; color: #FFFFFF; }
+.ml-pasar { flex: 1 1 200px; font: inherit; font-size: .86em; color: #FFFFFF; background: #0D0E10; border: 1px solid #2B2E33; border-radius: 0; padding: 8px 10px; }

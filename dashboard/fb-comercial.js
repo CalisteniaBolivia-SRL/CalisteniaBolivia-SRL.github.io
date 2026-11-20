@@ -311,6 +311,20 @@
         });
     });
     /* Plan de hoy: quita a una ATC su lista de una sucursal. */
+    /* Sacar un cliente de la lista de una ATC, o pasarlo a otra ATC (solo Jefe de ATC). */
+    CMFB.registrar("comercial_lista_quitar", function (a) {
+        var k = U.txt(a, "key_cliente", 120, true);
+        if (/[/]/.test(k)) throw U.err("El cliente no es válido.");
+        return col("com_asignacion").doc(k).set({ estado: 0, fecha_edicion: U.ahora(), key_usuario_edicion: CMFB.usuarioKey() }, { merge: true }).then(function () { return { estado: "exito" }; });
+    });
+    CMFB.registrar("comercial_lista_pasar", function (a) {
+        var k = U.txt(a, "key_cliente", 120, true), ej = clave(a.key_ejecutiva);
+        if (/[/]/.test(k) || !ej) throw U.err("Datos no válidos.");
+        return col("com_ejecutiva").doc(ej).get().then(function (x) {
+            if (!x.exists || Number(x.data().estado) <= 0) throw U.err("Esa ATC no existe o está dada de baja.");
+            return col("com_asignacion").doc(k).set({ key_ejecutiva: ej, fecha_edicion: U.ahora(), key_usuario_edicion: CMFB.usuarioKey() }, { merge: true });
+        }).then(function () { return { estado: "exito" }; });
+    });
     CMFB.registrar("comercial_plan_quitar", function (a) {
         var ej = clave(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), ahora = U.ahora();
         return col("com_asignacion").where("key_ejecutiva", "==", ej).get().then(function (s) {
