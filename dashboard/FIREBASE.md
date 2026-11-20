@@ -41,22 +41,21 @@ Requiere el **plan Blaze** de Firebase (las Cloud Functions lo exigen para conec
 
 ## Redes sociales (permiso `marketing`)
 
-Tablero **Redes sociales** (`redes.html`). Cada comentario nuevo en las páginas de Facebook y las cuentas de Instagram conectadas se responde solo, con humor y con los datos que Marketing carga en *Configuración* (por país: Bolivia y Paraguay). Las críticas se responden con calma y se llevan a privado o al WhatsApp. Los casos delicados (lesiones, cobros, denuncias, insultos) quedan en *Por aprobar*. TikTok no permite responder por API: se pega el comentario y se copia el borrador.
+Tablero **Redes sociales** (`redes.html`):
+- **Conversaciones (CRM):** los mensajes directos de Messenger e Instagram. El bot responde y clasifica cada charla por **tema** (precios, horarios, inscripción, ubicación, clases, pagos, quejas, lesiones, felicitaciones, empleo, alianzas). Lo que necesita a una persona queda **Por atender**. Quien la **toma** la tiene asignada y el bot se pausa en esa charla; se puede responder desde el panel, dejar notas internas, marcar **Atendida** o **No requiere**, y **Devolver al bot**. Filtros por estado, tema, red, país, «solo las mías» y búsqueda. Si alguien responde desde la bandeja de Meta, también se pausa el bot.
+- **Comentarios:** se responden solos con humor; las críticas se calman y se llevan a privado; los casos delicados (lesiones, cobros, denuncias, insultos) quedan **por aprobar**.
+- **TikTok:** se pega el comentario y se copia el borrador (TikTok no permite responder por sistema).
+- **Configuración:** botón **Conectar con Facebook** (trae las páginas y sus Instagram profesionales y las suscribe a los avisos), datos de la marca por país, WhatsApp, tono y respuestas automáticas por país y por cuenta. Freno: máximo de respuestas automáticas por hora y cuenta.
 
-Piezas (en `functions/`):
-- `metaWebhook`: recibe los avisos de Meta (firma verificada con el secreto de la app).
-- `rsNuevoComentario` / `rsComentarioCambio`: redactan la respuesta con Claude (`redes-ia.js`, modelo `claude-opus-5-5`) y la publican, o la dejan por aprobar.
-- Freno: máximo de respuestas automáticas por hora y cuenta (60 por defecto, se cambia en Configuración).
+Piezas (en `functions/`): `metaWebhook` (avisos de Meta con firma verificada), `rsNuevoComentario`, `rsComentarioCambio`, `rsMensajeNuevo` (responde mensajes y envía los del personal) y `rsVincular` (conexión de páginas). Redacta Claude (`redes-ia.js`, modelo económico Haiku; se cambia con `REDES_MODELO`).
 
-Instalación (una sola vez, con el plan Blaze activo):
-1. Secretos de Firebase (se cargan en la consola o con `firebase functions:secrets:set`, nunca en el código ni en el chat):
-   - `ANTHROPIC_API_KEY`: clave de la API de Claude (console.anthropic.com).
-   - `META_APP_SECRET`: secreto de la app de Meta.
-   - `META_VERIFY_TOKEN`: una palabra larga inventada, la misma que se pone en Meta al configurar el webhook.
-2. Publicar las funciones `metaWebhook`, `rsNuevoComentario` y `rsComentarioCambio` (región `southamerica-east1`) y las reglas.
-3. En developers.facebook.com: crear una app de tipo empresa, agregar **Webhooks** (objetos *Page* → campo `feed` e *Instagram* → campo `comments`) con la URL de `metaWebhook` y el `META_VERIFY_TOKEN`. Permisos: `pages_manage_engagement`, `pages_read_user_content`, `pages_read_engagement`, `pages_manage_metadata`, `instagram_basic`, `instagram_manage_comments`. Para usarla con el público, Meta pide la revisión de la app.
-4. Suscribir cada página a la app y sacar su token de página de larga duración. En el tablero → Configuración → *Agregar cuenta*: el id de la página (Facebook) o de la cuenta profesional de Instagram, su país y el token.
-5. Cargar en Configuración los datos de cada país (precios, sucursales, horarios, promociones, WhatsApp) y activar las respuestas automáticas.
+### Activación (una sola vez, con la facturación de Google activa)
+1. **App de Meta** en developers.facebook.com (cuenta que administra las páginas): tipo **Empresa**; productos **Inicio de sesión con Facebook para empresas**, **Messenger**, **Instagram** y **Webhooks**. En *Configuración básica*: dominio `calisteniabolivia-srl.github.io`, política de privacidad, y copiar el **Id de la app** y la **Clave secreta**.
+2. **Secretos y parámetros de Firebase:** `ANTHROPIC_API_KEY`, `META_APP_SECRET` (clave secreta de la app), `META_VERIFY_TOKEN` (una palabra larga inventada) y el parámetro `META_APP_ID` (id de la app).
+3. Publicar las funciones y las reglas.
+4. **Webhooks** en la app de Meta: URL de `metaWebhook` y el `META_VERIFY_TOKEN`; suscribir *Page* → `feed`, `messages`, `message_echoes` e *Instagram* → `comments`, `messages`.
+5. En el tablero → Configuración: pegar el **Id de la app** y tocar **Conectar con Facebook** con el usuario que administra las páginas (Bolivia y luego Paraguay).
+6. Para usarlo con el público, Meta pide la **revisión de la app** (permisos `pages_messaging`, `pages_manage_engagement`, `pages_read_user_content`, `instagram_manage_comments`, `instagram_manage_messages`) y la verificación del negocio. Mientras tanto funciona con los administradores y evaluadores de la app.
 
 ## Capital Corp: entrada, países y asistente
 

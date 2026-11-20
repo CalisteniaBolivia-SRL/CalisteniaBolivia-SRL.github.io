@@ -10,6 +10,12 @@
     var CAT = { elogio: "Elogio", pregunta: "Pregunta", precio_horario: "Precio u horario", critica: "Crítica", delicado: "Delicado", spam: "Spam", otro: "Otro" };
     var EST = { nuevo: "Generando…", generando: "Generando…", regenerar: "Generando…", pendiente: "Por aprobar", aprobado: "Publicando…", respondido: "Respondido",
         error: "Error al publicar", descartado: "Descartado", ignorado: "Spam (sin respuesta)", borrador: "Borrador", publicado_manual: "Publicado a mano" };
+    var TEMA = { precios_planes: "Precios y planes", horarios: "Horarios", inscripcion_prueba: "Inscripción / prueba", ubicacion_sucursales: "Ubicación",
+        clases_entrenamiento: "Clases y entrenamiento", pagos_cobros: "Pagos y cobros", quejas: "Quejas", lesiones_salud: "Lesiones y salud",
+        felicitaciones: "Felicitaciones", empleo: "Empleo", alianzas_publicidad: "Alianzas y publicidad", otro: "Otro" };
+    var ATENCION = { por_atender: "Por atender", en_curso: "En curso", bot: "Respondió el bot", atendido: "Atendida", no_requiere: "No requiere" };
+    var TONO_AT = { por_atender: "bad", en_curso: "warn", bot: "ok", atendido: "ok", no_requiere: "muted" };
+    var RED_DM = { messenger: "Messenger", instagram_dm: "Instagram" };
     var TONO = { respondido: "ok", publicado_manual: "ok", pendiente: "warn", borrador: "warn", error: "bad", descartado: "muted", ignorado: "muted" };
 
     var $ = function (s) { return raiz.querySelector(s); };
@@ -34,18 +40,19 @@
     var yo = function () { return CMFB.usuarioKey(); };
     var ahora = function () { return new Date().toISOString(); };
 
-    var estado = { pestana: "aprobar", pais: "", comentarios: [], historial: [], config: {}, cuentas: [], escuchas: [] };
-    try { estado.pestana = localStorage.getItem("rs_pestana") || "aprobar"; } catch (e) {}
+    var estado = { pestana: "conversaciones", pais: "", comentarios: [], historial: [], config: {}, cuentas: [], escuchas: [], meta: {},
+        convs: [], sel: null, mensajes: [], escuchaSel: null, f: { estado: "abiertas", tema: "", red: "", mias: false, q: "" }, temaHist: "", borradores: {} };
+    try { estado.pestana = localStorage.getItem("rs_pestana") || "conversaciones"; } catch (e) {}
     /* Desde el portal de un país (Capital Corp → Calistenia Company → país) se abre filtrado por ese país. */
     var mPais = /[?&]pais=(bolivia|paraguay)\b/.exec(location.search);
     if (mPais) estado.pais = mPais[1];
 
     /* ---------- pestañas ---------- */
-    var PESTANAS = [["aprobar", "Por aprobar"], ["tiktok", "TikTok"], ["historial", "Historial"], ["config", "Configuración"]];
+    var PESTANAS = [["conversaciones", "Conversaciones"], ["aprobar", "Comentarios por aprobar"], ["tiktok", "TikTok"], ["historial", "Historial de comentarios"], ["config", "Configuración"]];
     function pintarPestanas() {
         var nav = $("#rs-tabs"); nav.textContent = "";
         PESTANAS.forEach(function (p) {
-            var n = p[0] === "aprobar" ? estado.comentarios.filter(function (c) { return c.plataforma !== "tiktok" && (c.estado === "pendiente" || c.estado === "error"); }).length
+            var n = p[0] === "conversaciones" ? estado.convs.filter(function (c) { return c.estado_atencion === "por_atender"; }).length : p[0] === "aprobar" ? estado.comentarios.filter(function (c) { return c.plataforma !== "tiktok" && (c.estado === "pendiente" || c.estado === "error"); }).length
                 : p[0] === "tiktok" ? estado.comentarios.filter(function (c) { return c.plataforma === "tiktok" && c.estado === "borrador"; }).length : 0;
             nav.appendChild(el("button", { type: "button", role: "tab", class: "lg-tab" + (estado.pestana === p[0] ? " is-on" : ""), "aria-selected": estado.pestana === p[0] ? "true" : "false",
                 onclick: function () { estado.pestana = p[0]; try { localStorage.setItem("rs_pestana", p[0]); } catch (e) {} pintar(); } }, [p[1] + (n ? " (" + n + ")" : "")]));
@@ -85,7 +92,7 @@
         var nota = c.estado === "error" ? "No se pudo publicar: " + (c.detalle_error || "error de Meta") : (c.espera || c.motivo || "");
         return el("article", { class: "rs-card" + (c.categoria === "delicado" ? " is-delicado" : "") }, [
             el("div", { class: "rs-cab" }, [chip("muted", REDES[c.plataforma] || c.plataforma), chip("muted", PAISES[c.pais] || "—"), c.cuenta_nombre ? el("span", { class: "lg-muted", text: c.cuenta_nombre }) : null,
-                c.categoria ? chip(c.categoria === "delicado" || c.categoria === "critica" ? "bad" : "ok", CAT[c.categoria] || c.categoria) : null, el("span", { class: "lg-muted rs-fecha", text: fechaHora(c.fecha_on) })]),
+                c.categoria ? chip(c.categoria === "delicado" || c.categoria === "critica" ? "bad" : "ok", CAT[c.categoria] || c.categoria) : null, c.tema ? chip("muted", TEMA[c.tema] || c.tema) : null, el("span", { class: "lg-muted rs-fecha", text: fechaHora(c.fecha_on) })]),
             c.publicacion_texto ? el("p", { class: "rs-pub" }, [el("b", { text: "Publicación: " }), c.publicacion_texto.slice(0, 220) + (c.publicacion_texto.length > 220 ? "…" : "")]) : null,
             el("blockquote", { class: "rs-com" }, [el("b", { text: (c.autor || "Alguien") + ": " }), c.texto || ""]),
             nota ? el("p", { class: "lg-muted rs-nota", text: nota }) : null,
@@ -131,8 +138,9 @@
         })));
     }
     function vistaHistorial(cont) {
-        cont.appendChild(el("div", { class: "rs-barra" }, [filtroPais()]));
-        var l = estado.historial.filter(delPais);
+        cont.appendChild(el("div", { class: "rs-barra" }, [filtroPais(), el("label", {}, ["Tema", el("select", { onchange: function (e) { estado.temaHist = e.target.value; pintar(); } },
+            [["", "Todos"]].concat(Object.keys(TEMA).map(function (k) { return [k, TEMA[k]]; })).map(function (o) { return el("option", { value: o[0], selected: estado.temaHist === o[0] }, [o[1]]); }))])]));
+        var l = estado.historial.filter(delPais).filter(function (c) { return !estado.temaHist || c.tema === estado.temaHist; });
         var cuenta = function (f) { return l.filter(f).length; };
         cont.appendChild(el("div", { class: "lg-kpis" }, [
             ["Comentarios", l.length, "últimos 200"], ["Respondidos solos", cuenta(function (c) { return c.publicado_por === "automatico"; })],
@@ -143,7 +151,7 @@
         if (!l.length) tb.appendChild(el("tr", {}, [el("td", { colspan: 6, class: "lg-vacio", text: "Todavía no hay comentarios." })]));
         l.forEach(function (c) {
             tb.appendChild(el("tr", {}, [el("td", { text: fechaHora(c.fecha_on) }), el("td", { text: (REDES[c.plataforma] || "") + " · " + (PAISES[c.pais] || "") }),
-                el("td", {}, [el("b", { text: (c.autor || "—") + ": " }), c.texto || ""]), el("td", { text: CAT[c.categoria] || "—" }),
+                el("td", {}, [el("b", { text: (c.autor || "—") + ": " }), c.texto || ""]), el("td", { text: (CAT[c.categoria] || "—") + (c.tema ? " · " + (TEMA[c.tema] || c.tema) : "") }),
                 el("td", { text: c.respuesta_final || c.respuesta || "—" }), el("td", {}, [chip(TONO[c.estado] || "muted", EST[c.estado] || c.estado)])]));
         });
         cont.appendChild(el("div", { class: "lg-tablewrap" }, [el("table", { class: "lg-table" }, [el("thead", {}, [el("tr", {}, ["Fecha", "Red", "Comentario", "Tipo", "Respuesta", "Estado"].map(function (t) { return el("th", { scope: "col", text: t }); }))]), tb])]));
@@ -166,7 +174,7 @@
             db().collection("rs_config").doc(p).set(d).then(function () { estado.config[p] = d; avisar("Guardado: " + PAISES[p] + "."); })
                 .catch(function (er) { avisar(textoError(er), "bad"); }).then(function () { btn.disabled = false; });
         } }, [el("h3", { class: "lg-h3", text: PAISES[p] }),
-            el("label", { class: "rs-check" }, [auto, " Responder solos los comentarios comunes y las críticas (los delicados siempre esperan aprobación)"]),
+            el("label", { class: "rs-check" }, [auto, " Responder solos comentarios y mensajes directos (lo delicado siempre espera a una persona)"]),
             el("div", { class: "rs-fila" }, [el("label", {}, ["Máximo de respuestas automáticas por hora y cuenta", max]), el("label", {}, ["WhatsApp de atención", wa])]),
             el("label", {}, ["Lo que la marca puede decir (precios, sucursales, horarios, promociones)", datos]),
             el("label", {}, ["Indicaciones extra de tono", tono]), el("div", {}, [btn])]);
@@ -196,6 +204,7 @@
             el("div", { class: "rs-fila" }, [el("label", {}, ["Nombre", nombre]), el("label", {}, ["Token", token])]), el("div", {}, [btn])]);
     }
     function vistaConfig(cont) {
+        cont.appendChild(seccionConectar());
         cont.appendChild(el("div", { class: "rs-grid" }, [formConfig("bolivia"), formConfig("paraguay")]));
         var tb = el("tbody");
         if (!estado.cuentas.length) tb.appendChild(el("tr", {}, [el("td", { colspan: 5, class: "lg-vacio", text: "Sin cuentas conectadas." })]));
@@ -208,17 +217,196 @@
                 } }), " " + etiqueta]);
             };
             tb.appendChild(el("tr", {}, [el("td", { text: c.nombre || c.key }), el("td", { text: REDES[c.plataforma] || c.plataforma }), el("td", { text: PAISES[c.pais] || c.pais }),
-                el("td", {}, [interruptor("activa", "Recibir comentarios")]), el("td", {}, [interruptor("auto", "Responder sola")])]));
+                el("td", {}, [interruptor("activa", "Recibir comentarios y mensajes")]), el("td", {}, [interruptor("auto", "Responder sola")])]));
         });
         cont.appendChild(el("section", { class: "rs-form" }, [el("h3", { class: "lg-h3", text: "Cuentas conectadas" }),
             el("div", { class: "lg-tablewrap" }, [el("table", { class: "lg-table" }, [el("thead", {}, [el("tr", {}, ["Cuenta", "Red", "País", "", ""].map(function (t) { return el("th", { scope: "col", text: t }); }))]), tb])])]));
-        cont.appendChild(formCuenta());
+        cont.appendChild(el("details", { class: "rs-form" }, [el("summary", { text: "Avanzado: cargar una cuenta a mano con su token" }), formCuenta()]));
+    }
+
+    /* ---------- Conectar con Facebook (páginas e Instagram) ---------- */
+    var PERMISOS_META = "pages_show_list,pages_read_engagement,pages_manage_engagement,pages_read_user_content,pages_manage_metadata,pages_messaging,instagram_basic,instagram_manage_comments,instagram_manage_messages,business_management";
+    function cargarSdkFacebook(appId) {
+        if (window.FB) return Promise.resolve(window.FB);
+        return new Promise(function (ok, mal) {
+            window.fbAsyncInit = function () { window.FB.init({ appId: appId, version: "v21.0", xfbml: false, cookie: false }); ok(window.FB); };
+            var sc = document.createElement("script"); sc.src = "https://connect.facebook.net/es_LA/sdk.js"; sc.async = true; sc.crossOrigin = "anonymous";
+            sc.onerror = function () { mal(new Error("No se pudo cargar el inicio de sesión de Facebook (revisa la conexión o un bloqueador de anuncios).")); };
+            document.head.appendChild(sc);
+        });
+    }
+    function seccionConectar() {
+        var appId = estado.meta.app_id || "";
+        var pais = el("select", {}, [el("option", { value: "bolivia" }, ["Bolivia"]), el("option", { value: "paraguay" }, ["Paraguay"])]);
+        if (estado.pais) pais.value = estado.pais;
+        var res = el("p", { class: "lg-muted", "aria-live": "polite" });
+        var btn = el("button", { type: "button", class: "rs-fb", disabled: !appId }, ["Conectar con Facebook"]);
+        btn.onclick = function () {
+            btn.disabled = true; res.textContent = "Abriendo Facebook…";
+            cargarSdkFacebook(appId).then(function (FB) {
+                return new Promise(function (ok, mal) {
+                    FB.login(function (r) { if (r && r.authResponse && r.authResponse.accessToken) ok(r.authResponse.accessToken); else mal(new Error("Se canceló el ingreso a Facebook.")); },
+                        { scope: PERMISOS_META, auth_type: "rerequest", return_scopes: true });
+                });
+            }).then(function (tok) {
+                res.textContent = "Conectando las páginas…";
+                var ref = db().collection("rs_vinculo").doc();
+                return ref.set({ user_token: tok, pais: pais.value, paginas: [], creado_por: yo(), fecha: ahora(), estado: "nuevo" }).then(function () {
+                    return new Promise(function (ok) {
+                        var fin = setTimeout(function () { quitar(); ok({ estado: "espera" }); }, 60000);
+                        var quitar = ref.onSnapshot(function (d) { var v = d.data() || {}; if (v.estado && v.estado !== "nuevo") { clearTimeout(fin); quitar(); ok(v); } });
+                    });
+                });
+            }).then(function (v) {
+                if (v.estado === "conectado") { res.textContent = "Conectadas: " + v.cuentas.map(function (c) { return c.nombre + " (" + (REDES[c.red] || c.red) + ")"; }).join(", ") + "."; avisar("Cuentas conectadas."); cargarCuentas(); }
+                else if (v.estado === "espera") res.textContent = "Facebook respondió, pero el servidor todavía no terminó: revisa en un minuto la lista de cuentas.";
+                else res.textContent = "No se pudo conectar: " + (v.error || "error");
+            }).catch(function (e) { res.textContent = textoError(e); }).then(function () { btn.disabled = !appId; });
+        };
+        var inApp = el("input", { type: "text", inputmode: "numeric", maxlength: 25, value: appId, placeholder: "Id de la app de Meta" });
+        var guardar = el("button", { type: "button", class: "lg-btn" }, ["Guardar"]);
+        guardar.onclick = function () {
+            var v = inApp.value.trim();
+            if (!/^[0-9]{5,25}$/.test(v)) { avisar("El id de la app de Meta es un número (developers.facebook.com → tu app → Configuración básica).", "warn"); return; }
+            db().collection("rs_config").doc("meta").set({ app_id: v, fecha_mod: ahora(), mod_por: yo() }).then(function () { estado.meta.app_id = v; avisar("App de Meta guardada."); pintar(); }).catch(function (e) { avisar(textoError(e), "bad"); });
+        };
+        return el("section", { class: "rs-form rs-conectar" }, [
+            el("h3", { class: "lg-h3", text: "Conectar Facebook e Instagram" }),
+            el("p", { class: "lg-muted", text: "Entra con el usuario de Facebook que administra las páginas. Se conectan las páginas que elijas y sus cuentas de Instagram profesionales: desde ese momento se responden solos los comentarios y los mensajes directos." }),
+            el("div", { class: "rs-fila" }, [el("label", {}, ["País de estas cuentas", pais]), el("div", { class: "rs-fb-wrap" }, [btn])]),
+            res,
+            el("details", {}, [el("summary", { text: appId ? "App de Meta: " + appId : "Falta la app de Meta (una sola vez)" }),
+                el("p", { class: "lg-muted", text: "En developers.facebook.com crea una app de tipo «Empresa», agrega «Inicio de sesión con Facebook para empresas», «Messenger», «Instagram» y «Webhooks», y pon aquí su id. Los pasos completos están en el documento del módulo." }),
+                el("div", { class: "rs-fila" }, [el("label", {}, ["Id de la app", inApp]), el("div", { class: "rs-fb-wrap" }, [guardar])])])
+        ]);
+    }
+
+    /* ================= CRM de conversaciones ================= */
+    function abiertas(c) { return c.estado_atencion === "por_atender" || c.estado_atencion === "en_curso"; }
+    function pasaFiltro(c, sinTema) {
+        var f = estado.f;
+        if (!delPais(c)) return false;
+        if (f.estado === "abiertas" && !abiertas(c)) return false;
+        if (f.estado && f.estado !== "abiertas" && f.estado !== "todas" && c.estado_atencion !== f.estado) return false;
+        if (!sinTema && f.tema && c.tema !== f.tema && (c.temas || []).indexOf(f.tema) < 0) return false;
+        if (f.red && c.plataforma !== f.red) return false;
+        if (f.mias && c.asignado_a !== yo()) return false;
+        if (f.q) { var q = f.q.toLowerCase(); if (String(c.usuario_nombre || "").toLowerCase().indexOf(q) < 0 && String(c.ultimo_texto || "").toLowerCase().indexOf(q) < 0) return false; }
+        return true;
+    }
+    function actualizarConv(c, cambios, ok) {
+        var d = Object.assign({ mod_por: yo(), fecha_mod: ahora() }, cambios);
+        return db().collection("rs_conversacion").doc(c.key).update(d).then(function () { if (ok) avisar(ok); }).catch(function (e) { avisar(textoError(e), "bad"); });
+    }
+    function abrirConv(c) {
+        estado.sel = c.key; estado.mensajes = [];
+        if (estado.escuchaSel) estado.escuchaSel();
+        estado.escuchaSel = db().collection("rs_mensaje").where("conversacion", "==", c.key).onSnapshot(function (s) {
+            estado.mensajes = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)); });
+            if (estado.pestana === "conversaciones") pintarDetalle();
+        }, function (e) { avisar(textoError(e), "bad"); });
+        if (c.no_leidos) actualizarConv(c, { no_leidos: 0 });
+        pintar();
+    }
+    function vistaConversaciones(cont) {
+        var l = estado.convs.filter(function (c) { return pasaFiltro(c); });
+        var hoy = new Date(Date.now() - 864e5).toISOString();
+        var todas = estado.convs.filter(delPais);
+        cont.appendChild(el("div", { class: "lg-kpis" }, [
+            ["Por atender", todas.filter(function (c) { return c.estado_atencion === "por_atender"; }).length, "esperan a una persona", "bad"],
+            ["En curso", todas.filter(function (c) { return c.estado_atencion === "en_curso"; }).length, "las atiende alguien del equipo"],
+            ["Respondió el bot", todas.filter(function (c) { return c.estado_atencion === "bot" && String(c.fecha_ultimo) >= hoy; }).length, "últimas 24 horas"],
+            ["Conversaciones", todas.length, "últimas 300"]
+        ].map(function (k) { return el("article", { class: "lg-kpi" + (k[3] && k[1] ? " is-" + k[3] : "") }, [el("h3", { text: k[0] }), el("p", { class: "lg-kpi-v", text: String(k[1]) }), el("p", { class: "lg-kpi-s", text: k[2] })]); })));
+        var f = estado.f;
+        var sel = function (etq, campo, ops) { return el("label", {}, [etq, el("select", { onchange: function (e) { f[campo] = e.target.value; pintar(); } }, ops.map(function (o) { return el("option", { value: o[0], selected: f[campo] === o[0] }, [o[1]]); }))]); };
+        var buscar = el("input", { type: "search", id: "rs-buscar", placeholder: "Nombre o texto", value: f.q });
+        buscar.addEventListener("input", function () {
+            f.q = buscar.value.trim(); clearTimeout(estado.tBuscar);
+            estado.tBuscar = setTimeout(function () { pintar(); var b = document.getElementById("rs-buscar"); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }, 300);
+        });
+        cont.appendChild(el("div", { class: "rs-barra" }, [
+            sel("Estado", "estado", [["abiertas", "Abiertas (por atender y en curso)"], ["por_atender", "Por atender"], ["en_curso", "En curso"], ["bot", "Respondió el bot"], ["atendido", "Atendidas"], ["no_requiere", "No requiere"], ["todas", "Todas"]]),
+            sel("Red", "red", [["", "Todas"], ["messenger", "Messenger"], ["instagram_dm", "Instagram"]]), filtroPais(),
+            el("label", {}, ["Buscar", buscar]),
+            el("label", { class: "rs-check" }, [el("input", { type: "checkbox", checked: f.mias, onchange: function (e) { f.mias = e.target.checked; pintar(); } }), " Solo las mías"])
+        ]));
+        /* Temas con su cantidad (según los demás filtros) para ver de un vistazo de qué se habla. */
+        var cuenta = {}; estado.convs.filter(function (c) { return pasaFiltro(c, true); }).forEach(function (c) { var t = c.tema || "otro"; cuenta[t] = (cuenta[t] || 0) + 1; });
+        cont.appendChild(el("div", { class: "rs-temas", role: "group", "aria-label": "Filtrar por tema" }, [el("button", { type: "button", class: "rs-tema" + (!f.tema ? " is-on" : ""), onclick: function () { f.tema = ""; pintar(); } }, ["Todos los temas"])]
+            .concat(Object.keys(TEMA).filter(function (k) { return cuenta[k]; }).map(function (k) {
+                return el("button", { type: "button", class: "rs-tema" + (f.tema === k ? " is-on" : "") + (k === "quejas" || k === "lesiones_salud" || k === "pagos_cobros" ? " is-alerta" : ""), onclick: function () { f.tema = f.tema === k ? "" : k; pintar(); } }, [TEMA[k] + " · " + cuenta[k]]);
+            }))));
+        var lista = el("div", { class: "rs-lista-conv", role: "list" });
+        if (!l.length) lista.appendChild(el("p", { class: "lg-vacio rs-vacio", text: estado.convs.length ? "No hay conversaciones con estos filtros." : "Todavía no hay conversaciones. Aparecen aquí cuando alguien escribe por Messenger o Instagram a una cuenta conectada." }));
+        l.sort(function (a, b) { var pa = a.estado_atencion === "por_atender" ? 0 : a.estado_atencion === "en_curso" ? 1 : 2, pb = b.estado_atencion === "por_atender" ? 0 : b.estado_atencion === "en_curso" ? 1 : 2; return pa - pb || String(b.fecha_ultimo).localeCompare(String(a.fecha_ultimo)); });
+        l.forEach(function (c) {
+            lista.appendChild(el("button", { type: "button", role: "listitem", class: "rs-conv" + (estado.sel === c.key ? " is-sel" : "") + (c.estado_atencion === "por_atender" ? " is-urgente" : ""), onclick: function () { abrirConv(c); } }, [
+                el("span", { class: "rs-conv-cab" }, [el("b", { text: c.usuario_nombre || "Cliente" }), c.no_leidos ? el("span", { class: "rs-badge", text: String(c.no_leidos) }) : null, el("span", { class: "lg-muted rs-fecha", text: fechaHora(c.fecha_ultimo) })]),
+                el("span", { class: "rs-conv-txt", text: (c.ultimo_de === "cliente" ? "" : c.ultimo_de === "bot" ? "Bot: " : "Equipo: ") + (c.ultimo_texto || "") }),
+                el("span", { class: "rs-cab" }, [chip(TONO_AT[c.estado_atencion] || "muted", ATENCION[c.estado_atencion] || c.estado_atencion), chip("muted", TEMA[c.tema] || "Otro"), chip("muted", RED_DM[c.plataforma] || c.plataforma),
+                    c.asignado_nombre ? el("span", { class: "lg-muted", text: "→ " + c.asignado_nombre }) : null, c.bot === "pausado" ? el("span", { class: "lg-muted", text: "bot en pausa" }) : null])
+            ]));
+        });
+        cont.appendChild(el("div", { class: "rs-crm" }, [lista, el("section", { class: "rs-detalle", id: "rs-detalle", "aria-live": "polite" })]));
+        pintarDetalle();
+    }
+    function pintarDetalle() {
+        var box = document.getElementById("rs-detalle"); if (!box) return;
+        box.textContent = "";
+        var c = estado.convs.filter(function (x) { return x.key === estado.sel; })[0];
+        if (!c) { box.appendChild(el("p", { class: "lg-muted rs-vacio", text: "Elige una conversación para ver los mensajes y responder." })); return; }
+        var temaSel = el("select", { "aria-label": "Tema", onchange: function (e) { actualizarConv(c, { tema: e.target.value }, "Tema cambiado."); } },
+            Object.keys(TEMA).map(function (k) { return el("option", { value: k, selected: c.tema === k }, [TEMA[k]]); }));
+        var acc = [];
+        if (c.asignado_a !== yo() || c.estado_atencion !== "en_curso") acc.push(el("button", { type: "button", class: "lg-primario", onclick: function () { actualizarConv(c, { asignado_a: yo(), asignado_nombre: CMFB.nombre() || "Yo", estado_atencion: "en_curso", bot: "pausado" }, "La tomaste: el bot queda en pausa en esta conversación."); } }, ["Tomar conversación"]));
+        if (c.estado_atencion !== "atendido") acc.push(el("button", { type: "button", class: "lg-btn lg-btn-fuerte", onclick: function () { actualizarConv(c, { estado_atencion: "atendido", no_leidos: 0 }, "Marcada como atendida."); } }, ["Marcar atendida"]));
+        if (c.estado_atencion !== "no_requiere") acc.push(el("button", { type: "button", class: "lg-btn", onclick: function () { actualizarConv(c, { estado_atencion: "no_requiere", no_leidos: 0 }, "Marcada: no requiere atención."); } }, ["No requiere"]));
+        acc.push(c.bot === "pausado"
+            ? el("button", { type: "button", class: "lg-btn", onclick: function () { actualizarConv(c, { bot: "activo", estado_atencion: "bot", asignado_a: null, asignado_nombre: null }, "El bot vuelve a responder esta conversación."); } }, ["Devolver al bot"])
+            : el("button", { type: "button", class: "lg-btn", onclick: function () { actualizarConv(c, { bot: "pausado" }, "Bot en pausa en esta conversación."); } }, ["Pausar bot"]));
+        box.appendChild(el("div", { class: "rs-det-cab" }, [
+            el("div", {}, [el("h3", { class: "lg-h3", text: c.usuario_nombre || "Cliente" }), el("p", { class: "lg-muted", text: [RED_DM[c.plataforma], c.cuenta_nombre, PAISES[c.pais]].filter(Boolean).join(" · ") })]),
+            el("label", {}, ["Tema", temaSel])
+        ]));
+        box.appendChild(el("div", { class: "rs-cab" }, [chip(TONO_AT[c.estado_atencion] || "muted", ATENCION[c.estado_atencion] || ""), c.asignado_nombre ? el("span", { class: "lg-muted", text: "Asignada a " + c.asignado_nombre }) : null, el("span", { class: "lg-muted", text: c.bot === "pausado" ? "Bot en pausa" : "Bot activo" })]));
+        if (c.motivo && c.estado_atencion === "por_atender") box.appendChild(el("p", { class: "rs-nota-det", text: "Por qué necesita a una persona: " + c.motivo }));
+        box.appendChild(el("div", { class: "rs-acc" }, acc));
+        var hilo = el("div", { class: "rs-hilo" });
+        estado.mensajes.forEach(function (m) {
+            hilo.appendChild(el("div", { class: "rs-msj rs-msj-" + (m.de || "cliente") }, [
+                el("span", { class: "rs-msj-quien", text: (m.de === "cliente" ? (c.usuario_nombre || "Cliente") : m.de === "bot" ? "Bot" : (m.autor_nombre || "Equipo")) + " · " + fechaHora(m.fecha) }),
+                el("span", { class: "rs-msj-txt", text: m.texto || "" }),
+                m.estado_envio === "pendiente" ? el("span", { class: "lg-muted", text: "Enviando…" }) : null,
+                m.estado_envio === "error" ? el("span", { class: "rs-msj-error", text: "No se envió: " + (m.error || "error") }) : null
+            ]));
+        });
+        box.appendChild(hilo);
+        setTimeout(function () { hilo.scrollTop = hilo.scrollHeight; }, 0);
+        var area = el("textarea", { rows: 3, maxlength: 1000, placeholder: "Escribe tu respuesta (al enviar, el bot queda en pausa en esta conversación)", "aria-label": "Respuesta" });
+        area.value = estado.borradores[c.key] || "";
+        area.addEventListener("input", function () { estado.borradores[c.key] = area.value; });
+        var enviar = el("button", { type: "submit", class: "lg-primario" }, ["Enviar"]);
+        var form = el("form", { class: "rs-responder", onsubmit: function (e) {
+            e.preventDefault();
+            var t = area.value.trim(); if (!t) return;
+            enviar.disabled = true;
+            db().collection("rs_mensaje").add({ conversacion: c.key, de: "personal", texto: t, fecha: ahora(), autor: yo(), autor_nombre: CMFB.nombre() || null, estado_envio: "pendiente" })
+                .then(function () {
+                    area.value = ""; delete estado.borradores[c.key];
+                    if (!c.asignado_a) return actualizarConv(c, { asignado_a: yo(), asignado_nombre: CMFB.nombre() || "Yo", estado_atencion: "en_curso", bot: "pausado" });
+                }).catch(function (er) { avisar(textoError(er), "bad"); }).then(function () { enviar.disabled = false; });
+        } }, [area, el("div", { class: "rs-acc" }, [enviar,
+            c.sugerencia ? el("button", { type: "button", class: "lg-btn", onclick: function () { area.value = c.sugerencia; area.focus(); } }, ["Usar la sugerencia del bot"]) : null])]);
+        box.appendChild(form);
+        var nota = el("textarea", { rows: 2, maxlength: 2000, placeholder: "Nota interna para el equipo (el cliente no la ve)" }); nota.value = c.nota || "";
+        box.appendChild(el("div", { class: "rs-nota-int" }, [el("label", {}, ["Nota interna", nota]), el("button", { type: "button", class: "lg-btn", onclick: function () { actualizarConv(c, { nota: nota.value.trim() || null }, "Nota guardada."); } }, ["Guardar nota"])]));
     }
 
     function pintar() {
         pintarPestanas();
         var cont = $("#rs-contenido"); cont.textContent = "";
-        ({ aprobar: vistaAprobar, tiktok: vistaTikTok, historial: vistaHistorial, config: vistaConfig }[estado.pestana] || vistaAprobar)(cont);
+        ({ conversaciones: vistaConversaciones, aprobar: vistaAprobar, tiktok: vistaTikTok, historial: vistaHistorial, config: vistaConfig }[estado.pestana] || vistaConversaciones)(cont);
     }
 
     /* ---------- datos ---------- */
@@ -233,6 +421,12 @@
                 estado.comentarios = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
                 mensaje($("#rs-estado"), "", ""); if (estado.pestana === "aprobar" || estado.pestana === "tiktok") pintar(); else pintarPestanas();
             }, falla));
+        estado.escuchas.push(db().collection("rs_conversacion").orderBy("fecha_ultimo", "desc").limit(300).onSnapshot(function (s) {
+            estado.convs = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); });
+            /* No se repinta mientras alguien escribe una respuesta o una nota (para no borrarle el texto). */
+            var escribiendo = document.activeElement && /TEXTAREA|INPUT/.test(document.activeElement.tagName) && raiz.contains(document.activeElement);
+            if (estado.pestana === "conversaciones" && !escribiendo) pintar(); else pintarPestanas();
+        }, falla));
         estado.escuchas.push(db().collection("rs_comentario").orderBy("fecha_on", "desc").limit(200)
             .onSnapshot(function (s) { estado.historial = s.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }); if (estado.pestana === "historial") pintar(); }, falla));
     }
@@ -240,7 +434,7 @@
         mensaje($("#rs-estado"), "", "Cargando…");
         return CMFB.listo.then(function () {
             if (!CMFB.tieneRol("marketing")) throw new Error("Para usar este tablero, sal del centro de mando y vuelve a ingresar con un usuario del ERP que tenga el permiso «marketing».");
-            return Promise.all(["bolivia", "paraguay"].map(function (p) { return db().collection("rs_config").doc(p).get().then(function (d) { estado.config[p] = d.exists ? d.data() : {}; }); })).then(cargarCuentas);
+            return Promise.all(["bolivia", "paraguay", "meta"].map(function (p) { return db().collection("rs_config").doc(p).get().then(function (d) { if (p === "meta") estado.meta = d.exists ? d.data() : {}; else estado.config[p] = d.exists ? d.data() : {}; }); })).then(cargarCuentas);
         }).then(function () { pintar(); escuchar(); }).catch(function (e) { mensaje($("#rs-estado"), "bad", textoError(e)); });
     }
     $("#rs-actualizar").addEventListener("click", cargar);
