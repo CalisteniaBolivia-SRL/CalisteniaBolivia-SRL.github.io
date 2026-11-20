@@ -8,7 +8,7 @@ Como siempre: **usuario y contraseña del ERP** en el portal. Qué ve cada perso
 
 | Permiso del ERP | Qué habilita |
 |---|---|
-| `atencion` | **ATC Central** (un solo usuario, el que usan Eliana y Mauricio): dirige a los ATC, reparte clientes, deja tareas y guiones, ve resultados y comisiones, y Atención y retención. |
+| `atencion` | **ATC Central** (un solo usuario, el de Eliana Aguilera): dirige a los ATC, reparte clientes, deja tareas y guiones, ve resultados y comisiones, y Atención y retención. |
 | `atc` | **ATC de sucursal** (22, dos por sucursal): su CRM, con los clientes antiguos que le tocan, sus seguimientos, tareas y comisión. |
 | `legal` | Legal: contratos, permisos, casos y plazos. |
 | `administracion` | Administración, incluida Cuentas por pagar. |

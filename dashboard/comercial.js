@@ -1,6 +1,6 @@
 /* Comercial y Atención al Cliente.
    Ingreso: usuario y contraseña del ERP (portal). Perfiles según los permisos de /centro_mando del ERP:
-   - "atencion" = ATC Central (master, un solo usuario que usan Eliana y Mauricio): dirige a los ATC,
+   - "atencion" = ATC Central (master, un solo usuario, el de Eliana): dirige a los ATC,
      les asigna sucursales y clientes, deja tareas y guiones, ve resultados y comisiones, y la pestaña
      «Atención y retención» (tablero de Atención al Cliente embebido).
    - "atc" = cada ATC de sucursal (22, dos por sucursal): su CRM con los clientes antiguos que le tocan,
@@ -163,6 +163,7 @@
             var d = datos(r) || {};
             S.yo = d.ejecutiva || null; S.equipo = d.equipo || []; S.asignaciones = d.asignaciones || [];
             S.ultimas = d.ultimas_gestiones || []; S.tareas = d.tareas || []; S.guiones = d.guiones || []; S.comisiones = d.comisiones || [];
+            S.ranking = d.ranking || null; S.comSinDatos = !!d.comisiones_sin_datos;
             S.sinHerramientas = false; S.errorYo = null;
         }).catch(function (e) {
             if (e.noDisponible) { S.sinHerramientas = true; return; }
@@ -226,18 +227,85 @@
         c.hidden = enAtencion;
         mostrarAtencion(enAtencion);
         if (enAtencion) return;
+        var banner = MASTER ? (S.sinHerramientas ? null : tableroIncentivos()) : (S.yo ? incentivoATC() : null);
+        var ponerBanner = function () { if (banner) c.insertBefore(banner, c.firstChild); };
         if (S.tab === TAB_PLAN[0]) {
             /* Con el rol de Jefa (y Firebase activo) puede asignar las listas a las ATC; si no, solo descargarlas. */
             window.ATC_plan.montar(c, MASTER && !S.sinHerramientas ? { equipo: S.equipo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, recargar: cargar,
                 irA: function (t) { S.tab = t; try { history.replaceState(null, "", "#" + t); } catch (e) {} pintar(); } } : null);
+            ponerBanner();
             return;
         }
-        if (S.tab === "lista") { var fnL = VISTAS_EJ.lista; if (!MASTER && fnL) { fnL(c); return; } }
+        if (S.tab === "lista") { var fnL = VISTAS_EJ.lista; if (!MASTER && fnL) { fnL(c); ponerBanner(); return; } }
+        ponerBanner();
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
         if (S.cortado) c.appendChild(aviso("warn", null, "Hay más de 5.000 clientes vencidos en los últimos 6 meses: se muestran los primeros 5.000."));
         var fn = (MASTER ? VISTAS_MASTER : VISTAS_EJ)[S.tab];
         if (fn) fn(c);
+    }
+
+    /* ---------- incentivos y urgencias ----------
+       Cada ATC ve siempre arriba cuánto ganó (Bs 5 por cliente que vuelve) y su puesto en el equipo.
+       ATC Central ve el ranking, lo que se paga y qué ATC se está quedando sin lista. */
+    function incentivoATC() {
+        var tot = L.totalesComision(S.comisiones)[S.yo.key] || { ventas: 0, comision: 0 };
+        var meta = num(S.yo.meta_mensual), rk = S.ranking;
+        var caja = el("section", { class: "co-incentivo", "aria-label": "Lo que vas ganando" });
+        if (S.comSinDatos) {
+            caja.appendChild(el("p", {}, [el("b", { text: "Bs 5 por cada cliente que vuelve" }), " dentro de los 15 días de tu contacto. Para ver lo que vas ganando, entra una vez con tu usuario de Calistenia: ",
+                el("button", { type: "button", class: "co-btn", text: "Conectar", onclick: function () { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); } })]));
+            return caja;
+        }
+        caja.appendChild(el("div", { class: "co-inc-grande" }, [el("span", { text: "Ganaste este mes" }), el("b", { text: bs(tot.comision) })]));
+        var datosInc = [
+            [String(tot.ventas), tot.ventas === 1 ? "cliente volvió" : "clientes volvieron"],
+            [rk ? bs(rk.comision_hoy) : "—", "hoy" + (rk && rk.ventas_hoy ? " (" + rk.ventas_hoy + ")" : "")],
+            meta ? [Math.round(tot.ventas / meta * 100) + "%", "de tu meta (" + meta + ")" + (tot.ventas < meta ? " · faltan " + (meta - tot.ventas) : " ✔")] : null,
+            rk && rk.puesto ? ["#" + rk.puesto, "de " + rk.de + " en el equipo"] : null
+        ].filter(Boolean);
+        caja.appendChild(el("div", { class: "co-inc-datos" }, datosInc.map(function (d) { return el("div", {}, [el("b", { text: d[0] }), el("span", { text: d[1] })]); })));
+        if (meta) caja.appendChild(el("div", { class: "co-inc-barra", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(meta), "aria-valuenow": String(Math.min(tot.ventas, meta)) }, [el("i", { style: "width:" + Math.min(100, Math.round(tot.ventas / meta * 100)) + "%" })]));
+        var falta = rk && rk.puesto > 1 && rk.lider > tot.comision ? Math.ceil((rk.lider - tot.comision) / 5) : 0;
+        caja.appendChild(el("p", { class: "co-inc-nota", text: rk && rk.puesto === 1 && tot.comision > 0 ? "¡Vas primera en el equipo! Cada cliente que vuelve suma Bs 5." : falta ? "Con " + falta + (falta === 1 ? " cliente más" : " clientes más") + " alcanzas al primer puesto. Cada uno suma Bs 5." : "Cada cliente que vuelve dentro de los 15 días de tu contacto suma Bs 5." }));
+        return caja;
+    }
+    /* Clientes de la lista del Plan de hoy que la ATC todavía no contactó (sin gestión desde que se le asignó). */
+    function estadoListas() {
+        var ult = {}; S.ultimas.forEach(function (u) { ult[u.key_cliente] = u; });
+        var h = hoy(), por = {};
+        S.equipo.filter(activa).forEach(function (e) { por[e.key] = { e: e, pendientes: 0, asignados: 0, ultimoLote: "" }; });
+        S.asignaciones.forEach(function (a) {
+            var x = por[a.key_ejecutiva]; if (!x || !a.lote || Number(a.estado == null ? 1 : a.estado) <= 0) return;
+            x.asignados++; if (String(a.lote) > x.ultimoLote) x.ultimoLote = String(a.lote);
+            var u = ult[a.key_cliente]; if (!u || String(u.fecha_on) < String(a.fecha_on)) x.pendientes++;
+        });
+        return Object.keys(por).map(function (k) { var x = por[k];
+            x.problema = !x.asignados ? "sin lista" : !x.pendientes ? "terminó su lista" : x.ultimoLote.slice(0, 10) < h ? "lista de " + fecha(x.ultimoLote.slice(0, 10)) : x.pendientes < 5 ? "le quedan " + x.pendientes : null;
+            return x; });
+    }
+    function tableroIncentivos() {
+        var t = L.totalesComision(S.comisiones), filasT = Object.keys(t).map(function (k) { return t[k]; }).sort(function (a, b) { return b.comision - a.comision; });
+        var totalCom = 0, totalVentas = 0; filasT.forEach(function (f) { totalCom += f.comision; totalVentas += f.ventas; });
+        var h = hoy(), hoyV = S.comisiones.filter(function (c) { return !c.anulada && String(c.fecha_venta).slice(0, 10) === h; }).length;
+        var contactados = (S.resumen || []).reduce(function (a, r) { return a + num(r.contactados); }, 0);
+        var caja = el("section", { class: "co-incentivo co-inc-master", "aria-label": "Tablero de incentivos" });
+        var listas = estadoListas().filter(function (x) { return x.problema; });
+        if (listas.length) {
+            caja.appendChild(el("div", { class: "co-urgente", role: "alert" }, [
+                el("b", { text: "⚠ " + listas.length + (listas.length === 1 ? " ATC necesita" : " ATC necesitan") + " lista hoy: " }),
+                listas.slice(0, 8).map(function (x) { return String(x.e.nombre).split(" ")[0] + " (" + x.problema + ")"; }).join(" · ") + (listas.length > 8 ? " y " + (listas.length - 8) + " más" : "") + ". ",
+                window.ATC_plan && S.tab !== TAB_PLAN[0] ? el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Cargar listas ahora", onclick: function () { S.tab = TAB_PLAN[0]; try { history.replaceState(null, "", "#" + S.tab); } catch (e) {} pintar(); } }) : null
+            ]));
+        }
+        caja.appendChild(el("div", { class: "co-inc-datos" }, [
+            [bs(totalCom), "comisiones del mes"], [String(totalVentas), "clientes recuperados"], [String(hoyV), "recuperados hoy"],
+            [contactados ? Math.round(totalVentas / contactados * 100) + "%" : "—", "de los contactados volvió"]
+        ].map(function (d) { return el("div", {}, [el("b", { text: d[0] }), el("span", { text: d[1] })]); })));
+        if (filasT.length) caja.appendChild(el("ol", { class: "co-ranking" }, filasT.slice(0, 6).map(function (f) {
+            return el("li", {}, [el("b", { text: String(f.ejecutiva || "?").split(" ")[0] }), " " + bs(f.comision) + " · " + f.ventas + (f.ventas === 1 ? " venta" : " ventas")]);
+        })));
+        return caja;
     }
 
     /* ---------- piezas compartidas ---------- */

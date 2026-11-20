@@ -259,6 +259,22 @@
         <p class="cb-note" id="cxp-pe-nota"></p>
       </div>
     </section>
+    <section class="cb-page" id="a-comisiones" aria-labelledby="com-titulo">
+      <div class="cb-card cb-card-wide">
+        <div class="cxp-tools" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;justify-content:space-between">
+          <h2 class="cb-h2" id="com-titulo" style="margin:0">Comisiones de los ATC</h2>
+          <span style="display:flex;gap:8px;align-items:flex-end"><label>Mes <input type="month" id="com-mes" aria-label="Mes de las comisiones"></label><button type="button" class="cb-btn" id="com-actualizar">Actualizar</button></span>
+        </div>
+        <div class="cb-kpis" style="margin-top:12px">
+          <article class="cb-kpi"><h3 class="cb-kpi-l">A pagar este mes</h3><p class="cb-kpi-v" id="com-k-total">—</p></article>
+          <article class="cb-kpi"><h3 class="cb-kpi-l">Clientes que volvieron</h3><p class="cb-kpi-v" id="com-k-ventas">—</p></article>
+          <article class="cb-kpi"><h3 class="cb-kpi-l">Contactados</h3><p class="cb-kpi-v" id="com-k-cont">—</p></article>
+          <article class="cb-kpi"><h3 class="cb-kpi-l">Conversión</h3><p class="cb-kpi-v" id="com-k-conv">—</p></article>
+        </div>
+        <div class="cb-tablewrap"><table class="cb-table" id="com-tabla"><thead><tr><th>ATC</th><th>Sucursales</th><th class="cb-num">Contactados</th><th class="cb-num">Volvieron</th><th class="cb-num">Conversión</th><th class="cb-num">Meta</th><th class="cb-num">Comisión</th></tr></thead><tbody></tbody></table></div>
+        <p class="cb-note" id="com-estado" role="status" aria-live="polite"></p>
+      </div>
+    </section>
   <details class="cb-foot" id="definiciones">
     <summary>Cómo se calculan las cifras</summary>
     <ul>
@@ -1243,5 +1259,7 @@ dash.draw('tareas_supervision', (ul) => CB.tareas(ul, ['molinetes', 'c_acceso', 
 })();
 </script>
 <script src="cuentas-pagar.js?v=2"></script>
+<script src="fb-comercial.js?v=12"></script>
+<script src="comisiones-atc.js?v=1"></script>
 </body>
 </html>
