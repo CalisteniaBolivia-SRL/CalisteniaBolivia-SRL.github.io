@@ -73,6 +73,13 @@ service cloud.firestore {
       allow read: if veComercial();
       allow write: if central();
     }
+    // Pagos de comisiones (semana de sábado a viernes): los registra el Jefe de ATC o Administración.
+    match /com_pago/{id} {
+      allow read: if veComercial();
+      allow create, update: if (central() || permiso('administracion')) && soloCampos(['key_ejecutiva', 'semana', 'monto', 'ventas', 'estado', 'fecha_on', 'pagado_por'])
+        && request.resource.data.monto is number && request.resource.data.monto > 0 && request.resource.data.pagado_por == yo();
+      allow delete: if false;
+    }
     match /com_guion/{id} {
       allow read: if veComercial();
       allow write: if central();
@@ -97,7 +104,7 @@ service cloud.firestore {
       allow create: if (central() || (soyATC() && request.resource.data.key_ejecutiva == yo()))
         && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])
         && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
-        && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'otro']
+        && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'ya_activo', 'otro']
         && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() <= 120
         && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
       allow update, delete: if central();

@@ -131,3 +131,58 @@
 @keyframes co-salta { 50% { transform: scale(1.25) rotate(-8deg); } }
 @media (prefers-reduced-motion: reduce) { .co-festejo, .co-festejo-ico { animation: none; } }
 .co-alerta-caja { border-color: var(--color-bad); }
+
+/* ================= Rediseño: Panel de ventas (Jefe de ATC) y lista de la ATC =================
+   Una columna, pensada también para el celular: lo importante grande y arriba. */
+.pj, .ml-vista { --v-card: #15181D; --v-line: #2A2F36; --v-muted: #9AA0A8; --v-ok: #6FCF97; --v-red: #E5736B; --v-amber: #E8B04B;
+    font-family: "Barlow", "Segoe UI", Roboto, Arial, sans-serif; color: #F2F3F5; }
+.pj { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.pj-cab { display: flex; flex-direction: column; gap: 4px; }
+.pj-titulo, .pj-h3, .ml-fecha, .ml-nombre { font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif; font-weight: 700; letter-spacing: .01em; margin: 0; }
+.pj-titulo { font-size: clamp(26px, 4vw, 34px); }
+.pj-sub, .pj-muted { margin: 0; color: var(--v-muted); font-size: .92em; line-height: 1.5; }
+.pj-card { background: var(--v-card); border: 1px solid var(--v-line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.pj-num { margin: 0; font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif; font-weight: 700; font-size: clamp(26px, 4vw, 34px); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pj-num b { font-weight: 700; }
+.pj-grande .pj-num { font-size: clamp(30px, 5vw, 40px); }
+.pj-lbl { margin: 0; color: var(--v-muted); font-size: .92em; }
+.pj-barra, .pj-mini { display: block; height: 8px; background: #23272E; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+.pj-barra i, .pj-mini i { display: block; height: 100%; background: #F2F3F5; border-radius: 99px; }
+.pj-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pj-sec { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.pj-h3 { font-size: 1.45em; }
+.pj-tabla { background: var(--v-card); border: 1px solid var(--v-line); border-radius: 10px; overflow: hidden; }
+.pj-fila { display: grid; grid-template-columns: minmax(0, 1fr) 90px 56px 46px; gap: 10px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--v-line); width: 100%; box-sizing: border-box; text-align: left; font: inherit; color: inherit; background: none; border-left: 0; border-right: 0; border-bottom: 0; }
+.pj-fila:first-child { border-top: 0; }
+.pj-encab { color: var(--v-muted); font-size: .85em; font-weight: 600; padding-top: 10px; padding-bottom: 10px; }
+.pj-chica { cursor: pointer; } .pj-chica:hover, .pj-chica:focus-visible { background: #1B1F25; outline: none; }
+.pj-quien { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pj-quien b { font-weight: 600; overflow-wrap: anywhere; }
+.pj-quien span { color: var(--v-muted); font-size: .85em; }
+.pj-quien .pj-rojo { color: var(--v-red); font-weight: 600; }
+.pj-n { text-align: right; font-variant-numeric: tabular-nums; }
+.pj-hoy { display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.pj-hoy .pj-mini { width: 64px; height: 5px; margin-top: 6px; }
+.pj-res .pj-fila { grid-template-columns: minmax(0, 1fr) auto; }
+.pj-res .is-compra { color: var(--v-ok); }
+.pj-tabla:not(.pj-chicas):not(.pj-res) .pj-fila { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.pj-btn { font: inherit; font-size: .88em; font-weight: 600; color: #0F1115; background: #F2F3F5; border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.pj-btn:disabled { opacity: .5; }
+.pj-alerta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--v-red); background: rgba(229, 115, 107, .1); color: #F6C9C5; }
+.pj-alerta b { color: #FFFFFF; }
+@media (max-width: 560px) { .pj-fila { grid-template-columns: minmax(0, 1fr) 70px 44px 36px; padding: 10px 12px; } .pj-dos { gap: 8px; } }
+
+/* Pestañas del Jefe de ATC con «Más…» */
+.co-mas { font: inherit; font-size: .86em; padding: 7px 10px; border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg-muted); border-radius: 0; cursor: pointer; }
+.co-mas.is-on { background: var(--co-red); border-color: var(--co-red); color: #FFFFFF; }
+.co-verlista { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; max-width: 640px; margin: 0 auto; width: 100%; }
+.co-verlista-caja { max-width: 640px; margin: 0 auto; width: 100%; border: 1px dashed var(--color-border-line); border-radius: 12px; padding: 12px; box-sizing: border-box; }
+@media (max-width: 600px) {
+    .co-festejo { left: 12px; right: 12px; bottom: 12px; transform: none; max-width: none; padding: 12px 14px; gap: 10px; }
+    .co-festejo b { font-size: 1.2em; }
+    .co-festejo p { font-size: .9em; }
+    .co-festejo-ico { font-size: 1.8em; }
+    .co-festejo.is-fuera { transform: translateY(20px); }
+    @keyframes co-sube { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+}
+#co-aviso:empty { display: none; }
