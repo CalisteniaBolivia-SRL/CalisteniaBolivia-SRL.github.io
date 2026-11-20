@@ -117,7 +117,7 @@
         ]));
         if (notaJefa) cont.appendChild(el("div", { class: "co-aviso ml-nota" }, [el("strong", { text: "Mensaje de Atención al Cliente" }), el("p", { text: notaJefa })]));
         if (!todos.length) {
-            cont.appendChild(el("div", { class: "co-aviso" }, [el("strong", { text: "Todavía no tienes una lista asignada" }), el("p", { text: "Cuando Atención al Cliente te asigne tu lista, aparece aquí con los clientes, el mensaje de WhatsApp listo y los botones para llamar." })]));
+            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "⚠ No tienes lista para hoy." }), " Avísale ya a ATC Central (Eliana): cada cliente que vuelve son Bs 5 para ti. La lista aparece aquí apenas te la asignen."]));
             return;
         }
         cont.appendChild(el("ol", { class: "ml-como" }, [
@@ -125,6 +125,11 @@
             el("li", {}, [el("b", { text: "Si no atiende, mandá el mensaje" }), ": se abre WhatsApp con el texto ya escrito."]),
             el("li", {}, [el("b", { text: "Anotá cómo te fue" }), ". «No contesta» lo vuelve a poner mañana; «Lo va a pensar», en 2 días."])
         ]));
+        /* Lista por terminarse o de otro día: aviso urgente para pedir más (la idea es que nunca quede vacía). */
+        var vieja = todos.some(function (c) { return c.lote; }) && todos.map(function (c) { return String(c.lote || ""); }).sort().pop().slice(0, 10) < new Date().toISOString().slice(0, 10);
+        if (!cuenta.pendiente && !cuenta.seguir) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes a ATC Central ahora mismo: mientras más contactos, más comisión."]));
+        else if (cuenta.pendiente + cuenta.seguir < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + (cuenta.pendiente + cuenta.seguir) + " clientes." }), " Avísale a ATC Central para que te cargue más."]));
+        else if (vieja) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Esta lista no es de hoy." }), " Termínala y pide la de hoy a ATC Central."]));
         var FILTROS = [["pendientes", "Por contactar (" + cuenta.pendiente + ")"], ["seguir", "Volver a intentar hoy (" + cuenta.seguir + ")"], ["espera", "Más adelante (" + cuenta.espera + ")"], ["hecho", "Terminados (" + cuenta.hecho + ")"]];
         if (M.filtro === "pendientes" && !cuenta.pendiente && cuenta.seguir) M.filtro = "seguir";
         cont.appendChild(el("div", { class: "co-tabs ml-filtros", role: "tablist" }, FILTROS.map(function (f) {

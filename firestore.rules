@@ -46,13 +46,15 @@ service cloud.firestore {
     // ---------- CRM: ATC Central (permiso "atencion") y ATC de sucursal (permiso "atc") ----------
     function central() { return permiso('atencion'); }
     function equipoATC() { return permiso('atencion') || permiso('atc'); }
+    // Administración y Dirección ven (sin modificar) el trabajo del equipo y las comisiones que se pagan.
+    function veComercial() { return equipoATC() || permiso('administracion') || permiso('direccion'); }
     function soyATC() {
       return permiso('atc') && exists(/databases/$(database)/documents/com_ejecutiva/$(yo()))
         && get(/databases/$(database)/documents/com_ejecutiva/$(yo())).data.estado > 0;
     }
 
     match /com_ejecutiva/{uid} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       // Un ATC se registra solo la primera vez que entra (sin sucursales ni meta); lo demás lo decide ATC Central.
       allow create: if central() || (permiso('atc') && uid == yo()
         && soloCampos(['nombre', 'key_usuario', 'sucursales', 'meta_mensual', 'estado', 'fecha_on', 'autoregistro'])
@@ -61,19 +63,19 @@ service cloud.firestore {
       allow update, delete: if central();
     }
     match /com_asignacion/{cliente} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       allow write: if central();
     }
     match /com_guion/{id} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       allow write: if central();
     }
     match /com_comision_anulada/{id} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       allow write: if central();
     }
     match /com_tarea/{id} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       allow create, delete: if central();
       // ATC Central edita todo; un ATC solo marca como hecha una tarea suya o de todo el equipo.
       allow update: if central()
@@ -83,7 +85,7 @@ service cloud.firestore {
             && request.resource.data.hecha is bool && texto('comentario_cierre', 2000));
     }
     match /com_gestion/{id} {
-      allow read: if equipoATC();
+      allow read: if veComercial();
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
       allow create: if (central() || (soyATC() && request.resource.data.key_ejecutiva == yo()))
         && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])

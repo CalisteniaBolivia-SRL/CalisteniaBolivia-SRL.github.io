@@ -154,10 +154,21 @@
         var r = rango(a);
         return yo().then(function (e) {
             /* Las comisiones necesitan las ventas del MCP; si la ATC no tiene sesión de Calistenia, su lista igual carga. */
-            var com = comisiones(r.desde, r.hasta, e.key).catch(function () { return null; });
+            /* Se calculan las del equipo para saber el puesto de la ATC (su incentivo); a ella solo se le muestran las suyas. */
+            var com = comisiones(r.desde, r.hasta).catch(function () { return null; });
             return Promise.all([equipo(), asignaciones(), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), com]).then(function (x) {
-                var nom = nombresEquipo(x[0]);
-                return { data: { ejecutiva: e, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key || !a.lote; }), ultimas_gestiones: ultimas(x[2], nom),
+                var nom = nombresEquipo(x[0]), todas = x[5];
+                var mias = todas ? todas.filter(function (c) { return c.key_ejecutiva === e.key; }) : null;
+                var ranking = null;
+                if (todas) {
+                    var suma = {}; x[0].forEach(function (q) { if (Number(q.estado == null ? 1 : q.estado) > 0) suma[q.key] = 0; });
+                    todas.forEach(function (c) { if (!c.anulada) suma[c.key_ejecutiva] = (suma[c.key_ejecutiva] || 0) + (Number(c.comision) || 0); });
+                    var orden = Object.keys(suma).sort(function (p, q) { return suma[q] - suma[p]; });
+                    var h = hoy(), deHoy = mias.filter(function (c) { return !c.anulada && String(c.fecha_venta).slice(0, 10) === h; });
+                    ranking = { puesto: orden.indexOf(e.key) + 1, de: orden.length, lider: suma[orden[0]] || 0, ventas_hoy: deHoy.length, comision_hoy: deHoy.length * COMISION_BS };
+                }
+                x[5] = mias;
+                return { data: { ejecutiva: e, ranking: ranking, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key || !a.lote; }), ultimas_gestiones: ultimas(x[2], nom),
                     tareas: x[3].map(function (t) { return Object.assign({}, t, { ejecutiva: t.key_ejecutiva ? nom[t.key_ejecutiva] : null }); }),
                     guiones: x[4], comisiones: x[5] || [], comisiones_sin_datos: x[5] === null, comision_por_venta: COMISION_BS, ventana_dias: VENTANA_DIAS } };
             });
