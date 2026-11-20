@@ -8,7 +8,7 @@
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <link rel="stylesheet" href="legal.css?v=1">
-<link rel="stylesheet" href="redes.css?v=1">
+<link rel="stylesheet" href="redes.css?v=2">
 <script src="cm-mcp.js?v=2"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -35,7 +35,7 @@
     <div>
       <span class="lg-eyebrow">Calistenia Company · Bolivia y Paraguay</span>
       <h1 class="lg-title">Redes sociales</h1>
-      <p class="lg-muted">Cada comentario en Facebook e Instagram se responde solo, con humor y con los datos de la marca. Las críticas se calman y se llevan a privado; los casos delicados esperan tu aprobación. Para TikTok, pega el comentario y copia la respuesta.</p>
+      <p class="lg-muted">Comentarios y mensajes directos de Facebook e Instagram se responden solos, con humor y con los datos de la marca. Las críticas se calman y se llevan a privado. Lo que necesita a una persona queda «Por atender» en Conversaciones, clasificado por tema. Para TikTok, pega el comentario y copia la respuesta.</p>
     </div>
     <div class="lg-herr"><button type="button" class="lg-btn" id="rs-actualizar">Actualizar</button></div>
   </header>
@@ -47,6 +47,8 @@
   <details class="lg-foot">
     <summary>Cómo funciona</summary>
     <ul>
+      <li><b>Conversaciones (mensajes directos):</b> el bot responde y clasifica cada charla por tema. Si hace falta una persona (pagos, reclamos, lesiones, o el cliente lo pide), queda «Por atender». Quien la toma la tiene asignada y el bot se pausa en esa charla; «Devolver al bot» lo reactiva. Si alguien responde desde la bandeja de Meta, el bot también se pausa.</li>
+      <li><b>24 horas:</b> Meta deja responder un mensaje directo hasta 24 horas después del último mensaje del cliente.</li>
       <li><b>Se responde solo:</b> elogios, preguntas, precios y horarios (solo con los datos cargados en Configuración) y críticas. A las críticas se les responde con calma, sin discutir, y se las invita a escribir por privado o al WhatsApp.</li>
       <li><b>Espera aprobación:</b> lesiones o salud, cobros y reembolsos, denuncias o temas legales, acoso, amenazas e insultos graves. También todo lo de un país o una cuenta con las respuestas automáticas apagadas.</li>
       <li><b>Spam:</b> no se responde.</li>
@@ -56,7 +58,7 @@
   </details>
 </main>
 
-<script src="redes.js?v=2"></script>
+<script src="redes.js?v=3"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");

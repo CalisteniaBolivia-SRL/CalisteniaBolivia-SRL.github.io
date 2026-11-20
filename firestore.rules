@@ -105,6 +105,38 @@ service cloud.firestore {
         && texto('datos', 12000) && texto('whatsapp', 40) && texto('tono_extra', 2000)
         && request.resource.data.auto_activo is bool
         && request.resource.data.max_por_hora is int && request.resource.data.max_por_hora >= 1 && request.resource.data.max_por_hora <= 300;
+      // Identificador público de la app de Meta (para el botón «Conectar con Facebook»).
+      allow write: if marketing() && pais == 'meta' && soloCampos(['app_id', 'fecha_mod', 'mod_por'])
+        && request.resource.data.app_id is string && request.resource.data.app_id.matches('^[0-9]{5,25}$');
+    }
+    // Conectar páginas: el panel deja el acceso de corta duración de Facebook; la función lo cambia y lo borra.
+    match /rs_vinculo/{id} {
+      allow read: if marketing();
+      allow create: if marketing() && soloCampos(['user_token', 'pais', 'paginas', 'creado_por', 'fecha', 'estado'])
+        && request.resource.data.estado == 'nuevo' && request.resource.data.creado_por == yo()
+        && request.resource.data.pais in ['bolivia', 'paraguay']
+        && request.resource.data.user_token is string && request.resource.data.user_token.size() > 20 && request.resource.data.user_token.size() < 2000;
+      allow update, delete: if false;
+    }
+    // CRM de mensajes directos: el personal cambia estado, asignación, nota, bot y tema; los mensajes los crea la función.
+    match /rs_conversacion/{id} {
+      allow read: if marketing();
+      allow update: if marketing()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado_atencion', 'asignado_a', 'asignado_nombre', 'nota', 'bot', 'no_leidos', 'tema', 'fecha_mod', 'mod_por'])
+        && request.resource.data.estado_atencion in ['por_atender', 'en_curso', 'atendido', 'no_requiere', 'bot']
+        && request.resource.data.bot in ['activo', 'pausado'] && request.resource.data.mod_por == yo()
+        && texto('nota', 2000) && texto('asignado_nombre', 120)
+        && (request.resource.data.asignado_a == null || request.resource.data.asignado_a is string);
+      allow create, delete: if false;
+    }
+    match /rs_mensaje/{id} {
+      allow read: if marketing();
+      // El personal responde desde el panel: queda «pendiente» y la función lo envía.
+      allow create: if marketing() && soloCampos(['conversacion', 'de', 'texto', 'fecha', 'autor', 'autor_nombre', 'estado_envio'])
+        && request.resource.data.de == 'personal' && request.resource.data.estado_envio == 'pendiente' && request.resource.data.autor == yo()
+        && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 1000
+        && exists(/databases/$(database)/documents/rs_conversacion/$(request.resource.data.conversacion)) && texto('autor_nombre', 120);
+      allow update, delete: if false;
     }
     match /rs_cuenta/{id} {
       allow read: if marketing();

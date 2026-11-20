@@ -127,6 +127,8 @@ const redes = require("./redes");
 exports.metaWebhook = redes.metaWebhook;
 exports.rsNuevoComentario = redes.rsNuevoComentario;
 exports.rsComentarioCambio = redes.rsComentarioCambio;
+exports.rsMensajeNuevo = redes.rsMensajeNuevo;
+exports.rsVincular = redes.rsVincular;
 
 /* Asistente «Capital Corp» de la pantalla central del muro (asistente.js). */
 exports.asistente = require("./asistente").asistente;
