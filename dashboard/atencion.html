@@ -15,7 +15,7 @@
    Este tablero ahora vive dentro de «Comercial y Atención al Cliente» (comercial.html#atencion):
    abierto solo, lleva allá; embebido (?embebido=1) se muestra sin barra ni encabezado propios. */
 (function () {
-    var TABLEROS = ["atencion", "comercial"];
+    var TABLEROS = ["atencion", "comercial", "jefe_atc"];
     var embebido = /[?&]embebido=1\b/.test(location.search) && window.top !== window.self;
     if (!embebido) { location.replace("comercial.html#atencion"); return; }
     document.documentElement.classList.add("embebido");

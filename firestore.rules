@@ -44,19 +44,21 @@ service cloud.firestore {
     }
 
     // ---------- CRM: ATC Central (permiso "atencion") y ATC de sucursal (permiso "atc") ----------
-    function central() { return permiso('atencion'); }
-    function equipoATC() { return permiso('atencion') || permiso('atc'); }
+    // Jefe de ATC = permiso "jefe_atc". Atención al Cliente (ATC) = permiso "atencion" (o "atc").
+    function central() { return permiso('jefe_atc'); }
+    function esATC() { return permiso('atencion') || permiso('atc'); }
+    function equipoATC() { return central() || esATC(); }
     // Administración y Dirección ven (sin modificar) el trabajo del equipo y las comisiones que se pagan.
     function veComercial() { return equipoATC() || permiso('administracion') || permiso('direccion'); }
     function soyATC() {
-      return permiso('atc') && exists(/databases/$(database)/documents/com_ejecutiva/$(yo()))
+      return esATC() && exists(/databases/$(database)/documents/com_ejecutiva/$(yo()))
         && get(/databases/$(database)/documents/com_ejecutiva/$(yo())).data.estado > 0;
     }
 
     match /com_ejecutiva/{uid} {
       allow read: if veComercial();
       // Un ATC se registra solo la primera vez que entra (sin sucursales ni meta); lo demás lo decide ATC Central.
-      allow create: if central() || (permiso('atc') && uid == yo()
+      allow create: if central() || (esATC() && uid == yo()
         && soloCampos(['nombre', 'key_usuario', 'sucursales', 'meta_mensual', 'estado', 'fecha_on', 'autoregistro'])
         && request.resource.data.key_usuario == yo() && request.resource.data.sucursales.size() == 0
         && request.resource.data.meta_mensual == 0 && request.resource.data.estado == 1 && texto('nombre', 120));

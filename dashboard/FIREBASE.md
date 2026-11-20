@@ -8,14 +8,14 @@ Como siempre: **usuario y contraseña del ERP** en el portal. Qué ve cada perso
 
 | Permiso del ERP | Qué habilita |
 |---|---|
-| `atencion` | **Jefe de ATC** (un solo usuario, el de Eliana Aguilera): dirige a los ATC, reparte clientes, deja tareas y guiones, ve resultados y comisiones, y Atención y retención. |
-| `atc` | **ATC de sucursal** (22, dos por sucursal): su CRM, con los clientes antiguos que le tocan, sus seguimientos, tareas y comisión. |
+| `jefe_atc` | **Jefe de ATC** (un solo usuario, el de Eliana Aguilera): dirige a los ATC, reparte clientes, deja tareas y guiones, ve resultados y comisiones, y Atención y retención. |
+| `atencion` (o `atc`) | **Atención al Cliente (ATC de sucursal)** (22, dos por sucursal): su CRM, con los clientes antiguos que le tocan, sus seguimientos, tareas y comisión. |
 | `legal` | Legal: contratos, permisos, casos y plazos. |
 | `administracion` | Administración, incluida Cuentas por pagar. |
 | `reportes` | Reportes. |
 | `todo` | Todo lo anterior. |
 
-Los permisos `atc` y `legal` hay que crearlos en /centro_mando del ERP y asignarlos a los usuarios que correspondan.
+Los permisos `jefe_atc` y `legal` hay que crearlos en /centro_mando del ERP y asignarlos a los usuarios que correspondan.
 
 Al ingresar, el portal llama al **puente** (Cloud Function `erpLogin`, en `functions/`): confirma el mismo usuario y contraseña contra el ERP, lee sus permisos de /centro_mando y abre la sesión de datos de Firebase con esos permisos. No guarda contraseñas. La sesión dura 30 días; los cambios de permisos en el ERP se aplican al volver a ingresar.
 
