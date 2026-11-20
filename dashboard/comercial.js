@@ -462,6 +462,12 @@
             }
         };
     }
+    function quitarListaSucursal(ej, suc, boton) {
+        if (!confirm("¿Quitar la lista de " + suc + " a " + ej.nombre + "? Ya no verá esos clientes (lo que anotó queda guardado).")) return;
+        boton.disabled = true;
+        llamar("comercial_plan_quitar", { key_ejecutiva: ej.key, sucursal: suc })
+            .then(function () { avisar("Se quitó la lista de " + suc + " a " + ej.nombre + "."); cargar(); }, function (e) { boton.disabled = false; avisar("No se pudo quitar: " + textoError(e), "bad"); });
+    }
     /* Quitar la lista completa de una chica (todas sus sucursales). */
     function quitarListaCompleta(ej, boton) {
         var sucs = {}; S.asignaciones.forEach(function (a) { if (a.lote && a.key_ejecutiva === ej.key && a.sucursal) sucs[a.sucursal] = 1; });
@@ -481,7 +487,12 @@
             el("p", { class: "co-muted", text: "Así ve su lista. Los resultados los anota cada chica; desde aquí podés quitar clientes o pasarlos a otra chica." })]));
         var ej = eq.filter(function (e) { return e.key === S.verKey; })[0];
         if (!ej) { c.appendChild(el("p", { class: "co-muted", text: "Todavía no hay chicas en el equipo." })); return; }
-        c.appendChild(el("div", { class: "co-verlista" }, [el("button", { type: "button", class: "co-btn", text: "Quitar toda la lista de " + ej.nombre, onclick: function (e) { quitarListaCompleta(ej, e.currentTarget); } })]));
+        /* Una lista por sucursal: si se asignó una por error, se quita solo esa. */
+        var sucsEj = {}; S.asignaciones.forEach(function (a) { if (a.lote && a.key_ejecutiva === ej.key && a.sucursal) sucsEj[a.sucursal] = (sucsEj[a.sucursal] || 0) + 1; });
+        var nombresSuc = Object.keys(sucsEj);
+        if (nombresSuc.length) c.appendChild(el("div", { class: "co-verlista" }, nombresSuc.map(function (sc) {
+            return el("button", { type: "button", class: "co-btn", text: "Quitar la lista de " + sc + " (" + sucsEj[sc] + " clientes)", onclick: function (e) { quitarListaSucursal(ej, sc, e.currentTarget); } });
+        }).concat(nombresSuc.length > 1 ? [el("button", { type: "button", class: "co-btn", text: "Quitar todas", onclick: function (e) { quitarListaCompleta(ej, e.currentTarget); } })] : [])));
         var box = el("div", { class: "co-verlista-caja" }); c.appendChild(box);
         window.ATC_milista.montar(box, ctxLista(ej, true));
     }
