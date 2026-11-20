@@ -117,3 +117,7 @@
 .ml-r.is-ok { border-color: #2E6B4A; color: #A6E3C0; } .ml-r.is-warn { color: var(--color-warn); } .ml-r.is-bad { color: var(--color-bad); }
 .ml-res input { font-size: 14px !important; }
 @media (max-width: 640px) { .ml-btn { flex-basis: calc(50% - 4px); padding: 8px 10px; } .ml-wa-call { order: 3; flex-basis: 100%; min-height: 38px; font-size: .84em; } }
+.ml-exclusivo { margin: 0; font-size: .88em; padding: 6px 10px; background: rgba(240, 201, 135, .08); border: 1px dashed #A7863F; color: #F0D9A8; }
+.ml-exclusivo b { color: #F0C987; } .ml-exclusivo span { color: var(--color-fg-muted); }
+.ml-acc .ml-btn { flex: 1 1 45%; min-height: 50px; font-size: 1em; }
+.pl-exclusivo select { width: 100%; }

@@ -34,6 +34,17 @@
             $("#com-k-conv").textContent = tot.contactados ? Math.round(tot.ventas / tot.contactados * 100) + "%" : "—";
             $("#com-k-cont").textContent = tot.contactados.toLocaleString("es-BO");
             $("#com-estado").textContent = "Del " + desde.split("-").reverse().join("/") + " al " + hasta.split("-").reverse().join("/") + ". Bs " + (r.comision_por_venta || 5) + " por cliente que vuelve a comprar dentro de los " + (r.ventana_dias || 15) + " días del contacto del ATC.";
+            return window.CM.llamar("comercial_campanas", { desde: desde, hasta: hasta }).then(function (c) {
+                var al = (c && c.alertas) || [], box = $("#com-control"); box.textContent = "";
+                var h = texto("h3", al.length ? "⚠ Control de caja: " + al.length + (al.length === 1 ? " venta" : " ventas") + " de paquetes exclusivos a personas fuera de la lista" : "Control de caja: ningún paquete exclusivo vendido fuera de su lista");
+                h.className = "cb-h3"; if (al.length) h.style.color = "var(--color-bad)"; box.appendChild(h);
+                if (!al.length) return;
+                var t = document.createElement("table"); t.className = "cb-table";
+                t.innerHTML = "<thead><tr><th>Fecha</th><th>Paquete</th><th>Cliente</th><th>Sucursal</th><th>Cajero</th><th class='cb-num'>Monto</th></tr></thead>";
+                var tb = document.createElement("tbody");
+                al.forEach(function (f) { var tr = document.createElement("tr"); [String(f.fecha).replace("T", " ").slice(0, 16), f.paquete, f.cliente || "—", f.sucursal, f.cajero || "—", bs(f.monto)].forEach(function (v, i) { var td = texto("td", v); if (i === 5) td.className = "cb-num"; tr.appendChild(td); }); tb.appendChild(tr); });
+                t.appendChild(tb); var w = document.createElement("div"); w.className = "cb-tablewrap"; w.appendChild(t); box.appendChild(w);
+            }).catch(function () {});
         }).catch(function (e) {
             $("#com-estado").textContent = e && (e.sinFirebase || e.code === "permission-denied")
                 ? "Para ver las comisiones hace falta la sesión de datos del centro de mando (sal y vuelve a ingresar con tu usuario del ERP)."

@@ -142,6 +142,7 @@
 
     function texto(seg, campo) { var t = P.prefs.textos[seg.id]; return t && t[campo] != null ? t[campo] : seg[campo]; }
     /* La promoción va en minúscula dentro del mensaje («tenemos para vos una renovación…»), pero en la tarjeta y el Excel empieza en mayúscula. */
+    function exclusivo(s) { var t = P.prefs.textos[s.id]; return t && t.paquete ? t.paquete : null; }
     function promoVisible(s) { var p = texto(s, "promo"); return p ? p.charAt(0).toUpperCase() + p.slice(1) : ""; }
     function elegido(id) { return P.prefs.sel.indexOf(id) >= 0; }
 
@@ -183,7 +184,7 @@
         ];
         var pPaq = llamar("listar_paquetes", {}).then(function (r) {
             P.paquetes = filas(r).filter(function (p) { return p.usa_molinete && Number(p.precio) > 0 && Number(p.dias) > 0 && !/prueba|borrar|no tocar/i.test(p.descripcion || ""); })
-                .map(function (p) { return { nombre: String(p.descripcion || "").trim(), precio: Number(p.precio), dias: Number(p.dias), caja: p.vendible_en_caja === true, sucursales: (p.sucursales || []).map(function (s) { return String(s).trim(); }) }; })
+                .map(function (p) { return { key: p.key || p.key_paquete || null, nombre: String(p.descripcion || "").trim(), precio: Number(p.precio), dias: Number(p.dias), caja: p.vendible_en_caja === true, sucursales: (p.sucursales || []).map(function (s) { return String(s).trim(); }) }; })
                 .sort(function (a, b) { return a.precio - b.precio; });
         }).catch(function () { P.paquetes = []; });
         /* Una fuente a la vez: el servidor responde mejor y el avance se entiende. */
@@ -368,6 +369,12 @@
         var promo = el("textarea", { rows: "2", maxlength: "300" }); promo.value = texto(s, "promo");
         var msj = el("textarea", { rows: "4", maxlength: "700" }); msj.value = texto(s, "mensaje");
         var ejemplo = el("p", { class: "pl-ejemplo" });
+        /* Paquete exclusivo: solo los clientes de esta lista pueden comprarlo (el control de caja avisa si se vende a otros). */
+        var actualPaq = (P.prefs.textos[s.id] || {}).paquete || null;
+        var selPaq = el("select", {}, [el("option", { value: "", text: "Ninguno (se puede ofrecer cualquier paquete)" })].concat(P.paquetes.filter(function (p) { return p.key; }).map(function (p) {
+            return el("option", { value: p.key, selected: actualPaq && actualPaq.key === p.key, text: p.nombre + " · Bs " + miles(p.precio) + " · " + p.dias + " días" });
+        })));
+        function paqElegido() { var k = selPaq.value; var p = P.paquetes.filter(function (x) { return x.key === k; })[0]; return p ? { key: p.key, nombre: p.nombre, precio: p.precio, dias: p.dias } : null; }
         var muestra = (GRUPOS[s.id] || [])[0] || { cliente: "María Pérez", sucursal: "Berea", fecha: P.fecha, seg: s.id };
         function previa() {
             var guardado = P.prefs.textos[s.id];
@@ -386,6 +393,7 @@
             el("label", { class: "co-ancho" }, ["Promoción que se ofrece (va dentro del mensaje donde dice {promo})", promo]),
             chips ? el("div", { class: "co-ancho" }, [chips]) : null,
             el("label", { class: "co-ancho" }, ["Mensaje de WhatsApp. Se completan solos: {nombre} {sucursal} {fecha} {promo}", msj]),
+            P.paquetes.some(function (p) { return p.key; }) ? el("label", { class: "co-ancho pl-exclusivo" }, ["Paquete exclusivo de esta lista (solo estos clientes lo pueden comprar; si en caja se vende a otra persona, aparece en el control)", selPaq]) : null,
             el("div", { class: "co-ancho pl-ejemplo-box" }, [el("span", { class: "co-muted", text: "Así le llega a " + (muestra.cliente || "un cliente") + ":" }), ejemplo]),
             el("div", { class: "co-ancho co-acciones" }, [
                 el("button", { type: "submit", class: "co-primario", text: "Guardar" }),
@@ -396,8 +404,8 @@
         f.addEventListener("submit", function (ev) {
             ev.preventDefault();
             if (!msj.value.trim()) { msj.focus(); return; }
-            P.prefs.textos[s.id] = { promo: promo.value.trim(), mensaje: msj.value.trim() };
-            guardarPrefs(); P.editando = null; pintar(); avisar("Guardado: el grupo " + s.n + " usa tu promoción y tu mensaje.");
+            P.prefs.textos[s.id] = { promo: promo.value.trim(), mensaje: msj.value.trim(), paquete: paqElegido() };
+            guardarPrefs(); P.editando = null; pintar(); avisar("Guardado: el grupo " + s.n + " usa tu promoción y tu mensaje" + (P.prefs.textos[s.id].paquete ? ", con paquete exclusivo." : "."));
         });
         return f;
     }
@@ -417,7 +425,8 @@
             el("p", { class: "pl-rango", text: s.rango(P.fecha) }),
             el("p", { class: "pl-porque", text: s.porque }),
             el("div", { class: "pl-promo" }, [el("span", { class: "pl-promo-k", text: promo ? "Promoción propuesta" : "Qué hacer" }), el("span", { text: promo || "Sin promoción: llamar y ayudarlo a volver a entrenar." }),
-                P.prefs.textos[s.id] ? el("span", { class: "co-chip co-ok", text: "editada" }) : null]),
+                P.prefs.textos[s.id] ? el("span", { class: "co-chip co-ok", text: "editada" }) : null,
+                exclusivo(s) ? el("span", { class: "co-chip co-warn", title: "Solo los clientes de esta lista lo pueden comprar", text: "Paquete exclusivo: " + exclusivo(s).nombre }) : null]),
             el("button", { type: "button", class: "co-btn pl-editar", text: "Cambiar promoción y mensaje", onclick: function () { P.editando = P.editando === s.id ? null : s.id; pintar(); var f = P.cont.querySelector(".pl-form textarea"); if (f) f.focus(); } })
         ]);
         if (err) t.appendChild(el("p", { class: "co-msg is-bad", text: err }));
@@ -456,7 +465,8 @@
         return lista.map(function (c, i) {
             var s = SEG[c.seg];
             return { key_cliente: String(c.key).replace(/\//g, "-"), cliente: c.cliente, telefono: c.telefono, sucursal: c.sucursal, grupo: s.id, grupo_n: s.n,
-                grupo_titulo: s.titulo, dato: c.dato, promo: promoVisible(s), mensaje: mensajePara(c), orden: base + i };
+                grupo_titulo: s.titulo, dato: c.dato, promo: promoVisible(s), mensaje: mensajePara(c), orden: base + i,
+                campana_id: exclusivo(s) ? P.fecha + "_" + s.id : null, paquete_key: exclusivo(s) ? exclusivo(s).key : null, paquete_nombre: exclusivo(s) ? exclusivo(s).nombre : null };
         });
     }
     /* Asigna las 2 listas de una sucursal. Si la misma ATC tiene las dos, se le asignan juntas. */

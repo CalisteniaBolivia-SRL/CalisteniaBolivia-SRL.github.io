@@ -164,6 +164,7 @@
             S.yo = d.ejecutiva || null; S.equipo = d.equipo || []; S.asignaciones = d.asignaciones || [];
             S.ultimas = d.ultimas_gestiones || []; S.tareas = d.tareas || []; S.guiones = d.guiones || []; S.comisiones = d.comisiones || [];
             S.ranking = d.ranking || null; S.comSinDatos = !!d.comisiones_sin_datos;
+            celebrarNuevas();
             S.sinHerramientas = false; S.errorYo = null;
         }).catch(function (e) {
             if (e.noDisponible) { S.sinHerramientas = true; return; }
@@ -173,7 +174,7 @@
     }
 
     /* ================= Pintar ================= */
-    var TABS_MASTER = [["resumen", "Resumen"], ["equipo", "Equipo"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Comisiones"], ["actividad", "Actividad"]];
+    var TABS_MASTER = [["resumen", "Resumen"], ["equipo", "Equipo"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Comisiones"], ["campanas", "Campañas y control de caja"], ["actividad", "Actividad"]];
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
     if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
     function pestanas() {
@@ -248,6 +249,38 @@
     /* ---------- incentivos y urgencias ----------
        Cada ATC ve siempre arriba cuánto ganó (Bs 5 por cliente que vuelve) y su puesto en el equipo.
        ATC Central ve el ranking, lo que se paga y qué ATC se está quedando sin lista. */
+    /* «¡Se cerró! +Bs 5»: cuando aparece una comisión nueva (la venta ya se cobró en caja), se celebra una vez. */
+    function celebrarNuevas() {
+        if (MASTER || !S.yo || S.comSinDatos) return;
+        var clave = "co_com_vistas_" + S.yo.key, vistas = null;
+        try { vistas = JSON.parse(localStorage.getItem(clave) || "null"); } catch (e) {}
+        var actuales = S.comisiones.filter(function (c) { return !c.anulada; });
+        var nuevas = vistas ? actuales.filter(function (c) { return vistas.indexOf(c.key_paquete_venta_usuario) < 0; }) : [];
+        try { localStorage.setItem(clave, JSON.stringify(actuales.map(function (c) { return c.key_paquete_venta_usuario; }).slice(-500))); } catch (e) {}
+        if (nuevas.length) festejo(nuevas);
+    }
+    function festejo(nuevas) {
+        var total = nuevas.reduce(function (a, c) { return a + num(c.comision); }, 0);
+        var quien = nuevas.map(function (c) { return String(c.cliente || "Un cliente").split(" ").slice(0, 2).join(" "); });
+        var t = el("div", { class: "co-festejo", role: "status", "aria-live": "assertive" }, [
+            el("span", { class: "co-festejo-ico", text: "🎉" }),
+            el("div", {}, [el("b", { text: "¡Se cerró! +" + bs(total) }), el("p", { text: (quien.length === 1 ? quien[0] + " volvió a entrenar." : quien.length + " clientes volvieron: " + quien.slice(0, 3).join(", ") + (quien.length > 3 ? "…" : "")) + " Ya suma a tu contador." })])
+        ]);
+        document.body.appendChild(t);
+        try { var ac = new (window.AudioContext || window.webkitAudioContext)(); [523, 659, 784].forEach(function (f, i) { var o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.value = .08; o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + i * .12); o.stop(ac.currentTime + i * .12 + .18); }); } catch (e) {}
+        setTimeout(function () { t.classList.add("is-fuera"); setTimeout(function () { t.remove(); }, 600); }, 7000);
+        t.addEventListener("click", function () { t.remove(); });
+    }
+    /* Cada 2 minutos se revisa si se cobró alguna venta de sus clientes, sin recargar la pantalla. */
+    setInterval(function () {
+        if (MASTER || !S.yo || document.hidden || S.comSinDatos) return;
+        llamar(T.miTrabajo, S.periodo).then(function (r) {
+            var d = datos(r) || {};
+            S.comisiones = d.comisiones || S.comisiones; S.ranking = d.ranking || S.ranking;
+            celebrarNuevas();
+            var viejo = raiz.querySelector(".co-incentivo"); if (viejo && S.yo) viejo.replaceWith(incentivoATC());
+        }).catch(function () {});
+    }, 120000);
     function incentivoATC() {
         var tot = L.totalesComision(S.comisiones)[S.yo.key] || { ventas: 0, comision: 0 };
         var meta = num(S.yo.meta_mensual), rk = S.ranking;
@@ -560,6 +593,35 @@
         return true;
     }
     var VISTAS_MASTER = {
+        /* Campañas con paquete exclusivo: cuánto se vendió a cada lista y qué ventas del paquete fueron a personas fuera de la lista. */
+        campanas: function (c) {
+            c.appendChild(el("h2", { class: "co-h2", text: "Campañas y control de caja · " + fecha(S.periodo.desde) + " al " + fecha(S.periodo.hasta) }));
+            c.appendChild(el("p", { class: "co-muted", text: "Cuando en el Plan de hoy un grupo tiene «paquete exclusivo», solo los clientes de esa lista lo pueden comprar. Aquí se ve cuánto se vendió a cada lista y, en rojo, las ventas de esos paquetes a personas que no estaban en ninguna lista habilitada." }));
+            var caja = el("div", {}, [el("p", { class: "co-muted", text: "Cargando campañas…" })]);
+            c.appendChild(caja);
+            llamar("comercial_campanas", S.periodo).then(function (r) {
+                caja.textContent = "";
+                var camps = (r && r.filas) || [], al = (r && r.alertas) || [];
+                caja.appendChild(kpis([
+                    ["Campañas con paquete exclusivo", String(camps.length)],
+                    ["Clientes habilitados", camps.reduce(function (a, x) { return a + x.habilitados; }, 0).toLocaleString("es-BO")],
+                    ["Vendidos a la lista", String(camps.reduce(function (a, x) { return a + x.vendidas; }, 0)), "ventas del paquete exclusivo", "ok"],
+                    ["Ventas fuera de la lista", String(al.length), al.length ? "revisar con la sucursal y el cajero" : "todo en orden", al.length ? "bad" : "ok"]
+                ]));
+                if (al.length) caja.appendChild(el("div", { class: "co-card co-alerta-caja" }, [el("h3", { class: "co-h3", text: "⚠ Paquete exclusivo vendido a personas fuera de la lista" }), tabla([
+                    { t: "Fecha", v: function (f) { return fecha(f.fecha) + " " + String(f.fecha).slice(11, 16); } }, { t: "Paquete", v: function (f) { return f.paquete; } },
+                    { t: "Cliente", v: function (f) { return f.cliente || "—"; } }, { t: "Sucursal", v: function (f) { return f.sucursal; } },
+                    { t: "Cajero", v: function (f) { return f.cajero || "—"; } }, { t: "Monto", num: 1, v: function (f) { return bs(f.monto); } }
+                ], al, "")]));
+                caja.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "Campañas" }), tabla([
+                    { t: "Desde", v: function (f) { return fecha(f.fecha); } }, { t: "Grupo", v: function (f) { return f.titulo; } },
+                    { t: "Paquete exclusivo", v: function (f) { return f.paquete; } }, { t: "Habilitados", num: 1, v: function (f) { return String(f.habilitados); } },
+                    { t: "Vendidos", num: 1, v: function (f) { return el("b", { text: String(f.vendidas) }); } },
+                    { t: "Conversión", num: 1, v: function (f) { return f.habilitados ? Math.round(f.vendidas / f.habilitados * 100) + "%" : "—"; } },
+                    { t: "ATC", v: function (f) { return f.atc.map(function (a) { return String(a.ejecutiva).split(" ")[0] + " (" + a.clientes + ")"; }).join(", ") || "—"; } }
+                ], camps, "Todavía no hay campañas con paquete exclusivo. En el Plan de hoy, edita un grupo y elige su «paquete exclusivo» antes de asignar las listas.")]));
+            }).catch(function (e) { caja.textContent = ""; caja.appendChild(aviso("bad", "No se pudieron cargar las campañas", textoError(e))); });
+        },
         resumen: function (c) {
             var todos = carteraDe(), sin = todos.filter(function (x) { return !x.key_ejecutiva; }).length;
             var com = L.totalesComision(S.comisiones), totalCom = 0, totalVentas = 0;

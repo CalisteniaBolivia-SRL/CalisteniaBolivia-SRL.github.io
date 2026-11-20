@@ -212,7 +212,8 @@
             return { id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + U.txt(c, "grupo_titulo", 120, false), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.usuarioKey(),
                 lote: lote, lista_n: n, sucursal: suc, orden: Number(c.orden) || 0, nota_jefa: nota,
                 cliente: U.txt(c, "cliente", 200, false), telefono: U.txt(c, "telefono", 40, false), grupo: U.txt(c, "grupo", 20, false), grupo_n: Number(c.grupo_n) || null,
-                grupo_titulo: U.txt(c, "grupo_titulo", 120, false), dato: U.txt(c, "dato", 200, false), promo: U.txt(c, "promo", 300, false), mensaje: U.txt(c, "mensaje", 1000, false) } };
+                grupo_titulo: U.txt(c, "grupo_titulo", 120, false), dato: U.txt(c, "dato", 200, false), promo: U.txt(c, "promo", 300, false), mensaje: U.txt(c, "mensaje", 1000, false),
+                campana_id: U.txt(c, "campana_id", 80, false), paquete_key: U.txt(c, "paquete_key", 120, false), paquete_nombre: U.txt(c, "paquete_nombre", 200, false) } };
         });
         var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
         return col("com_ejecutiva").doc(ej).get().then(function (x) {
@@ -237,7 +238,19 @@
                 i += 400;
                 return b.commit().catch(function (e) { if (parte.length > 1 && e && e.code === "permission-denied") return deAUno(parte); throw e; }).then(tanda);
             }
-            return tanda().then(function () { return { estado: "exito", data: { asignados: docs.length, dados_de_baja: viejos.length, lote: lote } }; });
+            /* Campañas con paquete exclusivo: se guarda quiénes quedan habilitados para comprarlo (para el control de caja). */
+            var camp = {};
+            docs.forEach(function (x) { var d = x.d; if (!d.campana_id || !d.paquete_key) return;
+                var c = camp[d.campana_id] || (camp[d.campana_id] = { grupo: d.grupo, titulo: d.grupo_titulo, paquete_key: d.paquete_key, paquete_nombre: d.paquete_nombre, promo: d.promo, claves: [], nombres: [] });
+                c.claves.push(x.id); if (d.cliente) c.nombres.push(norm(d.cliente)); });
+            var FV = firebase.firestore.FieldValue;
+            var pc = Object.keys(camp).reduce(function (p, id) {
+                var c = camp[id];
+                return p.then(function () { return col("com_campana").doc(id).set({ grupo: c.grupo, titulo: c.titulo, paquete_key: c.paquete_key, paquete_nombre: c.paquete_nombre, promo: c.promo,
+                    fecha: id.slice(0, 10), estado: 1, fecha_edicion: lote, key_usuario_registro: CMFB.usuarioKey(),
+                    clientes: FV.arrayUnion.apply(FV, c.claves), nombres: c.nombres.length ? FV.arrayUnion.apply(FV, c.nombres) : FV.arrayUnion("") }, { merge: true }); });
+            }, Promise.resolve());
+            return tanda().then(function () { return pc; }).then(function () { return { estado: "exito", data: { asignados: docs.length, dados_de_baja: viejos.length, lote: lote } }; });
         });
     });
     /* Plan de hoy: quita a una ATC su lista de una sucursal. */
@@ -247,6 +260,41 @@
             var ids = s.docs.filter(function (d) { var v = d.data(); return v.lote && Number(v.estado) > 0 && v.sucursal === suc; }).map(function (d) { return d.id; });
             var b = U.db().batch(); ids.slice(0, 450).forEach(function (id) { b.set(col("com_asignacion").doc(id), { estado: 0, fecha_edicion: ahora }, { merge: true }); });
             return (ids.length ? b.commit() : Promise.resolve()).then(function () { return { estado: "exito", data: { quitados: Math.min(ids.length, 450) } }; });
+        });
+    });
+    /* Campañas con paquete exclusivo y control de caja: ventas del paquete a clientes de la lista (bien)
+       y a personas que NO estaban en ninguna lista habilitada (alerta). */
+    CMFB.registrar("comercial_campanas", function (a) {
+        var r = rango(a);
+        return Promise.all([U.docs(col("com_campana")), U.docs(col("com_asignacion")), ventas(r.desde, r.hasta), equipo()]).then(function (x) {
+            var camps = x[0].filter(function (c) { return Number(c.estado == null ? 1 : c.estado) > 0 && c.paquete_key; });
+            var nom = nombresEquipo(x[3]), asig = {};
+            x[1].forEach(function (s0) { if (s0.campana_id) (asig[s0.campana_id] = asig[s0.campana_id] || []).push(s0); });
+            var porPaquete = {};
+            camps.forEach(function (c) {
+                var k = c.paquete_key, pp = porPaquete[k] || (porPaquete[k] = { claves: {}, nombres: {}, nombre: norm(c.paquete_nombre) });
+                (c.clientes || []).forEach(function (q) { pp.claves[q] = c.key; }); (c.nombres || []).forEach(function (q) { pp.nombres[q] = c.key; });
+            });
+            var nombrePaq = {}; Object.keys(porPaquete).forEach(function (k) { nombrePaq[porPaquete[k].nombre] = k; });
+            var vendidas = {}, alertas = [];
+            x[2].forEach(function (v) {
+                var k = v.key_paquete && porPaquete[v.key_paquete] ? v.key_paquete : nombrePaq[norm(v.paquete)];
+                if (!k) return;
+                var pp = porPaquete[k], cl = clientesDeVenta(v), campana = null;
+                cl.claves.forEach(function (q) { if (pp.claves[q]) campana = pp.claves[q]; });
+                if (!campana) cl.nombres.forEach(function (q) { if (pp.nombres[q]) campana = pp.nombres[q]; });
+                var fila = { fecha: String(v.fecha || v.fecha_on || "").slice(0, 16), paquete: v.paquete, sucursal: v.sucursal, monto: Number(v.precio != null ? v.precio : v.monto) || 0,
+                    cliente: (v.clientes || []).map(function (q) { return typeof q === "string" ? q : q.cliente; }).filter(Boolean).join(", "),
+                    cajero: v.cajero || v.usuario || v.vendedor || null };
+                if (campana) (vendidas[campana] = vendidas[campana] || []).push(fila); else alertas.push(fila);
+            });
+            var filas = camps.map(function (c) {
+                var l = asig[c.key] || [], porEj = {};
+                l.forEach(function (q) { var e = porEj[q.key_ejecutiva] || (porEj[q.key_ejecutiva] = { ejecutiva: nom[q.key_ejecutiva] || q.key_ejecutiva || "—", clientes: 0 }); e.clientes++; });
+                return { key: c.key, fecha: c.fecha, titulo: c.titulo, paquete: c.paquete_nombre, promo: c.promo, habilitados: (c.clientes || []).length,
+                    vendidas: (vendidas[c.key] || []).length, ventas: vendidas[c.key] || [], atc: Object.keys(porEj).map(function (k) { return porEj[k]; }) };
+            }).sort(function (p, q) { return String(q.fecha).localeCompare(String(p.fecha)); });
+            return { filas: filas, alertas: alertas.sort(function (p, q) { return String(q.fecha).localeCompare(String(p.fecha)); }) };
         });
     });
     CMFB.registrar("comercial_tarea_guardar", function (a) {
