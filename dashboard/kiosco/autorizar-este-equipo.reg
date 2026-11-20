@@ -15,3 +15,16 @@ Windows Registry Editor Version 5.00
 
 [HKEY_CURRENT_USER\Software\Policies\Google\Chrome\PopupsAllowedForUrls]
 "1"="https://calisteniabolivia-srl.github.io"
+
+; Lo mismo para Microsoft Edge, por si el muro se abre con Edge.
+[HKEY_CURRENT_USER\Software\Policies\Microsoft\Edge\AudioCaptureAllowedUrls]
+"1"="https://calisteniabolivia-srl.github.io"
+
+[HKEY_CURRENT_USER\Software\Policies\Microsoft\Edge\VideoCaptureAllowedUrls]
+"1"="https://calisteniabolivia-srl.github.io"
+
+[HKEY_CURRENT_USER\Software\Policies\Microsoft\Edge\AutoplayAllowlist]
+"1"="https://calisteniabolivia-srl.github.io"
+
+[HKEY_CURRENT_USER\Software\Policies\Microsoft\Edge\PopupsAllowedForUrls]
+"1"="https://calisteniabolivia-srl.github.io"

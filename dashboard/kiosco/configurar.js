@@ -1,12 +1,18 @@
 /* Autorización del equipo del muro, una sola vez.
    Si este navegador todavía no tiene permitido micrófono y cámara para el sitio, muestra abajo un aviso con un botón
    que descarga autorizar-este-equipo.reg (se abre, se acepta y se reinicia Chrome). Cuando el equipo ya está
-   autorizado, el aviso no vuelve a aparecer nunca. */
+   autorizado, el aviso no vuelve a aparecer nunca.
+   Ojo: con la autorización instalada, Chrome usa el micrófono sin preguntar, pero navigator.permissions sigue
+   diciendo «prompt». Por eso el equipo se recuerda como autorizado (localStorage) cuando se descarga el archivo,
+   cuando se toca «Ya lo instalé» o cuando el micrófono funciona de verdad (lo avisa el asistente). */
 (function () {
     "use strict";
     if (!navigator.permissions || !navigator.permissions.query) return;
     var BASE = (document.currentScript && document.currentScript.src) ? document.currentScript.src.replace(/configurar\.js.*$/, "") : "kiosco/";
-    var CLAVE = "cc_muro_autorizar_mas_tarde";
+    var CLAVE = "cc_muro_autorizar_mas_tarde", LISTO = "cc_equipo_autorizado";
+    function yaAutorizado() { try { return !!localStorage.getItem(LISTO); } catch (e) { return false; } }
+    function marcar() { try { localStorage.setItem(LISTO, new Date().toISOString()); } catch (e) {} var d = document.querySelector(".cc-autorizar"); if (d) d.remove(); }
+    window.CC_equipoAutorizado = marcar;
     function estado(n) { return navigator.permissions.query({ name: n }).then(function (r) { return r.state; }, function () { return "granted"; }); }
     function revisar() {
         return Promise.all([estado("microphone"), estado("camera")]).then(function (e) { return e[0] === "granted" && e[1] === "granted"; });
@@ -25,12 +31,14 @@
         d.innerHTML = '<p><b>Autorice este equipo una sola vez</b> para que el muro use micrófono, cámara y sonido sin volver a preguntar.' +
             '<small>1. Descargar · 2. Abrir el archivo y aceptar «Sí» · 3. Cerrar Chrome y volver a abrirlo. Listo para siempre en este usuario.</small></p>' +
             '<a download="autorizar-este-equipo.reg" href="' + BASE + 'autorizar-este-equipo.reg">Descargar autorización</a>' +
-            '<button type="button">Más tarde</button>';
-        d.querySelector("button").onclick = function () { try { sessionStorage.setItem(CLAVE, "1"); } catch (e) {} d.remove(); };
+            '<button type="button" data-ya>Ya lo instalé</button><button type="button" data-luego>Más tarde</button>';
+        d.querySelector("a").addEventListener("click", function () { setTimeout(marcar, 1500); });
+        d.querySelector("[data-ya]").onclick = marcar;
+        d.querySelector("[data-luego]").onclick = function () { try { sessionStorage.setItem(CLAVE, "1"); } catch (e) {} d.remove(); };
         document.body.appendChild(d);
         /* Si se autoriza por otro lado (por ejemplo, desde el candado de la barra de direcciones), el aviso se va solo. */
         var t = setInterval(function () { revisar().then(function (ok) { if (ok) { clearInterval(t); d.remove(); } }); }, 5000);
     }
-    function iniciar() { revisar().then(function (ok) { if (!ok) mostrar(); }); }
+    function iniciar() { if (yaAutorizado()) return; revisar().then(function (ok) { if (ok) marcar(); else mostrar(); }); }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();
