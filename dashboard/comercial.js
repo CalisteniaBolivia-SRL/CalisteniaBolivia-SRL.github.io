@@ -1,6 +1,6 @@
 /* Comercial y Atención al Cliente.
    Ingreso: usuario y contraseña del ERP (portal). Perfiles según los permisos de /centro_mando del ERP:
-   - "atencion" = Jefe de ATC (master, un solo usuario, el de Eliana): dirige a los ATC,
+   - "jefe_atc" = Jefe de ATC (master, el de Eliana): dirige a los ATC,
      les asigna sucursales y clientes, deja tareas y guiones, ve resultados y comisiones, y la pestaña
      «Atención y retención» (tablero de Atención al Cliente embebido).
    - "atc" = cada ATC de sucursal (22, dos por sucursal): su CRM con los clientes antiguos que le tocan,
@@ -25,8 +25,8 @@
         miTrabajo: "comercial_mi_trabajo", gestionRegistrar: "comercial_gestion_registrar", tareaCompletar: "comercial_tarea_completar"
     };
     /* Dos roles separados (los elige comercial.html según el permiso y la tarjeta del portal):
-       vista "jefe" = Jefe de ATC (permiso "atencion"): asigna listas, campañas, seguimiento y comisiones del equipo.
-       vista "atc"  = ATC de sucursal (permiso "atc"): su lista, sus llamadas y su comisión. */
+       vista "jefe" = Jefe de ATC (permiso "jefe_atc"): asigna listas, campañas, seguimiento y comisiones del equipo.
+       vista "atc"  = Atención al Cliente (permiso "atencion" o "atc"): su lista, sus llamadas y su comisión. */
     var MASTER = window.CM_VISTA === "jefe";
     var ES_ATC = window.CM_VISTA === "atc";
     /* Pestaña de Atención y retención (tablero de Atención al Cliente embebido). */
@@ -872,7 +872,7 @@
     }
     (window.CMFB ? CMFB.listo : Promise.resolve()).then(function () {
         if (!MASTER && !ES_ATC) {
-            mensaje($("#co-estado"), "warn", "Tu usuario del ERP no tiene el permiso de Jefe de ATC («atencion») ni de ATC («atc») en /centro_mando.");
+            mensaje($("#co-estado"), "warn", "Tu usuario del ERP no tiene el permiso de Jefe de ATC («jefe_atc») ni de Atención al Cliente («atencion») en /centro_mando.");
             return;
         }
         if (window.CMFB && !CMFB.sesionVigente() && MASTER) {

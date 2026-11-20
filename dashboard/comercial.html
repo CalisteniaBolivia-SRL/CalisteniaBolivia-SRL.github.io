@@ -17,13 +17,13 @@
 <script src="cm-firebase.js?v=11"></script>
 <script src="fb-comercial.js?v=14"></script>
 <script>
-/* Dos roles separados, dos vistas: ?vista=jefe (permiso "atencion" = Jefe de ATC) y ?vista=atc (permiso "atc" = ATC de sucursal).
+/* Dos roles separados, dos vistas: ?vista=jefe (permiso "jefe_atc" = Jefe de ATC) y ?vista=atc (permiso "atencion" o "atc" = Atención al Cliente).
    Quien tiene los dos permisos (por ejemplo Dirección con "todo") entra a la vista que eligió en el portal. */
 (function () {
     var s = null;
     try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
     if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
-    var jefe = s.tableros.indexOf("atencion") >= 0, atc = s.tableros.indexOf("atc") >= 0;
+    var jefe = s.tableros.indexOf("jefe_atc") >= 0, atc = s.tableros.indexOf("atencion") >= 0 || s.tableros.indexOf("atc") >= 0;
     var pide = (/[?&]vista=(jefe|atc)\b/.exec(location.search) || [])[1];
     var vista = pide === "jefe" && jefe ? "jefe" : pide === "atc" && atc ? "atc" : jefe ? "jefe" : atc ? "atc" : null;
     if (!vista) { location.replace("./?sin=atencion"); return; }
@@ -74,7 +74,7 @@
 
 <script src="comercial-logica.js?v=1"></script>
 <script src="recuperacion.js?v=5"></script>
-<script src="mi-lista.js?v=5"></script>
+<script src="mi-lista.js?v=6"></script>
 <script src="comercial.js?v=14"></script>
 <script>
 (function () {

@@ -13,7 +13,7 @@
     var KEY_EMPRESA_PY = "3433c7d4-a626-44de-b825-f924334e679c";        // Calistenia Paraguay en el ERP
     var CLAVE_CTX = "cc_contexto";                                       // empresa y país elegidos (Capital Corp)
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
-    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc"];
+    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc"];
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");

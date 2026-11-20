@@ -114,7 +114,7 @@
         var notaJefa = todos.map(function (c) { return c.nota_jefa; }).filter(Boolean)[0];
         cont.appendChild(el("section", { class: "ml-intro" }, [
             el("div", {}, [el("h2", { class: "co-h2", text: "Mi lista" }),
-                el("p", { class: "co-muted", text: todos.length ? "Clientes que te asignó Atención al Cliente" + (todos[0] && todos[0].sucursal ? " para " + todos[0].sucursal : "") + ". Empieza por arriba: ya están ordenados por prioridad." : "" })]),
+                el("p", { class: "co-muted", text: todos.length ? "Clientes que te asignó el Jefe de ATC" + (todos[0] && todos[0].sucursal ? " para " + todos[0].sucursal : "") + ". Empieza por arriba: ya están ordenados por prioridad." : "" })]),
             todos.length ? el("div", { class: "ml-prog" }, [el("span", {}, [el("b", { text: contactados + " de " + todos.length }), " contactados · " + vuelven + " vuelven"]), el("span", { class: "co-meta" }, [el("span", { style: "width:" + pct + "%" })])]) : null
         ]));
         if (notaJefa) cont.appendChild(el("div", { class: "co-aviso ml-nota" }, [el("strong", { text: "Mensaje del Jefe de ATC" }), el("p", { text: notaJefa })]));
