@@ -54,7 +54,7 @@
           porque: "Siguen entrenando: es la renovación más fácil. Hay que hablarles antes de que se les termine el plan.",
           rango: function (h) { return "Vencen entre el " + corta(h) + " y el " + corta(sumar(h, 7)); },
           promo: "renovación anticipada con el PLAN TRIMESTRAL a Bs 690 (sale Bs 230 por mes) o la PROMO DE LOCURA 2 MESES a Bs 380.",
-          mensaje: "Hola {nombre} 😊 Te escribimos de Calistenia {sucursal}. Tu plan vence el {fecha}. Si renovás antes, tenemos para vos una {promo} ¿Te lo dejamos listo?",
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Vi que tu plan vence el {fecha} y no quiero que cortes la racha que venís haciendo 💪 Si renovás antes, te guardo la {promo} Así seguís entrenando sin pausa y pagás menos. ¿Te lo dejo listo hoy o preferís pasar mañana por caja?",
           filtro: function () { return true; },
           fecha: function (c) { return c.fecha_fin; },
           dato: function (c, h) { var d = dif(c.fecha_fin, h); return "Vence el " + corta(c.fecha_fin) + (d === 0 ? " (hoy)" : d === 1 ? " (mañana)" : " (en " + d + " días)"); },
@@ -63,7 +63,7 @@
           porque: "Ya pagaron, pero no vinieron ni una vez con este plan. Si no los traemos esta semana, no renuevan.",
           rango: function () { return "Plan vigente, ninguna visita desde que lo compraron"; },
           promo: "",
-          mensaje: "Hola {nombre}, ¡bienvenido a Calistenia {sucursal}! 😊 Vimos que todavía no pudiste venir con tu plan, que está activo hasta el {fecha}. ¿Qué día y horario te queda mejor? Te esperamos.",
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Tu plan ya está activo (hasta el {fecha}) y te estamos esperando 🙌 Sé que arrancar es lo más difícil, por eso te quiero ayudar: te anoto en el horario que mejor te quede y el coach te recibe personalmente en tu primera clase. ¿Te acomoda más en la mañana o en la tarde?",
           filtro: function (c, h) { return c.no_vino_con_este_paquete === true && c.fecha_inicio && dif(h, c.fecha_inicio) >= 2; },
           fecha: function (c) { return c.fecha_fin; },
           dato: function (c) { return "Pagó el plan del " + corta(c.fecha_inicio) + " y no vino"; },
@@ -73,24 +73,24 @@
           rango: function (h) { return "Vencieron entre el " + corta(sumar(h, -15)) + " y el " + corta(sumar(h, -1)); },
           desde: 1, hasta: 15,
           promo: "PROMO DE LOCURA 2 MESES a Bs 380 (sale Bs 190 por mes), o el PLAN MENSUAL a Bs 250.",
-          mensaje: "Hola {nombre}, ¿cómo estás? Te escribimos de Calistenia {sucursal}. Tu plan terminó el {fecha} y queremos que sigas con tu progreso 💪 Para volver esta semana tenemos la {promo} ¿Te reservamos tu lugar?" },
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. ¡Te extrañamos en las clases! 💪 Tu plan terminó el {fecha} y sería una pena perder todo lo que avanzaste. Para que vuelvas esta misma semana te guardé la {promo} Los cupos son limitados. ¿Te reservo tu lugar para mañana?" },
         { id: "pases", fuente: "vencidos", prioridad: "alta", titulo: "Vinieron con pase diario o semanal",
           porque: "Probaron el gimnasio pagando por día o por semana. Se les ofrece pasar a un plan mensual.",
           rango: function (h) { return "Su pase terminó entre el " + corta(sumar(h, -60)) + " y el " + corta(sumar(h, -1)); },
           desde: 1, hasta: 60, pases: true,
           promo: "PLAN MENSUAL a Bs 250: un mes entero por poco más de lo que cuestan 6 pases diarios.",
-          mensaje: "Hola {nombre}, gracias por entrenar con nosotros en Calistenia {sucursal} 💪 Si te gustó, te conviene más el {promo} ¿Te lo activamos?" },
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. ¡Gracias por venir a entrenar con nosotros! 🙌 Te cuento un dato que te va a convenir: con el {promo} Entrenás todo el mes sin pensar en pagar cada día, y los resultados se notan de verdad. ¿Te lo activo para que arranques esta semana?" },
         { id: "v16", fuente: "vencidos", prioridad: "alta", titulo: "Vencieron hace 16 a 45 días",
           porque: "Ya perdieron el ritmo, pero todavía se acuerdan de nosotros. Una promo de regreso los mueve. Ojo: la Promo Reactívate hoy está cargada solo en Berea, Chonta, Guaracachi, Industrial y Pirai.",
           rango: function (h) { return "Vencieron entre el " + corta(sumar(h, -45)) + " y el " + corta(sumar(h, -16)); },
           desde: 16, hasta: 45,
           promo: "Promo Reactívate: 30 días a Bs 219.",
-          mensaje: "Hola {nombre}, te extrañamos en Calistenia {sucursal} 💪 Tenemos una promo para quienes ya entrenaron con nosotros: {promo} ¿Te paso los detalles?" },
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Hace unas semanas que no te vemos y el grupo te extraña 💪 Tenemos una promo solo para quienes ya entrenaron con nosotros: {promo} Es por pocos días. ¿Te la reservo a tu nombre?" },
         { id: "riesgo", fuente: "sinAsistir", prioridad: "media", titulo: "Con plan vigente y 14 días o más sin venir",
           porque: "Todavía tienen plan, pero dejaron de venir. Si no los llamamos, no renuevan. No se les vende nada: se les ayuda a volver.",
           rango: function () { return "Última visita hace 14 días o más"; },
           promo: "",
-          mensaje: "Hola {nombre}, ¿todo bien? Te escribimos de Calistenia {sucursal}: hace unos días que no te vemos y tu plan sigue activo hasta el {fecha}. ¿Te ayudamos a encontrar un horario que te quede cómodo? 💪",
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Hace unos días que no te vemos y quería saber cómo estás 😊 Tu plan sigue activo hasta el {fecha}, ¡aprovechémoslo! Si el horario se te complicó, te ayudo a encontrar uno que te quede cómodo. ¿Te anoto para esta semana en la mañana o en la tarde?",
           filtro: function (c) { return c.no_vino_con_este_paquete !== true; },
           fecha: function (c) { return c.fecha_fin; },
           dato: function (c) { return "No viene hace " + (c.dias_sin_venir || "14+") + " días · plan hasta " + corta(c.fecha_fin); },
@@ -99,7 +99,7 @@
           porque: "Un saludo de cumpleaños abre la conversación. Solo entran clientes cuyo último plan terminó hace menos de un año.",
           rango: function (h) { var d = aFecha(h); return "Cumpleaños del 1 al " + new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() + " de " + d.toLocaleDateString("es-BO", { month: "long" }); },
           promo: "Promo Fidelidad: 30 días a Bs 199.",
-          mensaje: "¡Feliz cumpleaños, {nombre}! 🎉 Te saluda todo el equipo de Calistenia {sucursal}. Como regalo, te esperamos de vuelta con la {promo} ¡Que tengas un gran día!",
+          mensaje: "¡Feliz cumpleaños, {nombre}! 🎉🎂 Te escribe {atc} de Calistenia {sucursal}. Todo el equipo te desea un año increíble, y queremos celebrarte con un regalo: {promo} Es nuestra forma de decirte que te queremos de vuelta 💪 ¿Te lo activo para que lo estrenes esta semana?",
           filtro: function (c, h) { return c.activo === false && c.fecha_fin && dif(h, c.fecha_fin) <= 365; },
           fecha: function (c, h) { return h.slice(0, 8) + String(c.fecha_nacimiento || "").slice(8, 10); },
           dato: function (c, h) { var f = h.slice(0, 8) + String(c.fecha_nacimiento || "").slice(8, 10), d = dif(f, h); return "Cumple el " + corta(f) + (d === 0 ? " (hoy)" : d < 0 ? " (ya pasó)" : "") + " · último plan hasta " + corta(c.fecha_fin); },
@@ -109,13 +109,13 @@
           rango: function (h) { return "Vencieron entre el " + corta(sumar(h, -90)) + " y el " + corta(sumar(h, -46)); },
           desde: 46, hasta: 90,
           promo: "Promo Reactívate: 30 días a Bs 219, o el PLAN AMIGOS X3: 3 personas por Bs 500.",
-          mensaje: "Hola {nombre}, ¡hace rato no te vemos en Calistenia {sucursal}! Si querés retomar, tenemos esto para vos: {promo} Contame y te ayudo a volver." },
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. ¡Cuánto tiempo! Nos encantaría verte de nuevo entrenando 💪 Para que la vuelta sea más fácil (y más divertida) tenemos: {promo} Si venís con alguien, mejor todavía. ¿Te cuento cómo funciona?" },
         { id: "v91", fuente: "vencidos", prioridad: "baja", titulo: "Vencieron hace 91 a 180 días",
           porque: "Hace más de 3 meses que no vienen. Es el grupo más difícil: conviene trabajarlo cuando sobre tiempo.",
           rango: function (h) { return "Vencieron entre el " + corta(sumar(h, -180)) + " y el " + corta(sumar(h, -91)); },
           desde: 91, hasta: 180,
           promo: "PLAN AMIGOS X3: 3 personas por Bs 500 (dos que ya entrenaron y uno nuevo).",
-          mensaje: "Hola {nombre}, te escribimos de Calistenia {sucursal} 😊 Estamos invitando a quienes ya entrenaron con nosotros a volver: {promo} ¿Te interesa?" }
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Estamos invitando a quienes ya entrenaron con nosotros a volver, y me acordé de vos 😊 Tenemos el {promo} Es ideal para volver con amigos y motivarse juntos. ¿Te paso los detalles?" }
     ];
     /* Grupos de vencidos: mismo filtro, fecha y orden. */
     SEGS.forEach(function (s, i) {
@@ -140,7 +140,10 @@
     if (!P.prefs.bajadas) P.prefs.bajadas = {};
     if (P.prefs.max == null) P.prefs.max = 40;
 
-    function texto(seg, campo) { var t = P.prefs.textos[seg.id]; return t && t[campo] != null ? t[campo] : seg[campo]; }
+    function texto(seg, campo) {
+        var t = P.prefs.textos[seg.id], v = t && t[campo] != null ? t[campo] : seg[campo];
+        return campo === "mensaje" && !String(v || "").trim() ? seg.mensaje : v;   // siempre hay un mensaje
+    }
     /* La promoción va en minúscula dentro del mensaje («tenemos para vos una renovación…»), pero en la tarjeta y el Excel empieza en mayúscula. */
     function exclusivo(s) { var t = P.prefs.textos[s.id]; return t && t.paquete ? t.paquete : null; }
     function promoVisible(s) { var p = texto(s, "promo"); return p ? p.charAt(0).toUpperCase() + p.slice(1) : ""; }
@@ -240,9 +243,10 @@
             return x;
         });
     }
-    function mensajePara(c) {
+    /* {atc}: en la lista de cada ATC se completa con su nombre; en el Excel y la vista previa, «el equipo». */
+    function mensajePara(c, dejarAtc) {
         var s = SEG[c.seg], promo = texto(s, "promo");
-        return texto(s, "mensaje").replace(/\{nombre\}/g, primerNombre(c.cliente)).replace(/\{sucursal\}/g, c.sucursal === "Sin sucursal" ? "" : c.sucursal)
+        return texto(s, "mensaje").replace(/\{atc\}/g, dejarAtc ? "{atc}" : "el equipo").replace(/\{nombre\}/g, primerNombre(c.cliente)).replace(/\{sucursal\}/g, c.sucursal === "Sin sucursal" ? "" : c.sucursal)
             .replace(/\{fecha\}/g, corta(c.fecha)).replace(/\{promo\}/g, promo).replace(/\s+([,.?!])/g, "$1").replace(/\s{2,}/g, " ").trim();
     }
     function linkWa(c) { var t = telefonoWa(c.telefono); return t ? "https://wa.me/" + t + "?text=" + encodeURIComponent(mensajePara(c)) : ""; }
@@ -392,7 +396,7 @@
             el("h3", { class: "co-h3 co-ancho", text: "Promoción y mensaje del grupo " + s.n }),
             el("label", { class: "co-ancho" }, ["Promoción que se ofrece (va dentro del mensaje donde dice {promo})", promo]),
             chips ? el("div", { class: "co-ancho" }, [chips]) : null,
-            el("label", { class: "co-ancho" }, ["Mensaje de WhatsApp. Se completan solos: {nombre} {sucursal} {fecha} {promo}", msj]),
+            el("label", { class: "co-ancho" }, ["Mensaje de WhatsApp. Se completan solos: {nombre} {atc} (el nombre de la ATC) {sucursal} {fecha} {promo}", msj]),
             P.paquetes.some(function (p) { return p.key; }) ? el("label", { class: "co-ancho pl-exclusivo" }, ["Paquete exclusivo de esta lista (solo estos clientes lo pueden comprar; si en caja se vende a otra persona, aparece en el control)", selPaq]) : null,
             el("div", { class: "co-ancho pl-ejemplo-box" }, [el("span", { class: "co-muted", text: "Así le llega a " + (muestra.cliente || "un cliente") + ":" }), ejemplo]),
             el("div", { class: "co-ancho co-acciones" }, [
@@ -465,7 +469,7 @@
         return lista.map(function (c, i) {
             var s = SEG[c.seg];
             return { key_cliente: String(c.key).replace(/\//g, "-"), cliente: c.cliente, telefono: c.telefono, sucursal: c.sucursal, grupo: s.id, grupo_n: s.n,
-                grupo_titulo: s.titulo, dato: c.dato, promo: promoVisible(s), mensaje: mensajePara(c), orden: base + i,
+                grupo_titulo: s.titulo, dato: c.dato, promo: promoVisible(s), mensaje: mensajePara(c, true), orden: base + i,
                 campana_id: exclusivo(s) ? P.fecha + "_" + s.id : null, paquete_key: exclusivo(s) ? exclusivo(s).key : null, paquete_nombre: exclusivo(s) ? exclusivo(s).nombre : null };
         });
     }
