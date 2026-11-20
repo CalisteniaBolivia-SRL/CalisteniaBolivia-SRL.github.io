@@ -66,6 +66,11 @@ service cloud.firestore {
       allow read: if veComercial();
       allow write: if central();
     }
+    // Campañas con paquete exclusivo: quiénes quedan habilitados para comprarlo (lo arma ATC Central al asignar listas).
+    match /com_campana/{id} {
+      allow read: if veComercial();
+      allow write: if central();
+    }
     match /com_guion/{id} {
       allow read: if veComercial();
       allow write: if central();

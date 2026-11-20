@@ -67,7 +67,8 @@
             for (var i = arr.length - 1; i >= 0; i--) if (arr[i].key_cliente === c.key_cliente) arr.splice(i, 1);
             arr.push(g);
             M.abierto[c.key_cliente] = false;
-            M.ctx.avisar(c.cliente + ": " + r.texto + (r.seguir ? ". Vuelve a aparecer el " + corta(masDias(r.seguir)) + "." : "."), "ok");
+            M.ctx.avisar(r.id === "agendado" ? "¡Bien! " + c.cliente + " vuelve. Apenas se cobre en caja, suman Bs 5 a tu contador 💰"
+                : c.cliente + ": " + r.texto + (r.seguir ? ". Vuelve a aparecer el " + corta(masDias(r.seguir)) + "." : "."), "ok");
         }).catch(function (e) {
             M.ctx.avisar("No se guardó (" + c.cliente + "): " + ((e && e.message) || e), "bad");
         }).then(function () { M.guardando[c.key_cliente] = false; pintar(); });
@@ -85,10 +86,11 @@
                 g ? el("span", { class: "co-chip co-" + ((RESX[g.resultado] || {}).tono || "muted"), text: (RESX[g.resultado] || { texto: g.resultado }).texto + " · " + corta(g.fecha_on) + " " + hora(g.fecha_on) }) : el("span", { class: "co-chip co-warn", text: "Por contactar" })
             ]),
             c.promo ? el("p", { class: "ml-promo" }, [el("b", { text: "Ofrecé: " }), c.promo]) : null,
+            c.paquete_nombre ? el("p", { class: "ml-exclusivo" }, [el("b", { text: "Paquete exclusivo: " }), c.paquete_nombre, el("span", { text: " · solo para los clientes de esta lista" })]) : null,
+            /* Dos botones: llamada normal y WhatsApp con el mensaje ya escrito (con su nombre). */
             el("div", { class: "ml-acc" }, [
                 tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcarCanal("llamada") }, ["📞 Llamar"]) : el("span", { class: "co-muted", text: "Sin teléfono válido" }),
-                wa ? el("a", { class: "ml-btn ml-wa-call", href: wa, target: "_blank", rel: "noopener", onclick: marcarCanal("llamada"), title: "Abre el chat para llamar por WhatsApp" }, ["Llamar por WhatsApp"]) : null,
-                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcarCanal("whatsapp") }, ["💬 Mandar mensaje"]) : null
+                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(c.mensaje || ""), target: "_blank", rel: "noopener", onclick: marcarCanal("whatsapp") }, ["💬 WhatsApp"]) : null
             ]),
             c.mensaje ? el("details", { class: "ml-msj" }, [el("summary", { text: "Ver el mensaje" }), el("p", { text: c.mensaje })]) : null,
             el("div", { class: "ml-res" + (M.abierto[c.key_cliente] || c.estado === "seguir" ? " is-destacado" : "") }, [
