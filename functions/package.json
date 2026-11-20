@@ -4,7 +4,7 @@
   "description": "Puente de ingreso: confirma el usuario y la contraseña del ERP y entrega una sesión de Firebase con los permisos de /centro_mando.",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.4.0",
