@@ -693,7 +693,7 @@
         equipo: function (c) {
             c.appendChild(el("h2", { class: "co-h2", text: "Equipo ATC" }));
             if (pendienteMaster(c)) return;
-            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC aparece aquí la primera vez que ingresa al centro de mando con su usuario del ERP (permiso «atc»). Asígnale sus sucursales y su meta con «Editar»." }));
+            c.appendChild(el("p", { class: "co-muted", text: "Cada ATC aparece aquí la primera vez que ingresa al centro de mando con su usuario del ERP (permiso «atencion»). Asígnale sus sucursales y su meta con «Editar»." }));
             c.appendChild(el("div", { id: "co-form-ej" }));
             c.appendChild(el("div", { class: "co-card" }, [tablaEquipo(true)]));
         },
