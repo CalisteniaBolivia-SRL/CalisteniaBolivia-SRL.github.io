@@ -227,6 +227,12 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 </main>
 <footer>Calistenia Paraguay · Información confidencial para accionistas</footer>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../dashboard/firebase-config.js?v=2"></script>
+<script>window.CM_FB_SIN_BARRA = true;</script>
+<script src="../dashboard/cm-firebase.js?v=11"></script>
 <script src="erp.js?v=1"></script>
 <script>
 (function () {
@@ -371,7 +377,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       return leerUna(k, 0).then(function () { hechas++; if (progreso) progreso(hechas, total); return trabajar(); });
     }
     var hilos = []; for (var n = 0; n < 4; n++) hilos.push(trabajar());
-    return Promise.all(hilos).then(function () { guardar(K_CACHE, ventas); });
+    return Promise.all(hilos).then(function () { guardar(K_CACHE, ventas); if (total) guardarCompartida(); });
   }
 
   function construirDias() {
@@ -385,6 +391,37 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     });
     CATS = hayOtros ? CATS_BASE.concat([CAT_OTROS]) : CATS_BASE.slice();
     return Object.keys(porDia).sort().map(function (k) { return porDia[k]; });
+  }
+
+  /* ================= Memoria compartida (abre al instante en cualquier equipo) =================
+     El resumen de cada venta (fecha y montos por concepto, sin datos de clientes) se guarda por mes en la base
+     privada del centro de mando (py_ventas/AAAA-MM; solo Dirección). Así un equipo nuevo no lee todo el historial. */
+  var compartida = { ok: false, firmas: {} };
+  function fs() { return window.firebase && firebase.apps.length && window.CMFB && CMFB.tieneRol && CMFB.tieneRol("direccion") ? firebase.firestore() : null; }
+  function porMes() { var m = {}; Object.keys(ventas).forEach(function (k) { var v = ventas[k]; if (!v || !v.f) return; (m[v.f.slice(0, 7)] = m[v.f.slice(0, 7)] || {})[k] = v; }); return m; }
+  function leerCompartida() {
+    var listo = window.CMFB && CMFB.listo ? CMFB.listo : Promise.resolve();
+    return listo.then(function () {
+      var d = fs(); if (!d) return false;
+      return d.collection("py_ventas").get().then(function (q) {
+        var n = 0;
+        q.forEach(function (doc) {
+          var vs = (doc.data() || {}).ventas || {}; compartida.firmas[doc.id] = JSON.stringify(vs);
+          Object.keys(vs).forEach(function (k) { if (!(ventas[k] && ventas[k].f) || vs[k].anul) { ventas[k] = vs[k]; n++; } });
+        });
+        compartida.ok = true; if (n) guardar(K_CACHE, ventas); return n > 0;
+      });
+    }).catch(function () { return false; });
+  }
+  function guardarCompartida() {
+    var d = fs(); if (!d || !compartida.ok) return;
+    var m = porMes();
+    Object.keys(m).forEach(function (mes) {
+      var f = JSON.stringify(m[mes]);
+      if (compartida.firmas[mes] === f) return;
+      compartida.firmas[mes] = f;
+      d.collection("py_ventas").doc(mes).set({ ventas: m[mes], actualizado: new Date().toISOString() }).catch(function () { delete compartida.firmas[mes]; });
+    });
   }
 
   function estadoVivo(ok, texto) {
@@ -402,6 +439,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   function vuelta() {
     if (ocupado || document.hidden || !sesion) return;
     ocupado = true;
+    if (!modelos) { ERP.modelos(sesion.key).then(function (m) { modelos = m; }, function () {}).then(function () { ocupado = false; }); return; }
     var hoy = hoyPY(), completo = Date.now() - ultimoResync > RESYNC_MS;
     ERP.movimientos(completo ? INICIO : hoy, hoy)
       .then(function (movs) { if (completo) ultimoResync = Date.now(); return leerVentas(revisar(movs)); })
@@ -415,18 +453,27 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   }
   function detener() { if (reloj) clearInterval(reloj); reloj = null; }
 
+  /* Arranque: si ya hay datos (de este equipo o de la memoria compartida) el tablero se muestra al instante y se
+     pone al día por detrás; solo la primera vez, sin datos en ningún lado, se ve la barra de carga. */
+  function hayDatos() { return Object.keys(ventas).some(function (k) { return ventas[k] && ventas[k].f; }); }
+  function mostrarYa() { vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "Mostrando lo último guardado · actualizando…"); }
   function arrancar() {
-    vista("v-carga");
-    $("c-texto").textContent = "Conectando con el ERP…"; $("c-barra").style.width = "0";
-    ERP.modelos(sesion.key).then(function (m) {
+    var rapido = hayDatos();
+    if (rapido) mostrarYa(); else { vista("v-carga"); $("c-texto").textContent = "Conectando con el ERP…"; $("c-barra").style.width = "0"; }
+    leerCompartida().then(function (trajo) {
+      if (trajo && !rapido && hayDatos()) { rapido = true; mostrarYa(); }
+      else if (trajo) pintarSiCambio(false);
+      return ERP.modelos(sesion.key);
+    }).then(function (m) {
       modelos = m;
-      $("c-texto").textContent = "Leyendo movimientos de caja…";
+      if (!rapido) $("c-texto").textContent = "Leyendo movimientos de caja…";
       return ERP.movimientos(INICIO, hoyPY());
     }).then(function (movs) {
       ultimoResync = Date.now();
       var nuevas = revisar(movs);
-      $("c-texto").textContent = nuevas.length ? "Leyendo ventas…" : "Preparando el tablero…";
+      if (!rapido) $("c-texto").textContent = nuevas.length ? "Leyendo ventas…" : "Preparando el tablero…";
       return leerVentas(nuevas, function (h, t) {
+        if (rapido) { if (h % 5 === 0 || h === t) { pintarSiCambio(false); estadoVivo(true, "Actualizando · " + h + " de " + t + " ventas nuevas"); } return; }
         $("c-texto").textContent = "Leyendo ventas: " + h + " de " + t;
         $("c-barra").style.width = Math.round(h / t * 100) + "%";
       });
@@ -436,6 +483,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       estadoVivo(true, "En vivo · actualizado " + horaPY());
       detener(); reloj = setInterval(vuelta, CADA_MS);
     }).catch(function (x) {
+      if (rapido) { estadoVivo(false, "Sin conexión con el ERP · mostrando lo último guardado · reintentando…"); detener(); reloj = setInterval(vuelta, CADA_MS); return; }
       $("a-titulo").textContent = "No se pudo cargar el reporte";
       $("a-texto").textContent = x && x.message === "tiempo" ? "El ERP no respondió a tiempo." : "No se pudo conectar con el ERP (" + (x && x.message || "error") + ").";
       vista("v-aviso");
