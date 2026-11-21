@@ -107,7 +107,7 @@
     }
     function irPais() {
         pintarRuta(null);
-        var py = tablerosPY(sesionActual), bo = (sesionActual && sesionActual.tableros) || [];
+        var py = permisosDe("paraguay"), bo = (sesionActual && sesionActual.tableros) || [];
         var bPy = document.querySelector('[data-pais="paraguay"]'), bBo = document.querySelector('[data-pais="bolivia"]');
         bPy.disabled = !py.length; bBo.disabled = !bo.length;
         var nota = document.getElementById("cc-pais-nota");
@@ -118,9 +118,7 @@
         guardarCtx({ empresa: "calistenia", pais: pais });
         pintarRuta(pais);
         if (pais === "paraguay") {
-            var lista = tablerosPY(sesionActual);
-            document.querySelectorAll("[data-tablero-py]").forEach(function (el) { el.hidden = lista.indexOf(el.getAttribute("data-tablero-py")) < 0; });
-            document.getElementById("py-sin").hidden = lista.length > 0;
+            pintarModulos("paraguay");
             document.querySelectorAll('a[href="#muro"], a[href="#equipo"]').forEach(function (el) { el.hidden = true; });
             ver("portal-py"); marcar("portal-py", "paraguay");
         } else {
@@ -134,7 +132,7 @@
         hola.textContent = ses.nombre ? "Hola, " + ses.nombre : "";
         var c = leerCtx();
         if (c.empresa === "calistenia" && (c.pais === "bolivia" || c.pais === "paraguay")) {
-            if (c.pais === "paraguay" ? tablerosPY(ses).length : (ses.tableros || []).length) return irPortal(c.pais);
+            if (c.pais === "paraguay" ? permisosDe("paraguay").length : (ses.tableros || []).length) return irPortal(c.pais);
         }
         if (c.empresa === "calistenia") return irPais();
         irEmpresa();
@@ -142,15 +140,38 @@
     document.querySelectorAll("[data-empresa]").forEach(function (b) { b.addEventListener("click", function () { guardarCtx({ empresa: b.getAttribute("data-empresa") }); irPais(); }); });
     document.querySelectorAll("[data-pais]").forEach(function (b) { b.addEventListener("click", function () { irPortal(b.getAttribute("data-pais")); }); });
 
+    /* Permisos por país: Bolivia, los de /centro_mando del ERP de Bolivia; Paraguay, los del ERP de Paraguay
+       (/centro_mando y /accionistas) más, para Dirección de Bolivia, todo. */
+    function permisosDe(pais) {
+        var s = sesionActual || {}, bo = s.tableros || [];
+        if (pais !== "paraguay") return bo;
+        var py = (s.tableros_py || []).slice();
+        if (bo.indexOf("direccion") >= 0) py.push("todo");
+        ["legal", "marketing"].forEach(function (t) { if (bo.indexOf(t) >= 0 && py.indexOf(t) < 0) py.push(t); });
+        return py;
+    }
+    /* Muro y tableros de cada país salen del registro único de módulos (modulos.js) + el checklist de Dirección. */
+    function pintarModulos(pais, cfg) {
+        if (!window.CM_MODULOS) return { pantallas: 0, tableros: 0 };
+        var r = CM_MODULOS.pintar({ pais: pais, permisos: permisosDe(pais), cfg: cfg,
+            pantallas: document.getElementById("pantallas-" + pais), tableros: document.getElementById("tableros-" + pais),
+            bloqueMuro: document.getElementById(pais === "paraguay" ? "muro-py" : "muro"), bloqueTableros: document.getElementById(pais === "paraguay" ? "equipo-py" : "equipo"),
+            cuentaMuro: document.getElementById("cuenta-" + pais) });
+        if (pais === "paraguay") { var n = document.getElementById("py-sin"); if (n) n.hidden = r.pantallas + r.tableros > 0; var eq = document.getElementById("equipo-py"); if (eq) eq.hidden = false; }
+        var dir = permisosDe("bolivia").indexOf("direccion") >= 0, nm = document.getElementById("nav-modulos"); if (nm) nm.hidden = !dir;
+        return r;
+    }
+    /* Cuando llega el checklist actualizado de la base, se vuelve a pintar el portal que está a la vista. */
+    if (window.CM_MODULOS) CM_MODULOS.cargarConfig().then(function (cfg) {
+        if (!cfg || !sesionActual) return;
+        ["bolivia", "paraguay"].forEach(function (p) { var n = document.getElementById(p === "paraguay" ? "portal-py" : "portal"); if (n && !n.hidden) pintarModulos(p, cfg); });
+    });
     function mostrarPortal(nombre, usuario, permitidos) {
         var lista = permitidos || [];
         pintarRuta("bolivia");
-        /* data-tablero puede tener varios permisos separados por espacio (basta con uno). */
-        document.querySelectorAll("[data-tablero]").forEach(function (el) {
-            el.hidden = !el.getAttribute("data-tablero").split(/\s+/).some(function (t) { return lista.indexOf(t) >= 0; });
-        });
-        var hayTarjetas = lista.some(function (t) { return t !== "muro"; });
-        document.querySelectorAll('#equipo, a[href="#equipo"]').forEach(function (el) { el.hidden = !hayTarjetas; });
+        var r = pintarModulos("bolivia");
+        document.querySelectorAll('a[href="#muro"]').forEach(function (el) { el.hidden = !r.pantallas; });
+        document.querySelectorAll('a[href="#equipo"]').forEach(function (el) { el.hidden = !r.tableros; });
         document.getElementById("sin-acceso").hidden = lista.length > 0;
         document.getElementById("sin-permisos-erp").hidden = permitidos !== null;
         document.getElementById("sin-rol").hidden = permitidos === null;
