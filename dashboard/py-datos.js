@@ -4,7 +4,7 @@
    (reporte_ventas, clientes_por_vencer, clientes_vencidos, listar_clientes_activos…) pero con el ERP de Calistenia
    Paraguay. Lo que Paraguay todavía no tiene (asistencia, molinetes…) responde vacío: NUNCA datos de Bolivia.
    Memoria: el resumen de cada venta se comparte con «Ingresos en vivo» (localStorage py_acc_ventas_v1 y
-   Firestore py_ventas/AAAA-MM). Versión 2 del resumen: total, productos, cajero, cliente y días de membresía. */
+   Firestore py_ventas/AAAA-MM). Versión 3 del resumen: total, productos, cajero, cliente, días de membresía y formas de pago. */
 (function () {
     "use strict";
     var INICIO = "2026-04-01", SUCURSAL = "Multiplaza", K_CACHE = "py_acc_ventas_v1";
@@ -22,7 +22,7 @@
     }
     /* Resumen de una venta del ERP (lo usan este adaptador y «Ingresos en vivo»). */
     function resumenVenta(v, modelos, previo) {
-        var r = { v: 2, f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0, p: {}, dm: 0,
+        var r = { v: 3, pg: {}, f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0, p: {}, dm: 0,
             u: v.key_usuario || null, cl: v.key_cliente || null, cn: (v.cliente && v.cliente.razon_social) || null };
         (v.detalle || v.detalles || []).forEach(function (d) {
             if (d.estado === 0) return;
@@ -33,6 +33,8 @@
         var desc = Number(v.descuento) || 0, t = r.membresias + r.snacks + r.alquileres + r.otros;
         if (desc > 0 && t > 0) { ["membresias", "snacks", "alquileres", "otros"].forEach(function (k) { r[k] -= r[k] / t * desc; }); Object.keys(r.p).forEach(function (k) { r.p[k] -= r.p[k] / t * desc; }); }
         r.t = r.membresias + r.snacks + r.alquileres + r.otros;
+        /* Cómo se pagó: monto por forma de pago del ERP (se clasifica en efectivo, transferencia… al mostrar). */
+        (v.cuotas || []).forEach(function (c) { if (c.estado === 0) return; var k = c.key_empresa_tipo_pago || "otro"; r.pg[k] = (r.pg[k] || 0) + (Number(c.total_amortizado != null ? c.total_amortizado : c.monto) || 0); });
         if (v.state !== "vendido" || v.estado === 0 || (previo && previo.anul)) r.anul = 1;
         return r;
     }
@@ -41,6 +43,8 @@
     if (window.CM_PAIS !== "paraguay") return;
 
     /* ---------- memoria y actualización ---------- */
+    var usuarios = null, tipos = null;
+    var CLASE = { caja: "efectivo", banco: "transferencia", tarjeta: "tarjeta", qr: "qr", cheque: "cheque" };
     var ventas = {}, modelos = null, ocupado = false, ultimo = 0, firmas = {}, listaPromesa = null;
     function leerLocal() { try { return JSON.parse(localStorage.getItem(K_CACHE) || "null") || {}; } catch (e) { return {}; } }
     function guardarLocal() { try { localStorage.setItem(K_CACHE, JSON.stringify(ventas)); } catch (e) {} }
@@ -53,7 +57,7 @@
             return d.collection("py_ventas").get().then(function (q) {
                 q.forEach(function (doc) {
                     var vs = (doc.data() || {}).ventas || {}; firmas[doc.id] = JSON.stringify(vs);
-                    Object.keys(vs).forEach(function (k) { var a = ventas[k], b = vs[k]; if (!a || !a.f || (b.v === 2 && a.v !== 2) || b.anul) ventas[k] = b; });
+                    Object.keys(vs).forEach(function (k) { var a = ventas[k], b = vs[k]; if (!a || !a.f || ((b.v || 0) > (a.v || 0)) || b.anul) ventas[k] = b; });
                 });
             });
         }).catch(function () {});
@@ -67,20 +71,26 @@
         });
     }
     function claveUsuario() { try { return (JSON.parse(localStorage.getItem("cb_centro_mando") || "{}").key_usuario) || ""; } catch (e) { return ""; } }
-    function cargarERP() { return window.ERP ? Promise.resolve() : new Promise(function (ok, mal) { var s = document.createElement("script"); s.src = "../accionistas-py/erp.js?v=1"; s.onload = ok; s.onerror = mal; document.head.appendChild(s); }); }
+    function cargarERP() { return window.ERP ? Promise.resolve() : new Promise(function (ok, mal) { var s = document.createElement("script"); s.src = "../accionistas-py/erp.js?v=2"; s.onload = ok; s.onerror = mal; document.head.appendChild(s); }); }
     /* Pone al día: ventas nuevas o anuladas y las del resumen viejo (sin versión 2). */
     function actualizar() {
         if (ocupado) return Promise.resolve(); ocupado = true;
         var completo = Date.now() - ultimo > 10 * 60000;
         return cargarERP().then(function () {
             return modelos ? modelos : ERP.modelos(claveUsuario()).then(function (m) { modelos = m; return m; });
+        }).then(function () {
+            /* Nombres de cajeros y formas de pago (una vez; si el ERP no los da, se muestra el código). */
+            var extras = [];
+            if (!usuarios) extras.push(ERP.usuarios().then(function (u) { usuarios = u; }, function () { usuarios = {}; }));
+            if (!tipos) extras.push(ERP.tiposPago().then(function (t) { tipos = t; }, function () { tipos = {}; }));
+            return Promise.all(extras);
         }).then(function () { return ERP.movimientos(completo ? INICIO : hoy(), hoy()); }).then(function (movs) {
             if (completo) ultimo = Date.now();
             var leer = {};
             movs.forEach(function (mv) {
                 var k = mv.key_compra_venta, t = String(mv.tipo || ""); if (!k) return;
                 if (t.indexOf("anulacion") === 0) { ventas[k] = ventas[k] || {}; ventas[k].anul = 1; }
-                else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 2)) leer[k] = 1;
+                else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 3)) leer[k] = 1;
             });
             var keys = Object.keys(leer), i = 0, hechas = 0;
             function una() { if (i >= keys.length) return Promise.resolve(); var k = keys[i++];
@@ -107,7 +117,7 @@
     function grupoDe(v, por) {
         if (por === "mes") return [v.f.slice(0, 7)];
         if (por === "sucursal") return [SUCURSAL];
-        if (por === "cajero") return [v.u ? "Cajero " + String(v.u).slice(0, 4).toUpperCase() : "Sin cajero"];
+        if (por === "cajero") return [!v.u ? "Sin cajero" : (usuarios && usuarios[v.u]) || "Cajero " + String(v.u).slice(0, 4).toUpperCase()];
         if (por === "paquete") return Object.keys(v.p || {}).length ? Object.keys(v.p) : ["Sin detalle"];
         return [v.f];
     }
@@ -119,9 +129,11 @@
             grupoDe(v, por).forEach(function (k) {
                 var x = g[k] || (g[k] = { grupo: k, ventas: 0, total: 0, efectivo: 0, tarjeta: 0, transferencia: 0, cheque: 0, qr: 0 });
                 x.ventas++; x.total += por === "paquete" ? (v.p[k] || 0) : total;
+                if (por !== "paquete") Object.keys(v.pg || {}).forEach(function (kp) { var cl = CLASE[(tipos && tipos[kp] && tipos[kp].clase) || ""] || "otro"; x[cl] = (x[cl] || 0) + v.pg[kp]; });
             });
         });
-        var filas = Object.keys(g).map(function (k) { var x = g[k]; x.total = Math.round(x.total); return x; });
+        var filas = Object.keys(g).map(function (k) { var x = g[k]; ["total", "efectivo", "tarjeta", "transferencia", "cheque", "qr", "otro"].forEach(function (c) { if (x[c] != null) x[c] = Math.round(x[c]); }); return x; });
+        ["efectivo", "tarjeta", "transferencia", "cheque", "qr"].forEach(function (c) { tot[c] = filas.reduce(function (s, x) { return s + (por === "paquete" ? 0 : (x[c] || 0)); }, 0); });
         filas.sort(function (x, y) { return por === "dia" || por === "mes" ? String(x.grupo).localeCompare(String(y.grupo)) : y.total - x.total; });
         return { desde: a.desde, hasta: a.hasta, agrupado_por: por, moneda: "Gs", totales: { total: Math.round(tot.total), ventas: tot.ventas }, filas: filas };
     }

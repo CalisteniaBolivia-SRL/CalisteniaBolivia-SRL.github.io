@@ -233,8 +233,8 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="../dashboard/firebase-config.js?v=2"></script>
 <script>window.CM_FB_SIN_BARRA = true;</script>
 <script src="../dashboard/cm-firebase.js?v=11"></script>
-<script src="../dashboard/py-datos.js?v=1"></script>
-<script src="erp.js?v=1"></script>
+<script src="../dashboard/py-datos.js?v=2"></script>
+<script src="erp.js?v=2"></script>
 <script>
 (function () {
   /* ================= Configuración ================= */
@@ -343,7 +343,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       var k = mv.key_compra_venta, t = String(mv.tipo || "");
       if (!k) return;
       if (t.indexOf("anulacion") === 0) { ventas[k] = ventas[k] || {}; ventas[k].anul = 1; }
-      else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 2)) nuevas[k] = 1;
+      else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 3)) nuevas[k] = 1;
     });
     return Object.keys(nuevas);
   }
@@ -398,7 +398,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
         var n = 0;
         q.forEach(function (doc) {
           var vs = (doc.data() || {}).ventas || {}; compartida.firmas[doc.id] = JSON.stringify(vs);
-          Object.keys(vs).forEach(function (k) { var a = ventas[k], b = vs[k]; if (!(a && a.f) || (b.v === 2 && a.v !== 2) || b.anul) { ventas[k] = b; n++; } });
+          Object.keys(vs).forEach(function (k) { var a = ventas[k], b = vs[k]; if (!(a && a.f) || ((b.v || 0) > (a.v || 0)) || b.anul) { ventas[k] = b; n++; } });
         });
         compartida.ok = true; if (n) guardar(K_CACHE, ventas); return n > 0;
       });
