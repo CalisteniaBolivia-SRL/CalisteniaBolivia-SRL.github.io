@@ -91,7 +91,11 @@ function permisosERP(paginas) {
     let p = null;
     Object.keys(paginas || {}).forEach((k) => { const v = paginas[k]; if (v && (v.url === PAGINA_CM || k === PAGINA_CM)) p = v; });
     const permisos = (p && p.permisos) || {};
-    return permisos.todo ? TABLEROS.slice() : TABLEROS.filter((t) => !!permisos[t]);
+    const t = permisos.todo ? TABLEROS.slice() : TABLEROS.filter((t) => !!permisos[t]);
+    /* La página /accionistas (cualquier permiso) da solo ingresos en vivo. */
+    const acc = Object.keys(paginas || {}).map((k) => paginas[k]).find((v, i) => v && (v.url === "/accionistas" || Object.keys(paginas)[i] === "/accionistas"));
+    if (acc && acc.permisos && Object.keys(acc.permisos).length && t.indexOf("accionistas") < 0) t.push("accionistas");
+    return t;
 }
 
 function nombreDe(d, usuario) {
