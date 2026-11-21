@@ -60,3 +60,14 @@ body.cc .nav__brand--cal, body:not(.cc) .nav__brand--cc { display: none; }
     .nav__links.nav__links--static { flex-wrap: wrap; justify-content: flex-end; gap: .5rem .9rem; min-width: 0; }
     .cc-ruta { font-size: .8rem; }
 }
+
+/* Celular: encabezado ordenado en filas (marca · ruta · menú), sin que la ruta se monte sobre la marca. */
+@media (max-width: 700px) {
+    .nav { flex-wrap: wrap; row-gap: .55rem; padding-top: .6rem; padding-bottom: .6rem; }
+    .nav__brand img { width: 32px; height: 32px; }
+    .nav__brand span { font-size: .95rem; line-height: 1.05; }
+    .nav .cc-marca img { max-height: 40px; }
+    .nav__links.nav__links--static { order: 2; flex: 1 1 100%; justify-content: flex-start; align-items: center; gap: .45rem 1.1rem; font-size: .82rem; padding-top: .55rem; border-top: 1px solid var(--line); }
+    .nav__links--static .cc-ruta { flex: 1 1 100%; order: -1; font-size: .78rem; gap: .25rem .45rem; }
+    .nav__links--static .cm-salir { margin-left: auto; padding: .25rem .7rem; font-size: .78rem; }
+}
