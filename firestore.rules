@@ -85,6 +85,18 @@ service cloud.firestore {
       allow read: if permiso('direccion');
       allow write: if permiso('direccion') && mes.matches('^[0-9]{4}-[0-9]{2}$');
     }
+    // Reemplazo de profesores: lo registra Supervisión; lo consultan Dirección, RRHH y Administración. No se borra (se anula).
+    match /sup_reemplazo/{id} {
+      allow read: if permiso('supervision') || permiso('direccion') || permiso('rrhh') || permiso('administracion');
+      allow create: if permiso('supervision') && request.resource.data.registrado_por == yo()
+        && request.resource.data.fecha is string && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.titular is string && request.resource.data.titular.size() > 0 && request.resource.data.titular.size() <= 120
+        && request.resource.data.reemplazo is string && request.resource.data.reemplazo.size() > 0 && request.resource.data.reemplazo.size() <= 120
+        && request.resource.data.clases is int && request.resource.data.clases >= 1 && request.resource.data.clases <= 12
+        && request.resource.data.estado == 1;
+      allow update: if permiso('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
+      allow delete: if false;
+    }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
       allow write: if central();
