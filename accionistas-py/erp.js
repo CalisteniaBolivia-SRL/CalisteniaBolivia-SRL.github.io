@@ -151,6 +151,17 @@
 
     window.ERP = {
         KEY_EMPRESA: KEY_EMPRESA,
+        pedir: pedir,
+        /* Usuarios de la empresa: key_usuario -> nombre (alias) */
+        usuarios: function () {
+            return pedir({ service: "empresa", component: "empresa_usuario", type: "getAll", key_empresa: KEY_EMPRESA }, 30000)
+                .then(function (m) { var r = {}; valores(m.data).forEach(function (x) { if (x && x.key_usuario) r[x.key_usuario] = String(x.alias || "").trim(); }); return r; });
+        },
+        /* Formas de pago de la empresa: key -> clase (caja = efectivo, banco = transferencia, …) */
+        tiposPago: function () {
+            return pedir({ service: "caja", component: "empresa_tipo_pago", type: "getAll", key_empresa: KEY_EMPRESA }, 30000)
+                .then(function (m) { var r = {}; valores(m.data).forEach(function (x) { if (x && x.key) r[x.key] = { clase: x.key_tipo_pago, nombre: x.descripcion }; }); return r; });
+        },
         PAGINA: PAGINA,
         ingresar: ingresar,
         /* Catálogo de productos: key_modelo -> key_tipo_producto */
