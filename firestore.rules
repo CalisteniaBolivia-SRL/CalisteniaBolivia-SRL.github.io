@@ -49,7 +49,8 @@ service cloud.firestore {
     function esATC() { return permiso('atencion') || permiso('atc'); }
     function equipoATC() { return central() || esATC(); }
     // Administración y Dirección ven (sin modificar) el trabajo del equipo y las comisiones que se pagan.
-    function veComercial() { return equipoATC() || permiso('administracion') || permiso('direccion'); }
+    // El muro (pantalla «Ventas ATC») solo lee.
+    function veComercial() { return equipoATC() || permiso('administracion') || permiso('direccion') || permiso('muro'); }
     function soyATC() {
       return esATC() && exists(/databases/$(database)/documents/com_ejecutiva/$(yo()))
         && get(/databases/$(database)/documents/com_ejecutiva/$(yo())).data.estado > 0;
@@ -72,7 +73,7 @@ service cloud.firestore {
     // Comisiones confirmadas con las ventas del ERP (las escribe el tablero del Jefe de ATC o Administración).
     // Cada ATC lee solo las suyas.
     match /com_comision_conf/{id} {
-      allow read: if central() || permiso('administracion') || permiso('direccion')
+      allow read: if central() || permiso('administracion') || permiso('direccion') || permiso('muro')
         || (esATC() && resource.data.key_ejecutiva == yo());
       allow create, update: if central() || permiso('administracion');
       allow delete: if false;
