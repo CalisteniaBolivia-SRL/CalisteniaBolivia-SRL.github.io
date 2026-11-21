@@ -68,7 +68,8 @@ service cloud.firestore {
     // Planilla de ATC por sucursal (la usa el Jefe de ATC para ubicar sola a cada ATC nueva).
     match /com_config/{id} {
       allow read: if veComercial();
-      allow write: if central();
+      // La dirección del puente de cámaras (doc «camaras») también la puede cambiar Dirección.
+      allow write: if central() || (id == 'camaras' && permiso('direccion'));
     }
     // Comisiones confirmadas con las ventas del ERP (las escribe el tablero del Jefe de ATC o Administración).
     // Cada ATC lee solo las suyas.

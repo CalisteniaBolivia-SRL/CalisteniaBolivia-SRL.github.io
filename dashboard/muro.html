@@ -16,6 +16,8 @@
 <script src="cm-firebase.js?v=11"></script>
 <script src="fb-comercial.js?v=21"></script>
 <script src="crm-tablero.js?v=1"></script>
+<script src="camaras.js?v=1"></script>
+<link rel="stylesheet" href="camaras.css?v=1">
 <link rel="stylesheet" href="crm-tablero.css?v=1">
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
@@ -206,6 +208,7 @@
       <button type="button" class="cb-tab" data-p="p7"><b>7</b>Ventas ATC</button>
       <button type="button" class="cb-tab" data-p="p8"><b>8</b>Retención</button>
       <button type="button" class="cb-tab" data-p="p9"><b>9</b>Caja y molinetes</button>
+      <button type="button" class="cb-tab" data-p="p10"><b>0</b>Cámaras</button>
     </nav>
     <div class="cb-clock">
       <span data-draw="reloj">—</span>
@@ -456,6 +459,11 @@
     <div class="cb-card" id="p8-suc"><h3 class="cb-h3">Retención por sucursal</h3><p class="cb-note">% en riesgo: verde menos de 5%, amarillo de 5 a 9%, rojo 10% o más.</p><div class="cb-tablewrap"><table class="cb-table" data-source="c_ret_suc" data-row-key="sucursal"><thead><tr><th data-field="sucursal">Sucursal</th><th data-field="activos" class="cb-num">Activos</th><th data-field="por_vencer" class="cb-num">Por vencer 7 d</th><th data-field="en_riesgo" class="cb-num">Sin venir 14+ d</th><th data-field="pct_riesgo" class="cb-num">% en riesgo</th><th data-field="vencidos_30" class="cb-num">Vencidos 30 d</th></tr></thead><tbody data-draw="t_ret_suc"></tbody></table></div></div>
   </section>
 
+  <!-- 10 · CÁMARAS (todas las sucursales, girando solas) -->
+  <section class="cb-page" id="p10" hidden>
+    <div class="cam" id="cam-muro"></div>
+  </section>
+
   <!-- 9 · CAJA Y MOLINETES -->
   <section class="cb-page" id="p9" hidden>
     <div class="cb-head">
@@ -555,7 +563,8 @@
     p6: ['asis_30d', 'ocupacion', 'frecuencia', 'asis_suc_30'],
     p7: [],
     p8: ['activos', 'por_vencer', 'sin_asistir', 'vencidos'],
-    p9: ['molinetes', 'cajas', 'movs_caja']
+    p9: ['molinetes', 'cajas', 'movs_caja'],
+    p10: []
   };
   /* minutos entre actualizaciones de cada fuente */
   /* segundos entre actualizaciones de cada fuente */
@@ -581,7 +590,7 @@
 
 /* Navegación entre las 9 pantallas */
 (function () {
-  const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9'];
+  const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'];
   function show(id) {
     if (!ids.includes(id)) id = 'p1';
     window.CB_estado.actual = id;
@@ -593,12 +602,13 @@
     });
     dash.setLink(id);
     if (id === 'p7' && window.CRM_tablero) window.CRM_tablero.montar(document.getElementById('crm-tablero'));
+    if (id === 'p10' && window.CAM_muro) window.CAM_muro.montar(document.getElementById('cam-muro'));
   }
   document.querySelectorAll('.cb-tab').forEach((b) => b.addEventListener('click', () => show(b.dataset.p)));
   window.addEventListener('hashchange', () => show(location.hash.slice(1)));
   window.addEventListener('keydown', (e) => {
     if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-    if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) show('p' + e.key);
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) show(e.key === '0' ? 'p10' : 'p' + e.key);
   });
   document.querySelectorAll('#pantalla-completa').forEach((b) => b.addEventListener('click', () => {
     const el = document.querySelector('.cb') || document.documentElement;
