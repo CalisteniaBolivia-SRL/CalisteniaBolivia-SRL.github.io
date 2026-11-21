@@ -26,7 +26,7 @@
         { id: "m_camaras", tipo: "pantalla", num: "0", nombre: "Cámaras", que: "Todas las cámaras de todas las sucursales, girando solas", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p10"); } },
         /* ---------- Tableros ---------- */
         { id: "ingresos", tipo: "tablero", nombre: "Ingresos en vivo", quien: { bolivia: "Dirección · Accionistas", paraguay: "Dirección · Accionistas" }, rol: "Cierres semanales y mensuales", que: "Membresías, snacks y alquileres, actualizados cada 8 segundos", permisos: ["direccion", "accionistas"], datosPY: true, soloPY: false,
-          href: function (p) { return p === "paraguay" ? "../accionistas-py/" : "muro.html#p2"; } },
+          href: function (p) { return p === "paraguay" ? "../accionistas-py/" : "../accionistas-py/?pais=bolivia"; } },
         { id: "direccion", tipo: "tablero", nombre: "Dirección General", quien: { bolivia: "Jose Miguel Parada" }, rol: "Director", que: "Semáforo por área y de fiscalización, proyección del mes", permisos: ["direccion"], href: function (p) { return url("direccion.html", p); } },
         { id: "administracion", tipo: "tablero", nombre: "Administración", quien: { bolivia: "Luis Rodrigo Dorado" }, rol: "Administrador", que: "Cajas, control de ingreso, molinetes, sucursales y comisiones de los ATC", permisos: ["administracion"], href: function (p) { return url("administracion.html", p); } },
         { id: "contabilidad", tipo: "tablero", nombre: "Contabilidad y Fiscalización", quien: { bolivia: "Rodrigo Gomucio" }, rol: "Contabilidad", que: "Caja contra banco, precios, NIT, convenios y prórrogas", permisos: ["contabilidad"], href: function (p) { return url("contabilidad.html", p); } },
