@@ -9,6 +9,14 @@
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <script src="cm-mcp.js?v=3"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=2"></script>
+<script src="cm-firebase.js?v=11"></script>
+<script src="fb-comercial.js?v=21"></script>
+<script src="crm-tablero.js?v=1"></script>
+<link rel="stylesheet" href="crm-tablero.css?v=1">
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
    y la sesión de datos de Calistenia. */
@@ -195,7 +203,7 @@
       <button type="button" class="cb-tab" data-p="p4"><b>4</b>Paquetes y cajeros</button>
       <button type="button" class="cb-tab" data-p="p5"><b>5</b>Asistencia hoy</button>
       <button type="button" class="cb-tab" data-p="p6"><b>6</b>Asistencia 30 días</button>
-      <button type="button" class="cb-tab" data-p="p7"><b>7</b>Entrenadores</button>
+      <button type="button" class="cb-tab" data-p="p7"><b>7</b>Ventas ATC</button>
       <button type="button" class="cb-tab" data-p="p8"><b>8</b>Retención</button>
       <button type="button" class="cb-tab" data-p="p9"><b>9</b>Caja y molinetes</button>
     </nav>
@@ -425,34 +433,13 @@
     </div>
   </section>
 
-  <!-- 7 · ENTRENADORES -->
+  <!-- 7 · VENTAS ATC (CRM de ventas de Atención al Cliente) -->
   <section class="cb-page" id="p7" hidden>
     <div class="cb-head">
-      <h2 class="cb-h2">Entrenadores · últimos 30 días</h2>
-      <p class="cb-lede">Asistencia atribuida a cada entrenador según sus turnos vigentes: una entrada cuenta para quien tenía turno en esa sucursal, ese día y a esa hora. Si dos comparten turno, cuenta para ambos.</p>
+      <h2 class="cb-h2">Ventas ATC · CRM</h2>
+      <p class="cb-lede">Cómo nos va con las listas de Atención al Cliente: quién trabaja y quién no, y qué funciona.</p>
     </div>
-    <div class="cb-row">
-      <div class="cb-card" id="p7-ranking">
-        <h3 class="cb-h3">Promedio de alumnos por turno · top 15</h3>
-        <div class="cb-chart" data-draw="ch_instr" data-source="instructores"></div>
-      </div>
-      <div class="cb-card" id="p7-tabla">
-        <h3 class="cb-h3">Todos los entrenadores</h3>
-        <div class="cb-tablewrap">
-          <table class="cb-table" data-source="instructores" data-row-key="key_entrenador">
-            <thead><tr>
-              <th data-field="entrenador">Entrenador</th>
-              <th data-field="sucursales">Sucursales</th>
-              <th data-field="asistentes" class="cb-num">Asistentes</th>
-              <th data-field="turnos_con_alumnos" class="cb-num">Turnos</th>
-              <th data-field="promedio_por_turno" class="cb-num">Prom./turno</th>
-              <th data-field="clientes_distintos" class="cb-num">Clientes</th>
-            </tr></thead>
-            <tbody data-draw="t_instr"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <div class="crm" id="crm-tablero"></div>
   </section>
 
   <!-- 8 · RETENCIÓN -->
@@ -566,7 +553,7 @@
     p4: ['ventas_paquete', 'ventas_cajero'],
     p5: ['asis_hoy', 'asis_30d'],
     p6: ['asis_30d', 'ocupacion', 'frecuencia', 'asis_suc_30'],
-    p7: ['instructores'],
+    p7: [],
     p8: ['activos', 'por_vencer', 'sin_asistir', 'vencidos'],
     p9: ['molinetes', 'cajas', 'movs_caja']
   };
@@ -605,6 +592,7 @@
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     dash.setLink(id);
+    if (id === 'p7' && window.CRM_tablero) window.CRM_tablero.montar(document.getElementById('crm-tablero'));
   }
   document.querySelectorAll('.cb-tab').forEach((b) => b.addEventListener('click', () => show(b.dataset.p)));
   window.addEventListener('hashchange', () => show(location.hash.slice(1)));
@@ -1499,7 +1487,6 @@ dash.draw('semaforo', (tb) => {
     { area: 'Operaciones y sucursales', url: U.operaciones, estado: !ok(cp.var_total) ? 'muted' : (cp.var_total < -25 ? 'bad' : (cp.var_total < -10 || Number(m.alertas) > 0) ? 'warn' : 'ok'), ind: 'Asistencia diaria ' + CB.var(cp.var_total) + ' · ' + CB.num(m.alertas) + ' molinetes en alerta', src: 'comparar c_mol' },
     { area: 'Administración y finanzas', url: U.finanzas, estado: !ok(cj.viejas) ? 'muted' : cj.viejas === 0 ? 'ok' : cj.viejas <= 2 ? 'warn' : 'bad', ind: CB.num(cj.viejas) + ' cajas abiertas hace más de 2 días · ' + CB.bs(cj.efectivo_en_cajas) + ' en efectivo en cajas', src: 'c_cajas' },
     { area: 'Atención y retención', url: U.retencion, estado: pr == null ? 'muted' : pr < 5 ? 'ok' : pr < 10 ? 'warn' : 'bad', ind: CB.num(rie) + ' clientes vigentes sin venir hace 14+ días (' + CB.pct(pr) + ' de los activos)', src: 'c_ret_suc' },
-    { area: 'Entrenadores', url: U.entrenadores, estado: !ins.length ? 'muted' : bajos === 0 ? 'ok' : bajos <= 5 ? 'warn' : 'bad', ind: CB.num(bajos) + ' entrenadores con menos de 8 alumnos por turno', src: 'instructores' }
   ];
   const LBL = { ok: 'Bien', warn: 'Atención', bad: 'Crítico', muted: 'Sin datos' };
   tb.replaceChildren(...areas.map((a) => {

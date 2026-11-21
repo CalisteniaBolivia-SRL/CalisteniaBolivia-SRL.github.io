@@ -19,7 +19,7 @@
         }
         return c.p.then(function (l) { return Array.isArray(l) ? l.slice() : l; });
     }
-    var LECTURA = /^comercial_(roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
+    var LECTURA = /^comercial_(confirmadas|roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
     CMFB.registrar = function (nombre, fn) {
         window.CMFB.registrar(nombre, LECTURA.test(nombre) ? fn : function (a, n) {
             MEMO = {};
@@ -223,6 +223,11 @@
     /* ---------- escritura: Atención al Cliente ---------- */
     /* Planilla de ATC por sucursal (la carga el Jefe de ATC): con ella, cada ATC queda en su sucursal sola
        la primera vez que entra. Se guarda en Firestore (no en el código, que es público). */
+    /* Ventas confirmadas (comisiones) desde una fecha: para el tablero del CRM (muro, Dirección, Jefe de ATC). */
+    CMFB.registrar("comercial_confirmadas", function (a) {
+        var d = String(a.desde || menosDias(hoy(), 30)).slice(0, 10);
+        return U.docs(col("com_comision_conf").where("fecha_venta", ">=", d)).then(function (l) { return { filas: l }; });
+    });
     CMFB.registrar("comercial_roster", function () {
         return col("com_config").doc("atc_sucursales").get().then(function (x) { return { filas: (x.exists && x.data().filas) || [] }; });
     });
