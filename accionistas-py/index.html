@@ -490,7 +490,20 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   }
   /* ---------- Bolivia: ventas por día del sistema de Calistenia Bolivia ---------- */
   var K_BO = "bo_acc_dias_v1", diasBO = (function () { try { return JSON.parse(localStorage.getItem(K_BO) || "null") || {}; } catch (e) { return {}; } })();
+  /* El sistema acepta hasta 366 días por consulta: un rango más largo se pide por tramos (en orden). */
+  function sumarDias(d, n) { var x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); }
   function leerBO(desde, hasta) {
+    var fin = sumarDias(desde, 359);
+    if (fin < hasta) return leerTramoBO(desde, fin).then(function () { return leerBO(sumarDias(fin, 1), hasta); });
+    return leerTramoBO(desde, hasta);
+  }
+  function conectarBO() {
+    /* Sin conexión con los datos de Calistenia: se conecta una vez (con el usuario del ERP) y vuelve acá. */
+    try { if (sessionStorage.getItem("bo_acc_conectando")) return false; sessionStorage.setItem("bo_acc_conectando", "1"); } catch (e) {}
+    if (window.CM && CM.iniciarSesion) { CM.iniciarSesion("../accionistas-py/?pais=bolivia"); return true; }
+    return false;
+  }
+  function leerTramoBO(desde, hasta) {
     return window.CM.llamar("reporte_ventas", { desde: desde, hasta: hasta, agrupar_por: "dia" }).then(function (r) {
       if (typeof r === "string") r = JSON.parse(r);
       if (r && r.result && !r.filas) r = r.result;
@@ -512,11 +525,14 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       var hay = Object.keys(diasBO).length > 0;
       if (hay) { vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "Mostrando lo último guardado · actualizando…"); }
       else { vista("v-carga"); $("c-texto").textContent = "Leyendo las ventas de Calistenia Bolivia…"; $("c-barra").style.width = "30%"; }
+      if (window.CM && CM.conSesion && !CM.conSesion() && conectarBO()) return;
       if (!window.CM || !CM.conSesion || !CM.conSesion()) { $("a-titulo").textContent = "Falta la sesión de datos de Calistenia"; $("a-texto").textContent = "Abrí el centro de mando (por ejemplo, el muro) para conectar los datos de Calistenia Bolivia y volvé a esta página."; if (!hay) vista("v-aviso"); return; }
       leerBO(INICIO, hoyPY()).then(function () {
+        try { sessionStorage.removeItem("bo_acc_conectando"); } catch (e) {}
         ultimoResync = Date.now(); vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "En vivo · actualizado " + horaPY());
         detener(); reloj = setInterval(vuelta, CADA_MS);
       }, function (x) {
+        if (x && x.sinSesion && conectarBO()) return;
         if (hay) { estadoVivo(false, "Sin conexión con los datos de Calistenia · mostrando lo último guardado"); detener(); reloj = setInterval(vuelta, CADA_MS); return; }
         $("a-titulo").textContent = "No se pudo cargar el reporte"; $("a-texto").textContent = "No se pudieron leer las ventas de Calistenia Bolivia (" + ((x && x.message) || "error") + ")."; vista("v-aviso");
       });
@@ -528,7 +544,10 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     var notas = document.querySelectorAll("main p.nota"), nota = notas[notas.length - 1]; if (nota) nota.textContent = "Fuente: sistema de Calistenia Bolivia, en vivo (las mismas cifras del muro). Ingresos por venta de paquetes cobrados en caja, por fecha. Montos en bolivianos. La semana y el mes en curso se muestran más claros porque aún no cerraron.";
     var pie = document.querySelector("footer"); if (pie) pie.textContent = "Calistenia Bolivia · Información confidencial para accionistas";
   }
-  $("a-btn").addEventListener("click", function () { if (window.ERP) ERP.cerrar(); arrancar(); });
+  $("a-btn").addEventListener("click", function () {
+    if (BO && window.CM && CM.conSesion && !CM.conSesion()) { try { sessionStorage.removeItem("bo_acc_conectando"); } catch (e) {} if (conectarBO()) return; }
+    if (window.ERP) ERP.cerrar(); arrancar();
+  });
   document.addEventListener("visibilitychange", function () { if (!document.hidden && reloj) vuelta(); });
 
   /* ================= Tablero ================= */
