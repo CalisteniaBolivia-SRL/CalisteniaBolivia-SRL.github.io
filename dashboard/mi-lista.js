@@ -28,11 +28,28 @@
     function fechaLarga() { var t = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" }); return t.charAt(0).toUpperCase() + t.slice(1); }
     /* Ícono (iconos.js); si no cargó, nada. */
     function ico(n, c) { return window.CMI ? window.CMI(n, c) : null; }
+    /* Período de pago de comisiones: del 26 del mes anterior al 25 (se cobra lo confirmado hasta el 25). */
+    var COMISION = 5;
+    function periodoPago(base) {
+        var d = base ? new Date(base + "T12:00:00") : new Date(), y = d.getFullYear(), m = d.getMonth();
+        var ini = d.getDate() <= 25 ? new Date(y, m - 1, 26) : new Date(y, m, 26), fin = d.getDate() <= 25 ? new Date(y, m, 25) : new Date(y, m + 1, 25);
+        return { desde: iso(ini), hasta: iso(fin) };
+    }
+    var MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    function fechaCorta(s) { var p = String(s).split("-"); return Number(p[2]) + " de " + MESES[Number(p[1]) - 1]; }
+    /* El monto ganado sube contando (como un marcador) cuando aumenta. */
+    function contar(nodo, hasta) {
+        var desde = M.mostrado == null ? hasta : M.mostrado; M.mostrado = hasta;
+        if (desde === hasta || window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { nodo.textContent = "Bs " + hasta.toLocaleString("es-BO"); return; }
+        var t0 = null, dur = 1200;
+        (function paso(t) { t0 = t0 || t; var k = Math.min(1, (t - t0) / dur), v = Math.round(desde + (hasta - desde) * (1 - Math.pow(1 - k, 3)));
+            nodo.textContent = "Bs " + v.toLocaleString("es-BO"); if (k < 1) requestAnimationFrame(paso); else if (hasta > desde) { nodo.classList.add("is-sube"); setTimeout(function () { nodo.classList.remove("is-sube"); }, 900); } })(performance.now());
+    }
     var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
 
     /* «¿Cómo te fue?» → resultado del CRM y cuándo vuelve a aparecer. */
     var RES = [
-        { id: "agendado", texto: "Compró o va a pagar", final: true, grande: true, ico: "check" },
+        { id: "agendado", texto: "Compró o va a pagar · +Bs 5 para vos", final: true, grande: true, ico: "check" },
         { id: "interesado", texto: "Lo va a pensar", seguir: 2, ico: "reloj" },
         { id: "no_contesta", texto: "Sin respuesta, le escribí", seguir: 1, ico: "mensaje" },
         { id: "no_interesado", texto: "No le interesa", final: true, ico: "x" },
@@ -160,6 +177,31 @@
         return el("article", { class: "ml-cli" + (c.intentos ? " is-repite" : "") }, cuerpo);
     }
 
+    /* Tarjeta de incentivo: lo que lleva ganado hasta el corte del 25, lo que falta confirmar, su meta y los días que quedan. */
+    function incentivo(ctx, per, reportadas, conf, confHoy) {
+        var ganado = conf * COMISION, porConf = Math.max(0, reportadas - conf), metaV = Math.max(0, Number(ctx.yo.meta_mensual) || 0);
+        var dias = Math.max(0, Math.round((new Date(per.hasta + "T12:00:00") - new Date(hoy() + "T12:00:00")) / 864e5));
+        var monto = el("b", { class: "ml-inc-monto" }); contar(monto, ganado);
+        var partes = [
+            el("div", { class: "ml-inc-top" }, [
+                el("div", {}, [el("span", { class: "ml-inc-lbl", text: ctx.soloVer ? "Lleva ganado" : "Llevás ganado" }), monto,
+                    el("span", { class: "ml-inc-sub", text: conf + (conf === 1 ? " venta confirmada" : " ventas confirmadas") + (confHoy ? " · +" + bs(confHoy * COMISION) + " hoy" : "") })]),
+                el("div", { class: "ml-inc-corte" }, [el("span", { text: "Corte" }), el("b", { text: fechaCorta(per.hasta) }), el("small", { text: dias === 0 ? "es hoy" : dias === 1 ? "falta 1 día" : "faltan " + dias + " días" })])
+            ]),
+            el("p", { class: "ml-inc-regla" }, [el("b", { text: "Cada venta: +" + bs(COMISION) + ". " }), "Se cobra todo lo confirmado del " + fechaCorta(per.desde) + " al " + fechaCorta(per.hasta) + ". Sin tope: cuanto más vendés, más acumulás."])
+        ];
+        if (porConf) partes.push(el("p", { class: "ml-inc-pend" }, ["Por confirmar: ", el("b", { text: "+" + bs(porConf * COMISION) }), " (" + porConf + (porConf === 1 ? " venta reportada: se suma cuando se cobre en caja)." : " ventas reportadas: se suman cuando se cobren en caja).")]));
+        if (metaV) {
+            var p = Math.min(100, Math.round(conf / metaV * 100)), falta = Math.max(0, metaV - conf);
+            partes.push(el("div", { class: "ml-inc-meta" }, [
+                el("div", { class: "ml-inc-meta-t" }, [el("span", { text: "Meta: " + metaV + " ventas" }), el("b", { text: falta ? "Te faltan " + falta : "¡Meta cumplida!" })]),
+                el("span", { class: "ml-inc-barra" }, [el("i", { style: "width:" + p + "%" })]),
+                el("small", { text: falta ? (dias > 0 ? "Son unas " + Math.ceil(falta / Math.max(1, dias)) + " por día hasta el corte. " : "") + "Con la meta llegás a " + bs(metaV * COMISION) + "." : "Todo lo que vendas de acá al corte sigue sumando." })
+            ]));
+        }
+        return el("section", { class: "ml-inc" + (metaV && conf >= metaV ? " is-meta" : "") }, partes);
+    }
+
     /* Solo para el Jefe de ATC en «Ver una lista»: quitar al cliente o pasarlo a otra chica. */
     function barraJefe(c) {
         var g = M.ctx.gestionar, otras = (g.equipo || []).filter(function (e) { return e.key !== M.ctx.yo.key; });
@@ -186,8 +228,10 @@
         var hoyG = mias.filter(function (g) { return String(g.fecha_on).slice(0, 10) === h; });
         var clientesHoy = {}; hoyG.forEach(function (g) { clientesHoy[g.key_cliente] = 1; });
         var contactosHoy = Object.keys(clientesHoy).length, ventasHoy = hoyG.filter(function (g) { return g.resultado === "agendado"; }).length;
-        var mes = h.slice(0, 7), ventasMes = mias.filter(function (g) { return g.resultado === "agendado" && String(g.fecha_on).slice(0, 7) === mes; }).length;
-        var confirmadas = (ctx.comisiones || []).filter(function (x) { return !x.anulada && x.key_ejecutiva === ctx.yo.key; });
+        var per = periodoPago(), hastaHoy = h < per.hasta ? h : per.hasta;
+        var reportadas = mias.filter(function (g) { return g.resultado === "agendado" && String(g.fecha_on).slice(0, 10) >= per.desde && String(g.fecha_on).slice(0, 10) <= hastaHoy; }).length;
+        var confirmadas = (ctx.comisiones || []).filter(function (x) { return !x.anulada && x.key_ejecutiva === ctx.yo.key && String(x.fecha_venta).slice(0, 10) >= per.desde && String(x.fecha_venta).slice(0, 10) <= per.hasta; });
+        var confHoy = confirmadas.filter(function (x) { return String(x.fecha_venta).slice(0, 10) === h; }).length;
         var meta = todos.length || 40;
         var lista0 = todos[0] || {};
 
@@ -197,8 +241,7 @@
             el("h2", { class: "ml-fecha", text: fechaLarga() }),
             el("div", { class: "ml-segs", "aria-hidden": "true" }, Array.from({ length: Math.min(meta, 60) }, function (_, i) { return el("i", { class: i < Math.round(Math.min(contactosHoy, meta) / meta * Math.min(meta, 60)) ? "is-on" : "" }); })),
             el("div", { class: "ml-cuenta" }, [el("span", {}, [el("b", { text: String(contactosHoy) }), " de " + meta + " contactos hechos hoy"]), el("span", { text: ventasHoy + (ventasHoy === 1 ? " venta hoy" : " ventas hoy") })]),
-            el("p", { class: "ml-mes" }, ["Este mes reportaste ", el("b", { text: ventasMes + (ventasMes === 1 ? " venta" : " ventas") }), ": " + bs(ventasMes * 5) + ". ",
-                confirmadas.length ? el("span", { class: "ml-ok", text: "Confirmadas por el registro de ventas: " + confirmadas.length + " (" + bs(confirmadas.length * 5) + ")." }) : "La comisión se confirma con el registro de ventas."])
+            incentivo(ctx, per, reportadas, confirmadas.length, confHoy)
         ]));
 
         var nota = todos.map(function (c) { return c.nota_jefa; }).filter(Boolean)[0];
@@ -237,6 +280,7 @@
     window.ATC_milista = {
         montar: function (cont, ctx) { M.cont = cont; M.ctx = ctx; pintar(); },
         RES: RES,
+        periodoPago: periodoPago,
         _interno: { M: M, misClientes: misClientes, registrar: registrar }
     };
 })();

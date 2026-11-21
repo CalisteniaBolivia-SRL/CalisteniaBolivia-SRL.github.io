@@ -305,3 +305,27 @@
 .ml-quitar { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .86em; font-weight: 600; color: #F3C6C1; background: none; border: 1px solid #5A2E2B; border-radius: 0; padding: 8px 12px; cursor: pointer; }
 .ml-quitar:hover { border-color: #D9776F; color: #FFFFFF; }
 .ml-pasar { flex: 1 1 200px; font: inherit; font-size: .86em; color: #FFFFFF; background: #0D0E10; border: 1px solid #2B2E33; border-radius: 0; padding: 8px 10px; }
+
+/* Incentivo de la ATC: lo ganado hasta el corte del 25, meta y lo que falta confirmar */
+.ml-inc { display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px; background: #16181B; border: 1px solid #2B2E33; border-top: 2px solid #6FBF95; }
+.ml-inc.is-meta { border-top-color: #E30613; }
+.ml-inc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ml-inc-top > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.ml-inc-lbl { font-size: .74em; letter-spacing: .08em; text-transform: uppercase; color: #A4A8AF; font-weight: 600; }
+.ml-inc-monto { font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif; font-weight: 700; font-size: clamp(40px, 11vw, 56px); line-height: 1; color: #FFFFFF; font-variant-numeric: tabular-nums; transition: color .3s; }
+.ml-inc-monto.is-sube { color: #6FBF95; }
+.ml-inc-sub { font-size: .86em; color: #D6D8DC; }
+.ml-inc-corte { display: flex; flex-direction: column; align-items: flex-end; text-align: right; gap: 1px; padding-left: 12px; border-left: 1px solid #2B2E33; }
+.ml-inc-corte span { font-size: .72em; letter-spacing: .08em; text-transform: uppercase; color: #A4A8AF; font-weight: 600; }
+.ml-inc-corte b { font-family: "Barlow Condensed", "Arial Narrow", Arial, sans-serif; font-size: 1.35em; color: #FFFFFF; white-space: nowrap; }
+.ml-inc-corte small { color: #A4A8AF; font-size: .8em; }
+.ml-inc-regla, .ml-inc-pend { margin: 0; font-size: .86em; color: #A4A8AF; line-height: 1.45; }
+.ml-inc-regla b, .ml-inc-pend b { color: #FFFFFF; }
+.ml-inc-meta { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid #2B2E33; }
+.ml-inc-meta-t { display: flex; justify-content: space-between; gap: 8px; font-size: .88em; color: #D6D8DC; }
+.ml-inc-meta-t b { color: #FFFFFF; }
+.ml-inc-barra { display: block; height: 6px; background: #2B2E33; }
+.ml-inc-barra i { display: block; height: 100%; background: #6FBF95; transition: width .8s cubic-bezier(.2, .7, .2, 1); }
+.is-meta .ml-inc-barra i { background: #E30613; }
+.ml-inc-meta small { color: #A4A8AF; font-size: .8em; }
+@media (prefers-reduced-motion: reduce) { .ml-inc-barra i, .ml-inc-monto { transition: none; } }
