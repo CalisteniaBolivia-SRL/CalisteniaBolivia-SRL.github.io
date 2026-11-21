@@ -3,7 +3,14 @@ name: centro-de-mando-paises
 description: Regla obligatoria del centro de mando de Capital Corp / Calistenia — Bolivia y Paraguay comparten los mismos módulos; cualquier cambio en un módulo se aplica a todos los países a la vez y solo cambia, por país, qué módulos se ven (checklist de Dirección). Usar SIEMPRE que se cree, edite o corrija cualquier módulo, tablero, pantalla del muro o el portal en dashboard/.
 ---
 
-# Un solo centro de mando, varios países
+# Un solo centro de mando, varios países — APPS GEMELAS (ley)
+
+El director: «Cuando yo modifique algo, tiene que modificarse en los dos lugares. No quiero estar configurando dos veces.
+Prácticamente siempre son apps gemelas.»
+
+- Cada pedido se aplica en Bolivia y Paraguay automáticamente, aunque nombre un solo país. No preguntar: hacerlo.
+- Lo que existe en un país y falta en el otro se construye en el otro con el mismo formato.
+- El informe final siempre dice cómo quedó en cada país y qué dato falta (si falta) en cada uno.
 
 El director pidió: «cada vez que mejores un módulo, en ambos se mejore, siempre; la única diferencia es un checklist de qué se ve».
 
@@ -27,3 +34,4 @@ El director pidió: «cada vez que mejores un módulo, en ambos se mejore, siemp
 5. Módulo nuevo: agregarlo a `modulos.js` (aparece solo en ambos portales y en el checklist), incluir `pais.js` en su página,
    reglas en `firestore.rules` y su sección en `manual.html`.
 6. Probar en los dos países (`?pais=bolivia` y `?pais=paraguay`) antes de publicar.
+7. Informe final: una línea por país («Bolivia: …», «Paraguay: …»).
