@@ -224,7 +224,7 @@
     function cargarMasterPesado(ligero) {
         if (S.sinHerramientas) return Promise.resolve();
         var p = S.periodo, nada = function () {};
-        var l = [llamar(T.comisiones, { desde: hace(42), hasta: hoy() }).then(function (r) { S.comRecientes = filas(r); }, nada)];
+        var l = [llamar(T.comisiones, { desde: hace(70), hasta: hoy() }).then(function (r) { S.comRecientes = filas(r); }, nada)];
         if (!ligero) l.push(
             llamar(T.comisiones, p).then(function (r) { S.comisiones = filas(r); }, nada),
             llamar(T.gestiones, { desde: p.desde, hasta: p.hasta }).then(function (r) { S.gestiones = filas(r); }, nada),

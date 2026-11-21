@@ -23,7 +23,10 @@
     var hoy = function () { return iso(new Date()); };
     var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
     var COMISION = 5;
-    /* La semana de comisiones va de sábado a viernes. */
+    /* Período de pago de comisiones: del 26 al 25 (se paga lo confirmado hasta el 25). Devuelve el día 26 de inicio. */
+    function periodoDe(fechaIso) { var p = String(fechaIso).slice(0, 10).split("-"), y = +p[0], m = +p[1] - 1, d = +p[2]; return iso(d >= 26 ? new Date(y, m, 26) : new Date(y, m - 1, 26)); }
+    function finPeriodo(ini) { var p = ini.split("-"); return iso(new Date(+p[0], +p[1], 25)); }
+    /* La semana de ventas del Panel va de sábado a viernes. */
     function sabadoDe(fechaIso) { var p = String(fechaIso).slice(0, 10).split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); return iso(d); }
     function mas(fechaIso, n) { var p = fechaIso.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2]); d.setDate(d.getDate() + n); return iso(d); }
     function diaCorto(s) { var p = String(s).slice(0, 10).split("-"); if (p.length < 3) return "—"; var d = new Date(+p[0], +p[1] - 1, +p[2]); return d.toLocaleDateString("es-BO", { weekday: "short" }).replace(".", "") + " " + p[2] + "/" + p[1]; }
@@ -68,17 +71,20 @@
         var conf = (ctx.comisiones || []).filter(function (c) { return !c.anulada; });
         var confSemana = conf.filter(function (c) { return String(c.fecha_venta).slice(0, 10) >= sab; });
         var despues = confSemana.filter(function (c) { return c.resultado && c.resultado !== "agendado"; }).length;
-        /* Por pagar: semanas ya cerradas (antes de este sábado) sin pago registrado */
+        /* Por pagar: períodos ya cerrados (corte el 25) sin pago registrado. Si alguna venta ya se pagó con el
+           sistema anterior por semana, no se vuelve a pagar. */
         var pagado = {}; (ctx.pagos || []).forEach(function (p) { pagado[p.key_ejecutiva + "|" + p.semana] = p; });
-        var porPagar = {};
-        conf.filter(function (c) { return String(c.fecha_venta).slice(0, 10) < sab; }).forEach(function (c) {
-            var s = sabadoDe(c.fecha_venta), k = c.key_ejecutiva + "|" + s;
-            if (pagado[k]) return;
-            var x = porPagar[k] || (porPagar[k] = { key_ejecutiva: c.key_ejecutiva, nombre: nom[c.key_ejecutiva] || c.ejecutiva || "—", semana: s, ventas: 0, monto: 0 });
-            x.ventas++; x.monto += Number(c.comision) || COMISION;
+        var actual = periodoDe(h), porPagar = {}, enCurso = { ventas: 0, monto: 0 };
+        conf.forEach(function (c) {
+            var f = String(c.fecha_venta).slice(0, 10), ini = periodoDe(f), monto = Number(c.comision) || COMISION;
+            if (ini >= actual) { enCurso.ventas++; enCurso.monto += monto; return; }
+            if (pagado[c.key_ejecutiva + "|" + ini] || pagado[c.key_ejecutiva + "|" + sabadoDe(f)]) return;
+            var k = c.key_ejecutiva + "|" + ini;
+            var x = porPagar[k] || (porPagar[k] = { key_ejecutiva: c.key_ejecutiva, nombre: nom[c.key_ejecutiva] || c.ejecutiva || "—", semana: ini, ventas: 0, monto: 0 });
+            x.ventas++; x.monto += monto;
         });
         return { h: h, sab: sab, filas: filas, listas: Object.keys(listas).length, totalHoy: totalHoy, totalMeta: totalMeta, ventasHoy: ventasHoy, ventasSemana: ventasSemana,
-            contactosSemana: gest.length, conteo: conteo, despues: despues, confSemana: confSemana.length,
+            contactosSemana: gest.length, conteo: conteo, despues: despues, confSemana: confSemana.length, actual: actual, enCurso: enCurso,
             porPagar: Object.keys(porPagar).map(function (k) { return porPagar[k]; }).sort(function (a, b) { return a.semana.localeCompare(b.semana) || a.nombre.localeCompare(b.nombre); }) };
     }
 
@@ -108,10 +114,11 @@
 
         /* Comisiones por pagar */
         var cp = el("section", { class: "pj-sec" }, [el("h3", { class: "pj-h3", text: "Comisiones por pagar" })]);
-        if (!d.porPagar.length) cp.appendChild(el("p", { class: "pj-muted", text: "No hay comisiones confirmadas pendientes de pago." }));
+        cp.appendChild(el("p", { class: "pj-muted", text: "Corte el 25. Período en curso (del " + diaCorto(d.actual) + " al " + diaCorto(finPeriodo(d.actual)) + "): " + d.enCurso.ventas + (d.enCurso.ventas === 1 ? " venta confirmada, " : " ventas confirmadas, ") + bs(d.enCurso.monto) + ". Se paga después del corte." }));
+        if (!d.porPagar.length) cp.appendChild(el("p", { class: "pj-muted", text: "No hay períodos cerrados con comisiones pendientes de pago." }));
         else {
             var total = d.porPagar.reduce(function (s, x) { return s + x.monto; }, 0);
-            cp.appendChild(el("p", { class: "pj-muted", text: "Confirmadas con el registro de ventas, de semanas ya cerradas. Total: " + bs(total) + "." }));
+            cp.appendChild(el("p", { class: "pj-muted", text: "Confirmadas con el registro de ventas, de períodos ya cerrados. Total: " + bs(total) + "." }));
             cp.appendChild(el("div", { class: "pj-tabla" }, d.porPagar.map(function (x) {
                 var b = el("button", { type: "button", class: "pj-btn", text: "Marcar pagado" });
                 b.onclick = function () {
@@ -119,7 +126,7 @@
                     ctx.llamar("comercial_pago_registrar", { key_ejecutiva: x.key_ejecutiva, semana: x.semana, monto: x.monto, ventas: x.ventas })
                         .then(function () { ctx.avisar("Pago registrado: " + x.nombre + " · " + bs(x.monto) + "."); ctx.recargar(); }, function (e) { b.disabled = false; ctx.avisar((e && e.message) || "No se pudo registrar el pago.", "bad"); });
                 };
-                return el("div", { class: "pj-fila" }, [el("div", { class: "pj-quien" }, [el("b", { text: x.nombre }), el("span", { text: "Semana del " + diaCorto(x.semana) + " al " + diaCorto(mas(x.semana, 6)) })]),
+                return el("div", { class: "pj-fila" }, [el("div", { class: "pj-quien" }, [el("b", { text: x.nombre }), el("span", { text: "Del " + diaCorto(x.semana) + " al " + diaCorto(finPeriodo(x.semana)) })]),
                     el("span", { class: "pj-n", text: x.ventas + (x.ventas === 1 ? " venta" : " ventas") }), el("b", { class: "pj-n", text: bs(x.monto) }), b]);
             })));
         }
@@ -157,5 +164,5 @@
         cont.appendChild(p);
     }
 
-    window.ATC_panel = { montar: montar, _calcular: calcular, sabadoDe: sabadoDe };
+    window.ATC_panel = { montar: montar, _calcular: calcular, sabadoDe: sabadoDe, periodoDe: periodoDe };
 })();
