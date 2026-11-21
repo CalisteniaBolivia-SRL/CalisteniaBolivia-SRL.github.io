@@ -233,6 +233,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="../dashboard/firebase-config.js?v=2"></script>
 <script>window.CM_FB_SIN_BARRA = true;</script>
 <script src="../dashboard/cm-firebase.js?v=11"></script>
+<script src="../dashboard/py-datos.js?v=1"></script>
 <script src="erp.js?v=1"></script>
 <script>
 (function () {
@@ -332,18 +333,8 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   var ventas = leer(K_CACHE) || {};   // key_compra_venta -> { f, membresias, snacks, alquileres, otros, n, anul }
   var modelos = null, reloj = null, ultimoResync = 0, ocupado = false, firma = "";
 
-  function resumenVenta(v, previo) {
-    var r = { f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0 };
-    (v.detalle || v.detalles || []).forEach(function (d) {
-      if (d.estado === 0) return;
-      var c = TIPOS[modelos[d.key_modelo]] || "otros";
-      r[c] += (Number(d.precio_unitario) || 0) * (Number(d.cantidad) || 0);
-    });
-    var desc = Number(v.descuento) || 0, t = r.membresias + r.snacks + r.alquileres + r.otros;
-    if (desc > 0 && t > 0) ["membresias", "snacks", "alquileres", "otros"].forEach(function (k) { r[k] -= r[k] / t * desc; });
-    if (v.state !== "vendido" || v.estado === 0 || (previo && previo.anul)) r.anul = 1;
-    return r;
-  }
+  /* El resumen de cada venta es el mismo que usa el centro de mando para Paraguay (dashboard/py-datos.js). */
+  function resumenVenta(v, previo) { return window.PY_VENTAS.resumenVenta(v, modelos, previo); }
 
   /* Revisa movimientos de caja: ventas nuevas a leer y ventas anuladas. */
   function revisar(movs) {
@@ -352,7 +343,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       var k = mv.key_compra_venta, t = String(mv.tipo || "");
       if (!k) return;
       if (t.indexOf("anulacion") === 0) { ventas[k] = ventas[k] || {}; ventas[k].anul = 1; }
-      else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f)) nuevas[k] = 1;
+      else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 2)) nuevas[k] = 1;
     });
     return Object.keys(nuevas);
   }
@@ -407,7 +398,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
         var n = 0;
         q.forEach(function (doc) {
           var vs = (doc.data() || {}).ventas || {}; compartida.firmas[doc.id] = JSON.stringify(vs);
-          Object.keys(vs).forEach(function (k) { if (!(ventas[k] && ventas[k].f) || vs[k].anul) { ventas[k] = vs[k]; n++; } });
+          Object.keys(vs).forEach(function (k) { var a = ventas[k], b = vs[k]; if (!(a && a.f) || (b.v === 2 && a.v !== 2) || b.anul) { ventas[k] = b; n++; } });
         });
         compartida.ok = true; if (n) guardar(K_CACHE, ventas); return n > 0;
       });
