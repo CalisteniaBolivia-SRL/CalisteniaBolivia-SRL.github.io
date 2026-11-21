@@ -169,12 +169,13 @@
 
     /* ---------- vistas ---------- */
     var TABS = [["resumen", "Resumen"], ["calendario", "Calendario de plazos"], ["contratos", "Contratos"], ["permisos", "Permisos y licencias"], ["casos", "Procesos y casos"]];
+    window.addEventListener("popstate", function () { var h = location.hash.slice(1); var t = TABS.some(function (x) { return x[0] === h; }) ? h : "resumen"; if (t !== S.tab) { S.tab = t; S.buscar = ""; S.filtro = ""; pintar(); } });
     function pintar() {
         if (!S.tab) { var h = location.hash.slice(1); S.tab = TABS.some(function (t) { return t[0] === h; }) ? h : "resumen"; }
         var nav = $("#lg-tabs"); nav.textContent = "";
         TABS.forEach(function (t) {
             nav.appendChild(el("button", { type: "button", role: "tab", class: "lg-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1],
-                onclick: function () { S.tab = t[0]; S.buscar = ""; S.filtro = ""; try { history.replaceState(null, "", "#" + t[0]); } catch (e) {} pintar(); } }));
+                onclick: function () { if (S.tab !== t[0]) { try { history.pushState(null, "", "#" + t[0]); } catch (e) {} } S.tab = t[0]; S.buscar = ""; S.filtro = ""; pintar(); } }));
         });
         var c = $("#lg-contenido"); c.textContent = "";
         if (S.pendiente) { c.appendChild(el("div", { class: "lg-aviso is-warn" }, [el("strong", { text: "Pendiente de activación" }), el("p", { text: "Falta que Capital Corp agregue las herramientas legal_listar, legal_guardar, legal_eliminar y legal_sucursales al MCP, e instalar el servidor. Los pasos están en docs/modulo-legal.md del repositorio server." })])); return; }

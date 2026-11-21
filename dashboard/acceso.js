@@ -58,6 +58,27 @@
         return out;
     }
     var PASOS = ["acceso", "cc-empresa", "cc-pais", "portal", "portal-py"];
+    /* Botón «Atrás» del celular: cada paso (empresa → país → portal) queda en el historial del navegador. */
+    var restaurando = false, primerPaso = true;
+    function marcar(id, pais) {
+        if (restaurando || id === "acceso") return;
+        var est = { cmPaso: id, pais: pais || null };
+        try {
+            var actual = history.state;
+            if (primerPaso || !actual || !actual.cmPaso) history.replaceState(est, "");
+            else if (actual.cmPaso !== id || actual.pais !== est.pais) history.pushState(est, "");
+        } catch (e) {}
+        primerPaso = false;
+    }
+    window.addEventListener("popstate", function (e) {
+        var st = e.state; if (!st || !st.cmPaso || !sesionActual) return;
+        restaurando = true;
+        try {
+            if (st.cmPaso === "cc-empresa") { guardarCtx({}); irEmpresa(); }
+            else if (st.cmPaso === "cc-pais") { guardarCtx({ empresa: "calistenia" }); irPais(); }
+            else if (st.cmPaso === "portal" || st.cmPaso === "portal-py") irPortal(st.pais || (st.cmPaso === "portal-py" ? "paraguay" : "bolivia"));
+        } finally { restaurando = false; }
+    });
     function ver(id) {
         PASOS.forEach(function (p) { var n = document.getElementById(p); if (n) n.hidden = p !== id; });
         document.body.classList.toggle("cc", id !== "portal" && id !== "portal-py");
@@ -82,7 +103,7 @@
         var h = document.getElementById("cc-hola-empresa");
         if (h) h.textContent = sesionActual && sesionActual.nombre ? "Buenos días, " + sesionActual.nombre + ". ¿Con qué empresa trabajamos?" : "";
         if (h && sesionActual && sesionActual.nombre) { var hr = new Date().getHours(); h.textContent = (hr < 12 ? "Buenos días, " : hr < 19 ? "Buenas tardes, " : "Buenas noches, ") + sesionActual.nombre + ". ¿Con qué empresa trabajamos?"; }
-        ver("cc-empresa");
+        ver("cc-empresa"); marcar("cc-empresa");
     }
     function irPais() {
         pintarRuta(null);
@@ -91,7 +112,7 @@
         bPy.disabled = !py.length; bBo.disabled = !bo.length;
         var nota = document.getElementById("cc-pais-nota");
         nota.textContent = !py.length ? "Paraguay: tu usuario no tiene permisos en el ERP de Calistenia Paraguay (páginas /centro_mando o /accionistas)." : !bo.length ? "Bolivia: tu usuario no tiene permisos en /centro_mando del ERP de Calistenia Bolivia." : "";
-        ver("cc-pais");
+        ver("cc-pais"); marcar("cc-pais");
     }
     function irPortal(pais) {
         guardarCtx({ empresa: "calistenia", pais: pais });
@@ -101,9 +122,10 @@
             document.querySelectorAll("[data-tablero-py]").forEach(function (el) { el.hidden = lista.indexOf(el.getAttribute("data-tablero-py")) < 0; });
             document.getElementById("py-sin").hidden = lista.length > 0;
             document.querySelectorAll('a[href="#muro"], a[href="#equipo"]').forEach(function (el) { el.hidden = true; });
-            ver("portal-py");
+            ver("portal-py"); marcar("portal-py", "paraguay");
         } else {
             mostrarPortal(sesionActual.nombre, sesionActual.usuario, sesionActual.tableros);
+            marcar("portal", "bolivia");
         }
     }
     /* Después de ingresar (o con la sesión recordada): vuelve a donde estaba o empieza por la empresa. */

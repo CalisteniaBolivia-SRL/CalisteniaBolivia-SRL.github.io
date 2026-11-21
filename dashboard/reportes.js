@@ -398,7 +398,8 @@
     }
 
     function pintarTabs() {
-        raiz.querySelectorAll("[data-tab]").forEach(function (b) {
+        window.addEventListener("popstate", function () { var h = location.hash.slice(1); if (REPORTES[h] && h !== estado.tab) { estado.tab = h; pintarTabs(); cargar(estado.tab); } });
+    raiz.querySelectorAll("[data-tab]").forEach(function (b) {
             var t = b.getAttribute("data-tab"), d = estado.datos[t], on = t === estado.tab;
             b.classList.toggle("is-on", on);
             b.setAttribute("aria-selected", on ? "true" : "false");
@@ -481,8 +482,9 @@
     }
     raiz.querySelectorAll("[data-tab]").forEach(function (b) {
         b.addEventListener("click", function () {
-            estado.tab = b.getAttribute("data-tab");
-            try { history.replaceState(null, "", "#" + estado.tab); } catch (e) {}
+            var nuevo = b.getAttribute("data-tab");
+            if (nuevo !== estado.tab) { try { history.pushState(null, "", "#" + nuevo); } catch (e) {} }
+            estado.tab = nuevo;
             pintarTabs(); cargar(estado.tab);
         });
     });
