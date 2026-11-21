@@ -193,12 +193,31 @@
     } catch (e) {}
 
     /* La sesión no vence mientras se use (cm-mcp.js la extiende), así que cada vez que se abre el portal se vuelven
-       a leer los permisos del usuario en el ERP, sin pedirle la contraseña: si Dirección le cambió el rol, lo ve al instante. */
+       a leer los permisos del usuario en el ERP de Bolivia Y en el de Paraguay, sin pedirle la contraseña: si Dirección
+       le cambió o le quitó un rol, lo ve al instante (antes Paraguay quedaba con los permisos del primer ingreso). */
     function actualizarPermisos(ses) {
         if (!ses || !ses.key_usuario || !window.WebSocket) return;
-        var ws, buffer = "", id = "perm-" + Date.now(), listo = false;
+        var ws, buffer = "", idBo = "perm-bo-" + Date.now(), idPy = "perm-py-" + Date.now(), listo = false, bo, py, pidioPy = false;
         var reloj = setTimeout(function () { cerrar(); }, 15000);
         function cerrar() { listo = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} }
+        function pedir(empresa, id) {
+            ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
+                key_usuario: ses.key_usuario, key_empresa: empresa, _ssocket_promise: id }) + "\n");
+        }
+        function aplicar() {
+            cerrar();
+            if (bo === null) return;   // no se pudieron leer: se deja lo que había
+            var actual = JSON.parse(localStorage.getItem(CLAVE) || "null");
+            if (!actual || actual.usuario !== ses.usuario) return;
+            var nuevoPy = py === null ? (actual.tableros_py || []) : py;
+            if (JSON.stringify(bo) === JSON.stringify(actual.tableros) && JSON.stringify(nuevoPy) === JSON.stringify(actual.tableros_py || [])) return;
+            actual.tableros = bo; actual.tableros_py = nuevoPy;
+            try { localStorage.setItem(CLAVE, JSON.stringify(actual)); } catch (e) {}
+            sesionActual = actual;
+            var pPy = document.getElementById("portal-py");
+            if (!portal.hidden) mostrarPortal(actual.nombre, actual.usuario, bo);
+            else if (pPy && !pPy.hidden) { if (permisosDe("paraguay").length) pintarModulos("paraguay"); else irPais(); }
+        }
         try { ws = new WebSocket(WS_URL); } catch (e) { return; }
         ws.onerror = cerrar;
         ws.onmessage = function (ev) {
@@ -208,20 +227,14 @@
                 var crudo = buffer.slice(0, i).split("---SSkey---")[0], m;
                 buffer = buffer.slice(i + MARCA.length);
                 try { m = JSON.parse(crudo); } catch (e) { continue; }
-                if (m.component === "servicio" && m.type === "init") {
-                    ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
-                        key_usuario: ses.key_usuario, key_empresa: KEY_EMPRESA, _ssocket_promise: id }) + "\n");
-                } else if (m._ssocket_promise === id || (m.component === "usuarioPage" && m.type === "getAll")) {
-                    cerrar();
-                    var nuevos = m.estado === "exito" ? permisosERP(m.data || {}) : null;
-                    if (!nuevos) return;
-                    var actual = JSON.parse(localStorage.getItem(CLAVE) || "null");
-                    if (!actual || actual.usuario !== ses.usuario) return;
-                    if (JSON.stringify(nuevos) === JSON.stringify(actual.tableros)) return;
-                    actual.tableros = nuevos;
-                    try { localStorage.setItem(CLAVE, JSON.stringify(actual)); } catch (e) {}
-                    sesionActual = actual;
-                    if (!portal.hidden) mostrarPortal(actual.nombre, actual.usuario, nuevos);
+                if (m.component === "servicio" && m.type === "init") pedir(KEY_EMPRESA, idBo);
+                else if (bo === undefined && (m._ssocket_promise === idBo || (!pidioPy && m.component === "usuarioPage" && m.type === "getAll"))) {
+                    /* Mismo cálculo que al ingresar: /centro_mando más la página /accionistas. */
+                    bo = m.estado === "exito" ? permisosPY(m.data || {}) : null;
+                    pidioPy = true; pedir(KEY_EMPRESA_PY, idPy);
+                } else if (pidioPy && (m._ssocket_promise === idPy || (m.component === "usuarioPage" && m.type === "getAll"))) {
+                    py = m.estado === "exito" ? (permisosPY(m.data || {}) || []) : null;
+                    aplicar();
                 }
             }
         };
