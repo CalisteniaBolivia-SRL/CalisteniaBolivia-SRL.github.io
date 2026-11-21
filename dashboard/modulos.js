@@ -78,15 +78,15 @@
         var tabs = MODULOS.filter(function (m) { return m.tipo === "tablero" && tieneAlguno(m, perms) && visible(m, pais, cfg); });
         if (opc.pantallas) {
             opc.pantallas.textContent = "";
-            pant.forEach(function (m) {
-                var li = el("li"), a = el("a", "cm-screen" + (m.cc ? " cm-screen--cc" : ""));
+            pant.forEach(function (m, i) {
+                var li = el("li"), a = el("a", "cm-screen");
                 a.href = m.href(pais);
-                a.appendChild(el("span", "cm-num", m.num.replace("b", ""))); a.appendChild(el("span", "cm-name", m.nombre)); a.appendChild(el("span", "cm-desc", m.que));
+                a.appendChild(el("span", "cm-num", String(i + 1)));   /* numeración seguida según lo visible */ a.appendChild(el("span", "cm-name", m.nombre)); a.appendChild(el("span", "cm-desc", m.que));
                 if (pais === "paraguay" && !m.datosPY) a.appendChild(el("span", "cm-prox", "Falta conectar los datos de Paraguay"));
                 li.appendChild(a); opc.pantallas.appendChild(li);
             });
             if (opc.bloqueMuro) opc.bloqueMuro.hidden = !pant.length;
-            var n = pant.filter(function (m) { return m.num.indexOf("b") < 0; }).length;
+            var n = pant.length;
             if (opc.cuentaMuro) opc.cuentaMuro.textContent = n + (n === 1 ? " pantalla" : " pantallas");
         }
         if (opc.tableros) {
@@ -94,7 +94,9 @@
             tabs.forEach(function (m) {
                 var a = el("a", "cm-card"); a.href = m.href(pais);
                 a.appendChild(el("span", "cm-area", m.nombre));
-                a.appendChild(el("span", "cm-who", (m.quien && (m.quien[pais] || (pais === "bolivia" ? m.quien.bolivia : null))) || m.rol));
+                /* Quién lo usa (si se sabe en ese país) y para qué: sin repetir el mismo texto dos veces. */
+                var quien = m.quien && m.quien[pais];
+                a.appendChild(el("span", "cm-who", quien && quien.toLowerCase() !== String(m.rol).toLowerCase() ? quien : ""));   /* siempre la misma línea, para que todo quede alineado */
                 a.appendChild(el("span", "cm-role", m.rol));
                 a.appendChild(el("span", "cm-what", m.que));
                 if (pais === "paraguay" && !m.datosPY) a.appendChild(el("span", "cm-prox", "Falta conectar los datos de Paraguay"));
