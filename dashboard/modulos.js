@@ -44,7 +44,7 @@
     /* Qué se ve por defecto mientras Dirección no edite el checklist. Bolivia: todo. Paraguay: lo que ya tiene sus datos. */
     var POR_DEFECTO = {
         bolivia: function () { return true; },
-        paraguay: function (m) { return ["ingresos", "legal", "redes", "reemplazos"].indexOf(m.id) >= 0; }
+        paraguay: function (m) { return ["ingresos", "asistente"].indexOf(m.id) >= 0; }
     };
     var K_CFG = "cm_modulos_cfg";
     function cfgLocal() { try { return JSON.parse(localStorage.getItem(K_CFG) || "null") || {}; } catch (e) { return {}; } }
