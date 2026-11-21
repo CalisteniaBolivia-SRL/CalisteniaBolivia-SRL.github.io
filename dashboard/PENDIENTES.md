@@ -20,7 +20,20 @@ Falta (lo está gestionando el director):
 Después:
 6. **Arqueo de personas y alerta de asistencia**: identificar las cámaras de entrenamiento de cada sucursal; cada pocos minutos contar personas en esas cámaras (foto + conteo) y comparar con las entradas registradas en el ERP (molinete y manuales) de esa sucursal en la última hora; si hay más personas que registros, alerta con la foto (posible clase sin registrar). Mostrarlo en el muro.
 
-## Otros pendientes
+## Paraguay: mismo centro de mando que Bolivia, a su escala (en curso)
+Decidido por el director: misma línea, mismos módulos, al nivel de Paraguay (1 sucursal). En Paraguay **sí** se registra asistencia en el ERP y **sí** va a tener Atención al Cliente.
+
+Ya hecho:
+- Ingresos de Paraguay (`accionistas-py/`) abre al instante: memoria local + compartida en Firestore (`py_ventas/AAAA-MM`, solo Dirección), y se pone al día cada 8 s.
+- Logo de Capital Corp Holdings (`images/capital-corp-logo.png`, `capital-corp-simbolo.png`).
+
+Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
+1. Ver en el ERP de Paraguay de dónde salen asistencia (molinete/manual), clientes y vencimientos.
+2. Muro de Paraguay con el mismo diseño del muro de Bolivia: Resumen, Ventas (cierres semanales y mensuales), Ingresos por tipo (membresías, snacks, alquileres), Caja, Asistencia hoy, Asistencia 30 días (horas buenas y bajas), Retención, Ventas ATC, Cámaras.
+3. Atención al Cliente de Paraguay con el mismo sistema (listas, Panel de la Jefa, incentivo con corte el 25), datos separados por país.
+4. Portal de Paraguay con la misma estructura que Bolivia (Muro de N pantallas + Tus tableros + Manual).
+
+
 - ERP: rol **«Atención al Cliente · CM»** con permiso `atencion` en /centro_mando (las 18 ATC) y rol **«Jefe de ATC · CM»** con `jefe_atc` (Eliana, José Miguel Parada, Rodrigo Dorado). Lo hace un administrador del ERP.
 - Redes sociales: crear la app de Meta y cargar sus claves como secretos; publicar las funciones de redes (metaWebhook, rs*). TikTok: falta acceso a la documentación de su API.
 - Paraguay: separar Atención al Cliente por país (listas de clientes del ERP de Paraguay); páginas /accionistas y /centro_mando en el ERP de Paraguay (Servisofts).
