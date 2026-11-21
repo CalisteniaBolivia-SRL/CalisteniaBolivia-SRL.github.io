@@ -136,7 +136,8 @@
         },
         resetParams: function () { params = Object.assign({}, CFG.params || {}); Object.keys(estados).forEach(function (id) { cargar(id); }); programar(); },
         refresh: function (id) { cargar(id, true); },
-        setLink: function (nombre) { try { history.replaceState(null, "", "#" + nombre); } catch (e) {} },
+        /* La primera pantalla reemplaza; las siguientes quedan en el historial (botón «Atrás» del celular). */
+        setLink: function (nombre) { try { var h = "#" + nombre; if (!location.hash || location.hash === h) history.replaceState(null, "", h); else history.pushState(null, "", h); } catch (e) {} },
         colors: ["var(--cb-accent)", "#D9AE5B", "#6FBF95", "#8AA4D6", "#C98BB9"]
     };
 

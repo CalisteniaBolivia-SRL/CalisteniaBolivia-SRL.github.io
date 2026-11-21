@@ -300,7 +300,7 @@
         nav.hidden = !MASTER;
         /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
         var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0]].indexOf(S.tab) >= 0;
-        var ir = function (t) { S.tab = t; try { history.replaceState(null, "", location.search + "#" + t); } catch (e) {} pintar(); };
+        var ir = function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); };
         var principales = SOLO_ATENCION ? tabs : tabs.slice(0, PRINCIPALES), resto = SOLO_ATENCION ? [] : tabs.slice(PRINCIPALES);
         principales.forEach(function (t) {
             nav.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1], onclick: function () { ir(t[0]); } }));
@@ -322,7 +322,7 @@
         if (S.tab === TAB_PLAN[0]) {
             /* Con el rol de Jefe de ATC (y Firebase activo) puede asignar las listas a las ATC; si no, solo descargarlas. */
             window.ATC_plan.montar(c, MASTER && !S.sinHerramientas ? { equipo: S.equipo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, recargar: cargar,
-                irA: function (t) { S.tab = t; try { history.replaceState(null, "", "#" + t); } catch (e) {} pintar(); } } : null);
+                irA: function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); } } : null);
             ponerBanner();
             return;
         }
@@ -1002,6 +1002,12 @@
     function avisar(t, tono) { var m = $("#co-aviso"); mensaje(m, tono || "ok", t); clearTimeout(avisar.t); avisar.t = setTimeout(function () { m.textContent = ""; }, 8000); }
 
     /* ---------- arranque ---------- */
+    /* Botón «Atrás»: vuelve a la pestaña anterior. */
+    window.addEventListener("popstate", function () {
+        var h = location.hash.slice(1), tabs = pestanas();
+        if (h && tabs.some(function (t) { return t[0] === h; }) && h !== S.tab) { S.tab = h; pintar(); }
+        else if (!h && tabs[0] && S.tab !== tabs[0][0]) { S.tab = tabs[0][0]; pintar(); }
+    });
     function arrancar() {
     /* La ATC ve sus comisiones del período de pago (del 26 al 25), no del mes calendario. */
     if (!MASTER && window.ATC_milista && ATC_milista.periodoPago) { var pp = ATC_milista.periodoPago(); S.periodo = { desde: pp.desde, hasta: hoy() < pp.hasta ? hoy() : pp.hasta }; }
