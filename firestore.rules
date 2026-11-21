@@ -79,6 +79,12 @@ service cloud.firestore {
       allow create, update: if central() || permiso('administracion');
       allow delete: if false;
     }
+    // Paraguay: resumen de ventas por mes (fecha y montos por concepto, sin datos de clientes) para que el
+    // tablero de ingresos abra al instante en cualquier equipo. Solo Dirección.
+    match /py_ventas/{mes} {
+      allow read: if permiso('direccion');
+      allow write: if permiso('direccion') && mes.matches('^[0-9]{4}-[0-9]{2}$');
+    }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
       allow write: if central();
