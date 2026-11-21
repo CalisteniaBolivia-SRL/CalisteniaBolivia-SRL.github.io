@@ -138,3 +138,15 @@ html body .cb, html body .cb-fit, html body { --cb-red: #9E3B35 !important; --cb
 @media (max-width: 600px) { .cm-card { min-height: 0; } .cm-screen { min-height: 96px; } }
 .cm-screen--cc { background: var(--s-panel) !important; }
 .cm-card .cm-who { min-height: 1.35em; display: block; }
+
+/* ---------- Todos los campos de texto, en todas las páginas: fondo oscuro, letra clara (también con autocompletar) ---------- */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=button]):not([type=submit]):not([type=reset]):not([type=file]),
+select, textarea {
+    background-color: var(--s-panel) !important; color: var(--s-blanco) !important; caret-color: var(--s-blanco);
+    -webkit-text-fill-color: var(--s-blanco);
+}
+input::placeholder, textarea::placeholder { color: var(--s-plata-3) !important; -webkit-text-fill-color: var(--s-plata-3); }
+select option { background: var(--s-panel); color: var(--s-blanco); }
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, textarea:-webkit-autofill, select:-webkit-autofill {
+    -webkit-text-fill-color: var(--s-blanco) !important; -webkit-box-shadow: 0 0 0 1000px var(--s-panel) inset !important; caret-color: var(--s-blanco); transition: background-color 9999s;
+}
