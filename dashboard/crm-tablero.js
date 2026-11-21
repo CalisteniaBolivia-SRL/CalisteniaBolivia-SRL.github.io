@@ -4,7 +4,7 @@
    Uso: window.CRM_tablero.montar(contenedor). Se actualiza solo cada 2 minutos mientras está visible. */
 (function () {
     "use strict";
-    var COMISION = 5;
+    var COMISION = window.CM_COMISION || 5, MON = function () { return (window.CM_MONEDA || "Bs") + " "; };
     var RES = { agendado: "Compró o va a pagar", interesado: "Lo va a pensar", no_contesta: "Sin respuesta", no_interesado: "No le interesa",
         ya_activo: "Ya estaba activo", numero_errado: "No contactar", otro: "Otro" };
     var CANAL = { llamada: "Llamada", whatsapp: "WhatsApp", presencial: "En persona", otro: "Otro" };
@@ -133,7 +133,7 @@
             kpi("Ventas reportadas", num(k.reportadas), "«Compró o va a pagar»"),
             kpi("Ventas confirmadas", num(k.confirmadas), "Con el registro de ventas", k.confirmadas ? "ok" : ""),
             kpi("Conversión", k.contactos ? Math.round(k.conv * 100) + "%" : "—", "Confirmadas ÷ contactados", k.contactos && k.conv < 0.03 ? "bad" : ""),
-            kpi("Comisiones", "Bs " + num(k.bs), "Bs " + COMISION + " por venta confirmada"),
+            kpi("Comisiones", MON() + num(k.bs), MON() + num(COMISION) + " por venta confirmada"),
             kpi("Listas trabajadas", k.totalLista ? Math.round(k.cobertura * 100) + "%" : "—", num(k.totalLista) + " clientes asignados", k.totalLista && k.cobertura < 0.5 ? "warn" : "")
         ]));
         if (k.inactivas.length) c.appendChild(el("div", { class: "crm-alerta" }, [el("b", { text: "Atención: " }), k.inactivas.map(function (x) { return x.nombre + " (" + x.estado[1].toLowerCase() + ")"; }).join(", ") + "."]));

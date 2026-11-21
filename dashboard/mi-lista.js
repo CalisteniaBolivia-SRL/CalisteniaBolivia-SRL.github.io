@@ -29,7 +29,7 @@
     /* Ícono (iconos.js); si no cargó, nada. */
     function ico(n, c) { return window.CMI ? window.CMI(n, c) : null; }
     /* Período de pago de comisiones: del 26 del mes anterior al 25 (se cobra lo confirmado hasta el 25). */
-    var COMISION = 5;
+    var COMISION = window.CM_COMISION || 5;
     function periodoPago(base) {
         var d = base ? new Date(base + "T12:00:00") : new Date(), y = d.getFullYear(), m = d.getMonth();
         var ini = d.getDate() <= 25 ? new Date(y, m - 1, 26) : new Date(y, m, 26), fin = d.getDate() <= 25 ? new Date(y, m, 25) : new Date(y, m + 1, 25);
@@ -40,16 +40,16 @@
     /* El monto ganado sube contando (como un marcador) cuando aumenta. */
     function contar(nodo, hasta) {
         var desde = M.mostrado == null ? hasta : M.mostrado; M.mostrado = hasta;
-        if (desde === hasta || window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { nodo.textContent = "Bs " + hasta.toLocaleString("es-BO"); return; }
+        if (desde === hasta || window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { nodo.textContent = (window.CM_MONEDA || "Bs") + " " + hasta.toLocaleString("es-BO"); return; }
         var t0 = null, dur = 1200;
         (function paso(t) { t0 = t0 || t; var k = Math.min(1, (t - t0) / dur), v = Math.round(desde + (hasta - desde) * (1 - Math.pow(1 - k, 3)));
-            nodo.textContent = "Bs " + v.toLocaleString("es-BO"); if (k < 1) requestAnimationFrame(paso); else if (hasta > desde) { nodo.classList.add("is-sube"); setTimeout(function () { nodo.classList.remove("is-sube"); }, 900); } })(performance.now());
+            nodo.textContent = (window.CM_MONEDA || "Bs") + " " + v.toLocaleString("es-BO"); if (k < 1) requestAnimationFrame(paso); else if (hasta > desde) { nodo.classList.add("is-sube"); setTimeout(function () { nodo.classList.remove("is-sube"); }, 900); } })(performance.now());
     }
-    var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
+    var bs = function (n) { return (window.CM_MONEDA || "Bs") + " " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
 
     /* «¿Cómo te fue?» → resultado del CRM y cuándo vuelve a aparecer. */
     var RES = [
-        { id: "agendado", texto: "Compró o va a pagar · +Bs 5 para vos", final: true, grande: true, ico: "check" },
+        { id: "agendado", texto: "Compró o va a pagar · +" + bs(COMISION) + " para vos", final: true, grande: true, ico: "check" },
         { id: "interesado", texto: "Lo va a pensar", seguir: 2, ico: "reloj" },
         { id: "no_contesta", texto: "Sin respuesta, le escribí", seguir: 1, ico: "mensaje" },
         { id: "no_interesado", texto: "No le interesa", final: true, ico: "x" },
@@ -91,7 +91,7 @@
             for (var i = arr.length - 1; i >= 0; i--) if (arr[i].key_cliente === c.key_cliente) arr.splice(i, 1);
             arr.push(g);
             (M.ctx.gestiones || (M.ctx.gestiones = [])).push(g);
-            M.ctx.avisar(res === "agendado" ? "¡Bien! " + c.cliente + " compra. Cuando se registre la venta, suman Bs 5 a tu comisión."
+            M.ctx.avisar(res === "agendado" ? "¡Bien! " + c.cliente + " compra. Cuando se registre la venta, suman " + bs(COMISION) + " a tu comisión."
                 : c.cliente + ": " + r.texto + (r.seguir ? ". Vuelve a aparecer el " + corta(masDias(r.seguir)) + "." : "."), "ok");
         }).catch(function (e) {
             M.ctx.avisar("No se guardó (" + c.cliente + "): " + ((e && e.message) || e), "bad");
@@ -125,7 +125,7 @@
     };
     function guionPara(c) {
         var base = GUIONES[c.grupo] || GUIONES.v1, yaPago = c.grupo === "nunca" || c.grupo === "riesgo";
-        var cierre = CIERRE.replace("{caro}", yaPago ? "" : "Si dice «está caro»: «Sale menos de Bs 9 por día, menos que un refresco. Y la promo es solo por estos días.»\n");
+        var cierre = CIERRE.replace("{caro}", yaPago ? "" : "Si dice «está caro»: «Sale menos de " + (window.CM_PAIS === "paraguay" ? "Gs 14.000" : "Bs 9") + " por día, menos que un refresco. Y la promo es solo por estos días.»\n");
         return rellenar(base + cierre, c).replace(/\s+([,.?!])/g, "$1");
     }
     function guionJefe(c) {
@@ -252,7 +252,7 @@
                 !ctx.soloVer ? el("button", { type: "button", class: "ml-tarea-ok", text: "Marcar hecha", onclick: function () { ctx.llamar("comercial_tarea_completar", { key: t.key }).then(function () { t.hecha = true; pintar(); ctx.avisar("Tarea hecha."); }, function (e) { ctx.avisar((e && e.message) || "No se pudo", "bad"); }); } }) : null]));
         });
         if (!todos.length) {
-            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), " Avísale al Jefe de ATC: cada cliente que compra son Bs 5 para ti."]));
+            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), " Avísale al Jefe de ATC: cada cliente que compra son " + bs(COMISION) + " para ti."]));
             return;
         }
         if (!pend.length) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes al Jefe de ATC: más contactos, más comisión."]));

@@ -19,6 +19,11 @@
     function sesionVigente() { return !!(estado.usuario && estado.claims.cm === 1 && Number(estado.claims.vence) > Date.now()); }
     /* Permiso del ERP (página /centro_mando) incluido en la sesión. */
     function tieneRol(r) { return sesionVigente() && (estado.claims.tableros || []).indexOf(r) >= 0; }
+    /* Permiso en el país del módulo: en Paraguay, los de /centro_mando del ERP de Paraguay (Dirección de Bolivia, todo). */
+    function tieneRolPais(r) {
+        if (window.CM_PAIS !== "paraguay") return tieneRol(r);
+        return sesionVigente() && ((estado.claims.tableros_py || []).indexOf(r) >= 0 || (estado.claims.tableros || []).indexOf("direccion") >= 0);
+    }
 
     /* ---------- ingreso (lo llama el portal, con la misma contraseña del ERP) ---------- */
     function entrarConERP(usuario, passwordMd5) {
@@ -156,7 +161,8 @@
         var iso = function (x) { return x.toISOString().slice(0, 10); };
         var deVentas = window.CM.llamar("reporte_ventas", { desde: iso(d), hasta: iso(h), agrupar_por: "sucursal" })
             .then(function (r) { return ((r && r.filas) || []).map(function (f) { return String(f.grupo || "").trim(); }); }).catch(function () { return []; });
-        var deConfig = db().collection("config").doc("sucursales").get().then(function (x) { return x.exists ? (x.data().lista || []) : []; }).catch(function () { return []; });
+        /* La lista guardada en la configuración es la de Bolivia; en Paraguay solo vale lo que dicen sus ventas. */
+        var deConfig = window.CM_PAIS === "paraguay" ? Promise.resolve([]) : db().collection("config").doc("sucursales").get().then(function (x) { return x.exists ? (x.data().lista || []) : []; }).catch(function () { return []; });
         cacheSucursales = Promise.all([deConfig, deVentas]).then(function (a) {
             var vistos = {}, out = [];
             a[0].concat(a[1]).forEach(function (s) { var t = String(s || "").trim(), k = t.toLowerCase(); if (t && !vistos[k]) { vistos[k] = 1; out.push(t); } });
@@ -166,7 +172,7 @@
     }
 
     window.CMFB = {
-        listo: listo, estado: estado, tieneRol: tieneRol, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente,
+        listo: listo, estado: estado, tieneRol: tieneRol, tieneRolPais: tieneRolPais, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente,
         entrarConERP: entrarConERP, salir: salir,
         registrar: function (nombreH, fn) { herramientas[nombreH] = fn; },
         util: { db: db, ahora: ahora, docs: docs, vigentes: vigentes, err: err, txt: txt, opcion: opcion, fecha: fecha, monto: monto, entero: entero, url: url, bool: bool, sucursales: sucursales }

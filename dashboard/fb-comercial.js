@@ -27,10 +27,11 @@
         });
     };
     var U = CMFB.util;
-    var COMISION_BS = 5, VENTANA_DIAS = 15;
+    var COMISION_BS = window.CM_COMISION || 5, VENTANA_DIAS = 15;
     var CANALES = ["whatsapp", "llamada", "presencial", "otro"];
     var RESULTADOS = ["no_contesta", "interesado", "agendado", "no_interesado", "numero_errado", "ya_activo", "otro"];
-    var col = function (n) { return U.db().collection(n); };
+    /* Cada país con sus datos: Paraguay usa las colecciones py_com_* (mismas reglas, permisos del ERP de Paraguay). */
+    var col = function (n) { return U.db().collection((window.CM_PAIS === "paraguay" ? "py_" : "") + n); };
     var hoy = function () { return new Date().toISOString().slice(0, 10); };
     var norm = function (s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
     var clave = function (s) { var k = String(s || "").trim(); if (k && !/^[A-Za-z0-9_-]{1,64}$/.test(k)) throw U.err("Usuario no válido."); return k; };
@@ -136,7 +137,7 @@
     var CAMPOS_CONF = ["fecha_venta", "key_cliente", "cliente", "paquete", "sucursal", "monto", "key_ejecutiva", "ejecutiva", "fecha_contacto", "canal", "anulada", "motivo_anulacion", "comision"];
     function idConf(k) { return String(k).replace(/\//g, "-").slice(0, 300); }
     function sincronizar(lista, desde) {
-        if (!lista.length || !(CMFB.tieneRol("jefe_atc") || CMFB.tieneRol("administracion"))) return;
+        if (!lista.length || !(CMFB.tieneRolPais("jefe_atc") || CMFB.tieneRolPais("administracion"))) return;
         U.docs(col("com_comision_conf").where("fecha_venta", ">=", String(desde).slice(0, 10))).then(function (ya) {
             var previo = {}; ya.forEach(function (d) { previo[d.key] = d; });
             var cambios = lista.filter(function (c) {
