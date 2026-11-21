@@ -111,3 +111,30 @@ a { text-underline-offset: 3px; }
 
 /* El muro y los tableros definen su rojo dentro de su bloque: se alinea acá (rojo apagado, solo para marcar lo bajo/crítico). */
 html body .cb, html body .cb-fit, html body { --cb-red: #9E3B35 !important; --cb-red-dark: #7A2B26 !important; --cb-accent: #C4C8CE !important; }
+
+/* ---------- Portal: grilla ordenada (mismo alto por fila, mismas medidas, aviso siempre abajo) ---------- */
+.cm-screens { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important; grid-auto-rows: 1fr; gap: 14px !important; }
+.cm-screens > li { display: flex; }
+.cm-screen {
+    width: 100%; box-sizing: border-box; min-height: 112px;
+    grid-template-columns: 56px 1fr !important; grid-template-rows: auto 1fr auto !important; align-items: start !important; align-content: start;
+    column-gap: 16px !important; row-gap: 4px; padding: 18px 20px !important; border-left-width: 2px !important;
+}
+.cm-num { grid-row: 1 / 4 !important; align-self: center; font-size: 2.2rem !important; font-weight: 300 !important; color: var(--s-plata-2) !important; text-align: left !important; }
+.cm-name { font-size: .95rem !important; letter-spacing: .06em !important; line-height: 1.3; }
+.cm-desc { font-size: .86rem !important; line-height: 1.45 !important; }
+.cm-screen .cm-prox { grid-column: 2; margin-top: 6px; }
+.cm-team { grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)) !important; grid-auto-rows: 1fr; gap: 14px !important; }
+.cm-card { min-height: 190px; padding: 22px 24px !important; gap: 6px !important; box-sizing: border-box; }
+.cm-card .cm-area { font-size: 1rem !important; letter-spacing: .06em !important; margin-bottom: 2px; }
+.cm-card .cm-who { font-size: .92rem !important; font-weight: 500 !important; color: var(--s-blanco); }
+.cm-card .cm-role { font-size: .72rem !important; letter-spacing: .1em !important; color: var(--s-plata-2) !important; }
+.cm-card .cm-what { font-size: .88rem !important; line-height: 1.5 !important; color: var(--s-plata) !important; margin-top: 8px !important; }
+.cm-card .cm-prox { margin-top: auto !important; padding-top: 12px; }
+.cm-prox { color: var(--s-plata-2) !important; font-size: .75rem !important; letter-spacing: .02em; }
+.cm-prox::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; background: var(--s-aviso); vertical-align: middle; }
+.cm-head h2 { font-size: clamp(1.5rem, 3.4vw, 2rem) !important; letter-spacing: .04em !important; }
+.cm-block { gap: 1.25rem; }
+@media (max-width: 600px) { .cm-card { min-height: 0; } .cm-screen { min-height: 96px; } }
+.cm-screen--cc { background: var(--s-panel) !important; }
+.cm-card .cm-who { min-height: 1.35em; display: block; }
