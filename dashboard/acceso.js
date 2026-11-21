@@ -34,7 +34,7 @@
         return permisos.todo ? TABLEROS.slice() : TABLEROS.filter(function (t) { return !!permisos[t]; });
     }
 
-    /* Permisos en el ERP de Calistenia Paraguay: /centro_mando (mismos nombres) y /accionistas (ingresos en vivo). */
+    /* Permisos de cada ERP: /centro_mando (mismos nombres) y la página /accionistas (cualquier permiso = solo ingresos en vivo). */
     function permisosPY(paginas) {
         if (!paginas) return null;
         var t = permisosERP(paginas) || [];
@@ -377,7 +377,7 @@
         loginERP(usuario, password).then(function (res) {
             var r = res.login;
             var nombre = nombreDe(r, usuario);
-            var tableros = permisosERP(res.paginas);
+            var tableros = permisosPY(res.paginas);   // /centro_mando y /accionistas (inversionistas: solo ingresos), igual que en Paraguay
             var tablerosPy = permisosPY(res.paginasPy) || [];
             /* Si no se pudieron leer los permisos, no se recuerda la sesión: al reingresar se vuelven a pedir. */
             if (tableros !== null) {
