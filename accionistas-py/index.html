@@ -104,6 +104,8 @@ section.card { background: var(--surface); border: 1px solid var(--border); bord
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin: 8px 0 4px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend .ley-curso { color: var(--muted); }
+.legend .ley-curso i { background: repeating-linear-gradient(45deg, var(--ink-2) 0 3px, transparent 3px 6px); }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart text { font-family: inherit; }
@@ -142,7 +144,7 @@ tfoot td { font-weight: 700; }
 footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12px; color: var(--muted); }
 @media (max-width: 560px) { .kpi__v { font-size: 22px; } .bd__v { font-size: 18px; } .top__user span { display: none; } }
 </style>
-<link rel="stylesheet" href="../dashboard/sobrio.css?v=6">
+<link rel="stylesheet" href="../dashboard/sobrio.css?v=7">
 </head>
 <body class="acc">
 <header class="top">
@@ -224,7 +226,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     <div class="tbl-wrap" id="tb-mes"></div>
   </section>
 
-  <p class="nota">Fuente: ERP S-ERP de Calistenia Paraguay, en vivo. Ventas vigentes (sin anuladas) por fecha de venta, clasificadas por el tipo de producto del ERP. Montos en guaraníes. La semana y el mes en curso se muestran más claros porque aún no cerraron.</p>
+  <p class="nota">Fuente: ERP S-ERP de Calistenia Paraguay, en vivo. Ventas vigentes (sin anuladas) por fecha de venta, clasificadas por el tipo de producto del ERP. Montos en guaraníes. La semana y el mes en curso se muestran rayados porque aún no cerraron.</p>
 </main>
 <footer>Calistenia Paraguay · Información confidencial para accionistas</footer>
 
@@ -542,7 +544,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     document.title = "Ingresos · Calistenia Bolivia";
     var img = document.querySelector(".top__in img"); if (img) { img.src = "https://empresa.servisofts.com/http/empresa/d4118f82-0b0a-44e3-8525-73df48be69db"; img.alt = "Calistenia Bolivia"; }
     var h1 = document.querySelector(".top__txt h1"); if (h1) h1.textContent = "Calistenia Bolivia · Ingresos";
-    var notas = document.querySelectorAll("main p.nota"), nota = notas[notas.length - 1]; if (nota) nota.textContent = "Fuente: sistema de Calistenia Bolivia, en vivo (las mismas cifras del muro). Ingresos por venta de paquetes cobrados en caja, por fecha. Montos en bolivianos. La semana y el mes en curso se muestran más claros porque aún no cerraron.";
+    var notas = document.querySelectorAll("main p.nota"), nota = notas[notas.length - 1]; if (nota) nota.textContent = "Fuente: sistema de Calistenia Bolivia, en vivo (las mismas cifras del muro). Ingresos por venta de paquetes cobrados en caja, por fecha. Montos en bolivianos. La semana y el mes en curso se muestran rayados porque aún no cerraron.";
     var pie = document.querySelector("footer"); if (pie) pie.textContent = "Calistenia Bolivia · Información confidencial para accionistas";
   }
   $("a-btn").addEventListener("click", function () {
@@ -554,7 +556,9 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   /* ================= Tablero ================= */
   var MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   var MES3 = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+  // Los colores se leen del <body> (no de <html>): sobrio.css redefine la paleta en body.acc, y así el gráfico,
+  // la leyenda, el tooltip y las tarjetas usan siempre exactamente el mismo color por concepto.
+  var css = function (v) { return getComputedStyle(document.body || document.documentElement).getPropertyValue(v).trim(); };
   var gs = function (n) { return MON + " " + Math.round(n).toLocaleString(LOC); };
   var corto = function (n) {
     if (n >= 1e6) return (n / 1e6).toLocaleString(LOC, { maximumFractionDigits: n >= 1e7 ? 0 : 1 }) + " M";
@@ -616,7 +620,8 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       [cap(mesAct.titulo) + (mesAct.enCurso ? " (en curso)" : ""), gs(total(mesAct)), mesAnt ? cap(mesAnt.titulo) + ": " + gs(total(mesAnt)) : ""]
     ].map(function (k) { return '<div class="kpi"><div class="kpi__l">' + k[0] + '</div><div class="kpi__v">' + k[1] + '</div><div class="kpi__s">' + k[2] + "</div></div>"; }).join("");
 
-    var ley = CATS.map(function (c) { return '<span><i style="background:var(' + c.c + ')"></i>' + c.n + "</span>"; }).join("");
+    var ley = CATS.map(function (c) { return '<span><i style="background:var(' + c.c + ')"></i>' + c.n + "</span>"; }).join("") +
+      '<span class="ley-curso"><i></i>Rayado = período en curso</span>';
     $("leg-sem").innerHTML = ley; $("leg-mes").innerHTML = ley;
 
     tabla("tb-sem", semanas, "Semana");
@@ -638,7 +643,10 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     var max = Math.max.apply(null, datos.map(total)), sc = nice(max);
     var n = datos.length, slot = iw / n, bw = Math.max(4, Math.min(opt.maxBar, slot * 0.72));
     var y = function (v) { return mt + ih - v / sc.top * ih; };
-    var svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + opt.aria + '">';
+    var patId = "raya-" + cont;
+    var svg = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + opt.aria + '">' +
+      '<defs><pattern id="' + patId + '" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+      '<rect width="2.5" height="6" fill="' + css("--surface") + '" fill-opacity="0.7"/></pattern></defs>';
     for (var g = 0; g <= sc.top + 1; g += sc.step) {
       svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="' + (g === 0 ? css("--axis") : css("--grid")) + '" stroke-width="1"/>';
       svg += '<text x="' + (ml - 8) + '" y="' + (y(g) + 4) + '" text-anchor="end" font-size="11" fill="' + css("--muted") + '">' + (g === 0 ? "0" : corto(g)) + "</text>";
@@ -648,16 +656,18 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       var cx = ml + slot * i + slot / 2, x = cx - bw / 2, base = 0, segs = [];
       CATS.forEach(function (c) { if (o[c.k] > 0) segs.push(c); });
       if (opt.sel === i) svg += '<rect x="' + (ml + slot * i + 1) + '" y="' + mt + '" width="' + (slot - 2) + '" height="' + ih + '" rx="6" fill="' + css("--sel") + '"/>';
-      var op = o.enCurso ? ' fill-opacity="0.55"' : "";
       segs.forEach(function (c, j) {
         var v = o[c.k], y1 = y(base + v), y0 = y(base);
-        var h = Math.max(1, y0 - y1 - (j > 0 ? 2 : 0));
+        var h = Math.max(1, y0 - y1 - (j > 0 ? 2 : 0)), forma;
         if (j === segs.length - 1) {
           var r = Math.min(4, h, bw / 2);
-          svg += '<path d="M' + x + "," + (y1 + h) + "V" + (y1 + r) + "Q" + x + "," + y1 + " " + (x + r) + "," + y1 + "H" + (x + bw - r) + "Q" + (x + bw) + "," + y1 + " " + (x + bw) + "," + (y1 + r) + "V" + (y1 + h) + 'Z" fill="' + css(c.c) + '"' + op + "/>";
+          forma = '<path d="M' + x + "," + (y1 + h) + "V" + (y1 + r) + "Q" + x + "," + y1 + " " + (x + r) + "," + y1 + "H" + (x + bw - r) + "Q" + (x + bw) + "," + y1 + " " + (x + bw) + "," + (y1 + r) + "V" + (y1 + h) + 'Z" fill="';
         } else {
-          svg += '<rect x="' + x + '" y="' + y1 + '" width="' + bw + '" height="' + h + '" fill="' + css(c.c) + '"' + op + "/>";
+          forma = '<rect x="' + x + '" y="' + y1 + '" width="' + bw + '" height="' + h + '" fill="';
         }
+        // Mismo color siempre; el período en curso se marca con rayado (no con otro tono, que se confundía con otro concepto).
+        svg += forma + css(c.c) + '"/>';
+        if (o.enCurso) svg += forma + "url(#" + patId + ')"/>';
         base += v;
       });
       if (opt.totales && total(o) > 0) svg += '<text x="' + cx + '" y="' + (y(total(o)) - 6) + '" text-anchor="middle" font-size="11" font-weight="500" fill="' + css("--ink-2") + '">' + corto(total(o)) + "</text>";
