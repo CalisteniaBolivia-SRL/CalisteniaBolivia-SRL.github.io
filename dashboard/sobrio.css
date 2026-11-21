@@ -1,0 +1,113 @@
+/* =====================================================================================================
+   Estilo común del centro de mando (Bolivia y Paraguay, todas las páginas). Se carga AL FINAL.
+   Línea: negro predomina; blanco y plateado para leer y ordenar; el rojo de la marca solo para el logo y
+   para lo crítico (alertas, cifras en caída). Una sola tipografía (Saira), recuadros rectos y finos.
+   ===================================================================================================== */
+@import url("https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700&display=swap");
+
+:root {
+    --s-negro: #09090A;
+    --s-panel: #121315;
+    --s-panel-2: #18191C;
+    --s-linea: #25272B;
+    --s-linea-2: #34373C;
+    --s-blanco: #F3F4F5;
+    --s-plata: #C4C8CE;
+    --s-plata-2: #8D9299;
+    --s-plata-3: #5C6168;
+    --s-rojo: #B3261E;          /* solo crítico */
+    --s-ok: #7FB79A;
+    --s-aviso: #C9A867;
+    --s-letra: "Saira", "Segoe UI", Roboto, Arial, sans-serif;
+
+    /* Variables de cada tablero, alineadas al mismo criterio */
+    --font-anthropic-sans: var(--s-letra);
+    --font-anthropic-serif: var(--s-letra);
+    --font-display: var(--s-letra);
+    --font-body: var(--s-letra);
+    --red: var(--s-plata);                 /* portal: el «rojo» decorativo pasa a plata */
+    --cb-red: var(--s-rojo);
+    --cb-red-dark: #8E1E18;
+    --co-red: var(--s-plata);
+    --co-red-dark: var(--s-plata-2);
+    --color-bg: var(--s-negro);
+    --color-panel: var(--s-panel);
+    --color-border-line: var(--s-linea);
+    --color-fg-muted: var(--s-plata-2);
+    --color-bad: #C76A62;
+}
+
+/* ---------- Tipografía única ---------- */
+html, body { background: var(--s-negro) !important; }
+body, body *:not(code):not(svg):not(svg *) { font-family: var(--s-letra) !important; }
+h1, h2, h3,
+[class*="titulo"], [class*="title"], [class*="-h2"], [class*="-h3"],
+.cm-name, .cm-area, .ml-nombre, .ml-fecha, .pj-titulo, .pj-h3, .rp-titulo, .md h1, .mn h1 {
+    font-weight: 600 !important; letter-spacing: .02em;
+}
+h1, [class*="titulo"], [class*="title"] { letter-spacing: .03em; }
+b, strong { font-weight: 600; }
+
+/* ---------- Rojo: fuera de lo decorativo ---------- */
+.red, .cm-hero .red, .cm-head .red { color: var(--s-plata) !important; }
+.cm-num { color: var(--s-plata) !important; }
+.cm-screen { border-left-color: var(--s-linea-2) !important; }
+.cm-screen:hover, .cm-screen:focus-visible { border-left-color: var(--s-plata) !important; }
+.cm-card .cm-area { color: var(--s-blanco) !important; }
+.cm-card:hover, .cm-card:focus-visible { border-color: var(--s-plata-3) !important; }
+.cm-salir:hover, .cm-salir:focus-visible, .cm-barra a:hover, .cm-barra button:hover { border-color: var(--s-plata) !important; color: var(--s-blanco) !important; }
+.cm-eyebrow, .cb-eyebrow, .rp-eyebrow, .lg-eyebrow, .co-eyebrow, [class*="eyebrow"] { color: var(--s-plata-2) !important; }
+
+/* Muro y tableros por área */
+.cb-kpi { border-left: 2px solid var(--s-linea-2) !important; }
+.cb-tab b { color: var(--s-plata-2) !important; }
+.cb-tab.is-on { background: var(--s-panel-2) !important; border-color: var(--s-plata) !important; color: var(--s-blanco) !important; }
+.cb-tab.is-on b { color: var(--s-blanco) !important; }
+.cb-act:hover, .cb-act:focus-visible, .cb-links a:hover { border-color: var(--s-plata) !important; }
+
+/* Jefe de ATC, ATC, CRM, cámaras, reemplazos, legal, reportes */
+.co-tab.is-on, .co-mas.is-on, .lg-tab.is-on, [class*="-tab"].is-on:not(.cb-tab) {
+    background: var(--s-panel-2) !important; border-color: var(--s-plata) !important; color: var(--s-blanco) !important;
+}
+.co-btn-fuerte, .co-primario { border-color: var(--s-plata) !important; }
+#co-contenido .ml-tabs button.is-on, .crm-per button.is-on { border-bottom-color: var(--s-plata) !important; }
+#co-contenido .ml-nota.is-tarea, .ml-inc.is-meta, #rp-form, .mn-sec, .cm-py-aviso, .co-urgente { border-top-color: var(--s-linea-2); }
+#co-contenido .ml-nota.is-tarea { border-left-color: var(--s-plata) !important; }
+.ml-inc.is-meta { border-top-color: var(--s-plata) !important; }
+.is-meta .ml-inc-barra i { background: var(--s-plata) !important; }
+#rp-form, .mn-sec, .cm-py-aviso { border-top: 1px solid var(--s-plata-3) !important; }
+.cam-chip.is-on { border-color: var(--s-plata) !important; color: var(--s-blanco) !important; }
+.md-tabla input, input[type="checkbox"] { accent-color: var(--s-plata); }
+.co-urgente { border-left-color: var(--s-rojo) !important; }   /* crítico: se queda */
+
+/* ---------- Recuadros: rectos, finos, mismo gris ---------- */
+.cm-card, .cm-screen, .cb-card, .cb-kpi, .co-card, .pj-card, .pj-tabla, .ml-cli, .ml-nota, .ml-inc, .crm-card, .crm-kpi, .rp-card, .rp-kpi,
+.lg-card, .mn-sec, .cam-celda, .cam-form, .md-tabla, .as-kpi, .cm-py-aviso {
+    border-radius: 0 !important;
+}
+.cb-card, .co-card, .pj-card, .crm-card, .crm-kpi, .rp-card, .rp-kpi, .lg-card { background: var(--s-panel) !important; border-color: var(--s-linea) !important; }
+
+/* ---------- Ingresos en vivo: siempre en negro y con gama sobria ---------- */
+:root, :root:not([data-theme="dark"]) {
+    --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
+    --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
+    --s-memb: #D9DCE0; --s-snack: #8D9299; --s-alq: #5C6168; --s-otros: #3E4247;
+    --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
+    color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
+        --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
+        --s-memb: #D9DCE0; --s-snack: #8D9299; --s-alq: #5C6168; --s-otros: #3E4247;
+        --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
+        color-scheme: dark;
+    }
+}
+
+/* ---------- Detalles ---------- */
+::selection { background: rgba(196, 200, 206, .25); }
+a { text-underline-offset: 3px; }
+
+/* El muro y los tableros definen su rojo dentro de su bloque: se alinea acá (rojo apagado, solo para marcar lo bajo/crítico). */
+html body .cb, html body .cb-fit, html body { --cb-red: #9E3B35 !important; --cb-red-dark: #7A2B26 !important; --cb-accent: #C4C8CE !important; }
