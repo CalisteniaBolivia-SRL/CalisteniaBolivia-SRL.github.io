@@ -227,6 +227,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 </main>
 <footer>Calistenia Paraguay · Información confidencial para accionistas</footer>
 
+<script src="../dashboard/cm-mcp.js?v=3"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -237,8 +238,14 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="erp.js?v=2"></script>
 <script>
 (function () {
+  /* ================= País =================
+     La misma página para Bolivia y Paraguay (regla del centro de mando): mismo formato, cada uno con sus datos.
+     Paraguay: ERP S-ERP de Calistenia Paraguay (ventas por tipo de producto). Bolivia: ventas de paquetes del sistema
+     de Calistenia Bolivia (las mismas cifras del muro). ?pais=bolivia elige Bolivia; sin parámetro, Paraguay. */
+  var PAIS = /[?&]pais=bolivia\b/.test(location.search) ? "bolivia" : "paraguay", BO = PAIS === "bolivia";
+  var TZ = BO ? "America/La_Paz" : TZ, LOC = BO ? "es-BO" : LOC, MON = BO ? "Bs" : "Gs";
   /* ================= Configuración ================= */
-  var INICIO = "2026-04-01";              // inicio de operaciones (primer mes del gráfico anual)
+  var INICIO = BO ? (function () { var d = new Date(); return new Date(d.getFullYear() - 1, d.getMonth(), 1).toISOString().slice(0, 10); })() : "2026-04-01";   // inicio del gráfico
   var CADA_MS = 8000;                     // actualización en vivo
   var RESYNC_MS = 10 * 60000;             // repaso completo (anulaciones de días anteriores)
   var SESION_DIAS = 7;
@@ -263,11 +270,11 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   function guardar(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function vista(id) { ["v-login", "v-carga", "v-aviso", "v-tablero"].forEach(function (v) { $(v).hidden = v !== id; }); }
   function hoyPY() {
-    try { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Asuncion", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
     catch (e) { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   }
   function horaPY() {
-    try { return new Intl.DateTimeFormat("es-PY", { timeZone: "America/Asuncion", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()); }
+    try { return new Intl.DateTimeFormat(LOC, { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()); }
     catch (e) { return new Date().toLocaleTimeString(); }
   }
 
@@ -283,7 +290,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     var cm = leer("cb_centro_mando");
     if (!cm || !(cm.vence > Date.now()) || !cm.key_usuario) return;
     var py = cm.tableros_py || [], bo = cm.tableros || [];
-    if (py.indexOf("accionistas") < 0 && py.indexOf("direccion") < 0 && bo.indexOf("direccion") < 0) return;
+    if (BO ? bo.indexOf("direccion") < 0 : (py.indexOf("accionistas") < 0 && py.indexOf("direccion") < 0 && bo.indexOf("direccion") < 0)) return;
     desdePortal = true;
     if (!sesion || sesion.key !== cm.key_usuario) sesion = { nombre: cm.nombre || cm.usuario, usuario: cm.usuario, key: cm.key_usuario, vence: cm.vence, portal: true };
   })();
@@ -480,16 +487,56 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       vista("v-aviso");
     });
   }
-  $("a-btn").addEventListener("click", function () { ERP.cerrar(); arrancar(); });
+  /* ---------- Bolivia: ventas por día del sistema de Calistenia Bolivia ---------- */
+  var K_BO = "bo_acc_dias_v1", diasBO = (function () { try { return JSON.parse(localStorage.getItem(K_BO) || "null") || {}; } catch (e) { return {}; } })();
+  function leerBO(desde, hasta) {
+    return window.CM.llamar("reporte_ventas", { desde: desde, hasta: hasta, agrupar_por: "dia" }).then(function (r) {
+      if (typeof r === "string") r = JSON.parse(r);
+      if (r && r.result && !r.filas) r = r.result;
+      if (!r || r.error) throw new Error((r && r.error) || "sin_datos");
+      (r.filas || []).forEach(function (f) { var d = String(f.grupo).slice(0, 10); diasBO[d] = { fecha: d, membresias: Number(f.total) || 0, snacks: 0, alquileres: 0, otros: 0, ventas: Number(f.ventas) || 0 }; });
+      try { localStorage.setItem(K_BO, JSON.stringify(diasBO)); } catch (e) {}
+    });
+  }
+  if (BO) {
+    CATS_BASE = [{ k: "membresias", n: "Paquetes", c: "--s-memb" }];
+    construirDias = function () { CATS = CATS_BASE.slice(); return Object.keys(diasBO).sort().filter(function (d) { return d >= INICIO; }).map(function (d) { return diasBO[d]; }); };
+    vuelta = function () {
+      if (ocupado || document.hidden) return; ocupado = true;
+      var h = hoyPY(), completo = Date.now() - ultimoResync > RESYNC_MS;
+      leerBO(completo ? INICIO : h, h).then(function () { if (completo) ultimoResync = Date.now(); pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); },
+        function () { estadoVivo(false, "Sin conexión con los datos de Calistenia · reintentando…"); }).then(function () { ocupado = false; });
+    };
+    arrancar = function () {
+      var hay = Object.keys(diasBO).length > 0;
+      if (hay) { vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "Mostrando lo último guardado · actualizando…"); }
+      else { vista("v-carga"); $("c-texto").textContent = "Leyendo las ventas de Calistenia Bolivia…"; $("c-barra").style.width = "30%"; }
+      if (!window.CM || !CM.conSesion || !CM.conSesion()) { $("a-titulo").textContent = "Falta la sesión de datos de Calistenia"; $("a-texto").textContent = "Abrí el centro de mando (por ejemplo, el muro) para conectar los datos de Calistenia Bolivia y volvé a esta página."; if (!hay) vista("v-aviso"); return; }
+      leerBO(INICIO, hoyPY()).then(function () {
+        ultimoResync = Date.now(); vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "En vivo · actualizado " + horaPY());
+        detener(); reloj = setInterval(vuelta, CADA_MS);
+      }, function (x) {
+        if (hay) { estadoVivo(false, "Sin conexión con los datos de Calistenia · mostrando lo último guardado"); detener(); reloj = setInterval(vuelta, CADA_MS); return; }
+        $("a-titulo").textContent = "No se pudo cargar el reporte"; $("a-texto").textContent = "No se pudieron leer las ventas de Calistenia Bolivia (" + ((x && x.message) || "error") + ")."; vista("v-aviso");
+      });
+    };
+    /* Textos y marca de Bolivia */
+    document.title = "Ingresos · Calistenia Bolivia";
+    var img = document.querySelector(".top__in img"); if (img) { img.src = "https://empresa.servisofts.com/http/empresa/d4118f82-0b0a-44e3-8525-73df48be69db"; img.alt = "Calistenia Bolivia"; }
+    var h1 = document.querySelector(".top__txt h1"); if (h1) h1.textContent = "Calistenia Bolivia · Ingresos";
+    var notas = document.querySelectorAll("main p.nota"), nota = notas[notas.length - 1]; if (nota) nota.textContent = "Fuente: sistema de Calistenia Bolivia, en vivo (las mismas cifras del muro). Ingresos por venta de paquetes cobrados en caja, por fecha. Montos en bolivianos. La semana y el mes en curso se muestran más claros porque aún no cerraron.";
+    var pie = document.querySelector("footer"); if (pie) pie.textContent = "Calistenia Bolivia · Información confidencial para accionistas";
+  }
+  $("a-btn").addEventListener("click", function () { if (window.ERP) ERP.cerrar(); arrancar(); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden && reloj) vuelta(); });
 
   /* ================= Tablero ================= */
   var MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   var MES3 = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
   var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
-  var gs = function (n) { return "Gs " + Math.round(n).toLocaleString("es-PY"); };
+  var gs = function (n) { return MON + " " + Math.round(n).toLocaleString(LOC); };
   var corto = function (n) {
-    if (n >= 1e6) return (n / 1e6).toLocaleString("es-PY", { maximumFractionDigits: n >= 1e7 ? 0 : 1 }) + " M";
+    if (n >= 1e6) return (n / 1e6).toLocaleString(LOC, { maximumFractionDigits: n >= 1e7 ? 0 : 1 }) + " M";
     if (n >= 1e3) return Math.round(n / 1e3) + " mil";
     return String(n);
   };
@@ -543,7 +590,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     var primer = dias.length ? fechaLocal(dias[0].fecha) : hoy;
     $("datos-al").textContent = "Datos al " + hoy.getDate() + " de " + MESES[hoy.getMonth()] + " de " + hoy.getFullYear();
     $("kpis").innerHTML = [
-      ["Total desde el inicio", gs(total(acum)), "Desde " + diaCorto(primer) + " " + primer.getFullYear() + " · " + acum.ventas.toLocaleString("es-PY") + " ventas"],
+      ["Total desde el inicio", gs(total(acum)), "Desde " + diaCorto(primer) + " " + primer.getFullYear() + " · " + acum.ventas.toLocaleString(LOC) + " ventas"],
       ["Última semana cerrada", gs(total(ultCerrada)), ultCerrada.titulo],
       [cap(mesAct.titulo) + (mesAct.enCurso ? " (en curso)" : ""), gs(total(mesAct)), mesAnt ? cap(mesAnt.titulo) + ": " + gs(total(mesAnt)) : ""]
     ].map(function (k) { return '<div class="kpi"><div class="kpi__l">' + k[0] + '</div><div class="kpi__v">' + k[1] + '</div><div class="kpi__s">' + k[2] + "</div></div>"; }).join("");
@@ -656,6 +703,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   /* ================= Inicio ================= */
   mostrarUsuario();
   if (desdePortal) $("salir").textContent = "← Centro de mando";
+  if (BO && !desdePortal) { location.replace("../dashboard/"); return; }
   if (sesion) arrancar(); else { vista("v-login"); }
 })();
 </script>
