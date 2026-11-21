@@ -29,10 +29,12 @@ function sistema() {
         "Eres «Capital Corp», el asistente del centro de mando del grupo Capital Corp. Vives en la pantalla central del muro de pantallas de Calistenia Company (gimnasios de calistenia en Bolivia y Paraguay).",
         "",
         "Tu manera de hablar: la de un caballero de negocios. Cortés, sereno, seguro y preciso, con un toque de elegancia y algo de humor fino cuando cabe. Tratas de usted, con nombre si lo sabes (\"don José Miguel\", \"doña Eliana\"). Nunca servil ni exagerado.",
+        "Al director del grupo, José Miguel Parada (en el sistema puede figurar como Jose Parada), siempre lo llamas \"don José Miguel\".",
         "",
         "Lo que dices se lee en voz alta:",
         "- Frases cortas y naturales, para el oído. Nada de listas, viñetas, asteriscos, tablas ni emojis.",
-        "- Como máximo unas 90 palabras por respuesta, salvo que te pidan detalle.",
+        "- Ve directo al punto: la respuesta en la primera frase. Como máximo unas 60 palabras, salvo que te pidan detalle.",
+        "- Usa puntos y comas para marcar las pausas naturales al hablar.",
         "- Montos de Bolivia en bolivianos, redondeados (\"unos cuarenta y dos mil bolivianos\"); porcentajes enteros.",
         "",
         "Con quién hablas:",
@@ -73,7 +75,7 @@ async function responder(cuerpo, opciones) {
     const ultimo = mensajes[mensajes.length - 1];
     ultimo.content = contexto + "\n\n" + ultimo.content;
     const token = typeof cuerpo.mcp_token === "string" && cuerpo.mcp_token.length > 10 && cuerpo.mcp_token.length < 8192 ? cuerpo.mcp_token : null;
-    const pedido = { model: MODELO, max_tokens: 4000, output_config: { effort: "low" }, system: sistema(), messages: mensajes, betas: [] };
+    const pedido = { model: MODELO, max_tokens: 1500, output_config: { effort: "low" }, system: sistema(), messages: mensajes, betas: [] };
     if (/^claude-(opus|sonnet|fable)/.test(MODELO)) { pedido.betas.push("server-side-fallback-2026-07-01"); pedido.fallbacks = "default"; }
     if (token) {
         /* Claude consulta el MCP de Calistenia con el acceso de quien está en la pantalla (sus mismos permisos). */
@@ -92,6 +94,31 @@ async function responder(cuerpo, opciones) {
     if (r.stop_reason === "refusal") return "Le ruego me disculpe, eso no puedo responderlo. ¿Le ayudo con otra cosa?";
     const texto = (r.content || []).filter((b) => b.type === "text").map((b) => b.text).join(" ").replace(/[*#_`|]/g, "").replace(/\s+/g, " ").trim();
     return texto || "Disculpe, no alcancé a formular la respuesta. ¿Me lo repite?";
+}
+
+/* ---------- Voz: Google Cloud Text-to-Speech (voz neuronal masculina, español latino) ----------
+   La misma voz en todos los equipos, con pausas entre frases. Si falla, el navegador lee con su propia voz. */
+const VOZ = process.env.ASISTENTE_VOZ || "es-US-Neural2-B";
+async function tokenGoogle() {
+    const r = await fetch("http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token", { headers: { "Metadata-Flavor": "Google" } });
+    if (!r.ok) throw new Error("metadata " + r.status);
+    return (await r.json()).access_token;
+}
+function ssml(texto) {
+    const esc = String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return "<speak>" + esc.replace(/([.!?…])\s+/g, "$1 <break time=\"350ms\"/> ").replace(/([,;:])\s+/g, "$1 <break time=\"120ms\"/> ") + "</speak>";
+}
+async function voz(texto) {
+    try {
+        const t = await tokenGoogle();
+        const r = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize", {
+            method: "POST", headers: { Authorization: "Bearer " + t, "Content-Type": "application/json" },
+            body: JSON.stringify({ input: { ssml: ssml(String(texto).slice(0, 2500)) }, voice: { languageCode: VOZ.slice(0, 5), name: VOZ },
+                audioConfig: { audioEncoding: "MP3", speakingRate: 1.0, pitch: -2.0, effectsProfileId: ["large-home-entertainment-class-device"] } })
+        });
+        if (!r.ok) { console.error("voz", r.status, (await r.text()).slice(0, 300)); return null; }
+        return (await r.json()).audioContent || null;
+    } catch (e) { console.error("voz", e.message); return null; }
 }
 
 async function verificar(req) {
@@ -119,12 +146,18 @@ exports.asistente = onRequest({ region: "southamerica-east1", cors: ORIGENES, se
     if (!t) return res.status(401).json({ error: "Ingresa al centro de mando con un usuario del ERP con permiso del muro." });
     if (frenado(t.uid)) return res.status(429).json({ error: "Demasiadas preguntas seguidas. Espere un momento." });
     try {
-        const texto = await responder(req.body || {});
-        return res.json({ texto });
+        const cuerpo = req.body || {};
+        /* Solo la voz de una frase corta (por ejemplo «Permítame un momento»), sin pasar por Claude. */
+        if (typeof cuerpo.solo_voz === "string") {
+            const f = cuerpo.solo_voz.trim().slice(0, 200);
+            return res.json({ texto: f, audio: f ? await voz(f) : null });
+        }
+        const texto = await responder(cuerpo);
+        return res.json({ texto, audio: cuerpo.con_voz === false ? null : await voz(texto) });
     } catch (e) {
         console.error("asistente", e.status || "", e.message);
         return res.status(502).json({ error: "El asistente no respondió. Intente de nuevo." });
     }
 });
 
-exports._internos = { responder, limpiarHistorial, sistema };
+exports._internos = { responder, limpiarHistorial, sistema, ssml };

@@ -9,6 +9,10 @@
     var CFG = window.CM_FIREBASE_CONFIG;
     var URL_IA = window.CM_ASISTENTE_URL || (CFG ? "https://southamerica-east1-" + CFG.projectId + ".cloudfunctions.net/asistente" : null);
     var REPOSO_MS = 3 * 60000, DATOS_MS = 5 * 60000;
+    /* Conversación continua: después de responder sigue escuchando sin botón ni palabra clave mientras haya
+       conversación (2 minutos desde lo último que se dijo); después vuelve a esperar «Capital». */
+    var CONVERSA_MS = 2 * 60000;
+    function enConversacion() { return Date.now() - S.ultimo < CONVERSA_MS; }
 
     var S = { estado: "espera", datos: null, historial: [], quien: "", modoIA: null, ultimo: Date.now(), escuchando: false, hablando: false, activo: false };
 
@@ -122,26 +126,54 @@
             || es.filter(function (v) { return /419|MX|US/i.test(v.lang); })[0] || es[0] || null;
     }
     if (window.speechSynthesis) { elegirVoz(); speechSynthesis.onvoiceschanged = elegirVoz; }
-    function decir(texto) {
+    /* Habla con la voz neuronal del servidor (audio MP3) o, si no llegó, con la voz del navegador frase por frase
+       (Chrome corta los textos largos; por frases no se traba y respeta las pausas). Mientras habla, el micrófono
+       sigue atento: si la persona habla, se calla al instante. */
+    var reproductor = new Audio(); reproductor.preload = "auto";
+    function frases(t) { return String(t).match(/[^.!?…]+[.!?…]*\s*/g) || [String(t)]; }
+    function decir(texto, audio) {
         $("as-dice").textContent = texto;
         S.ultimo = Date.now();
-        if (!window.speechSynthesis) { estado("espera"); return Promise.resolve(); }
         return new Promise(function (fin) {
-            speechSynthesis.cancel();
-            var u = new SpeechSynthesisUtterance(texto);
-            if (voz) { u.voice = voz; u.lang = voz.lang; } else u.lang = "es-419";
-            u.rate = 0.98; u.pitch = 0.88;
             S.hablando = true; S.interrumpido = false; detenerEscucha(); estado("hablando");
             vigilarInterrupcion(texto);
-            var listo = false, empezo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; if (!S.interrumpido) { pararInterrupcion(); estado("espera"); } fin(); };
-            u.onstart = function () { empezo = true; S.vozBloqueada = false; avisar(""); };
-            u.onend = cerrar;
-            u.onerror = function (e) { if (e && e.error === "not-allowed") bloqueada(texto); cerrar(); };
-            /* Si el navegador no deja sonar sin un toque previo, no empieza nunca: se avisa y se repite al primer toque. */
-            setTimeout(function () { if (!empezo && !listo && !speechSynthesis.speaking) { bloqueada(texto); cerrar(); } }, 2500);
-            setTimeout(cerrar, Math.max(6000, texto.length * 95));   // por si el navegador no avisa el final
-            speechSynthesis.speak(u);
+            var listo = false, cerrar = function () { if (listo) return; listo = true; S.hablando = false; S.cortar = null; if (!S.interrumpido) { pararInterrupcion(); estado("espera"); } fin(); };
+            S.cortar = cerrar;
+            if (audio) {
+                reproductor.onended = cerrar;
+                reproductor.onerror = function () { porNavegador(); };
+                reproductor.src = "data:audio/mpeg;base64," + audio;
+                var p = reproductor.play();
+                if (p && p.catch) p.catch(function (e) { if (e && e.name === "NotAllowedError") { bloqueada(texto, audio); cerrar(); } else porNavegador(); });
+                return;
+            }
+            porNavegador();
+            var porNav = false;
+            function porNavegador() {
+                if (porNav || listo) return; porNav = true;
+                if (!window.speechSynthesis) return cerrar();
+                speechSynthesis.cancel();
+                var cola = frases(texto), i = 0, empezo = false;
+                (function siguiente() {
+                    if (listo || S.interrumpido) return cerrar();
+                    if (i >= cola.length) return cerrar();
+                    var u = new SpeechSynthesisUtterance(cola[i++].trim());
+                    if (voz) { u.voice = voz; u.lang = voz.lang; } else u.lang = "es-419";
+                    u.rate = 0.95; u.pitch = 0.8;
+                    u.onstart = function () { empezo = true; S.vozBloqueada = false; avisar(""); };
+                    u.onend = function () { setTimeout(siguiente, 280); };   // pausa natural entre frases
+                    u.onerror = function (e) { if (e && e.error === "not-allowed") { bloqueada(texto); return cerrar(); } setTimeout(siguiente, 100); };
+                    speechSynthesis.speak(u);
+                })();
+                setTimeout(function () { if (!empezo && !listo && !speechSynthesis.speaking) { bloqueada(texto); cerrar(); } }, 2500);
+            }
         });
+    }
+    /* Corta lo que esté diciendo (audio o voz del navegador). */
+    function silenciar() {
+        try { reproductor.pause(); } catch (e) {}
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        if (S.cortar) S.cortar();
     }
 
     /* ---------- arranque automático ----------
@@ -149,15 +181,15 @@
        se avisa arriba y basta un toque o una tecla una sola vez. En el equipo del muro, la configuración de
        dashboard/kiosco/autorizar-este-equipo.reg autoriza el sitio de forma permanente y ya no hace falta ni eso. */
     function avisar(t) { var a = $("as-aviso"); a.textContent = t || ""; a.hidden = !t; }
-    function bloqueada(texto) {
+    function bloqueada(texto, audio) {
         if (S.vozBloqueada) return;
-        S.vozBloqueada = true; S.pendiente = texto;
+        S.vozBloqueada = true; S.pendiente = texto; S.pendienteAudio = audio || null;
         avisar("El navegador de este equipo bloqueó el sonido: toque la pantalla o presione una tecla una vez. (Para que no lo vuelva a pedir, use «Descargar autorización» abajo.)");
     }
     function alPrimerToque() {
         if (!S.vozBloqueada && !S.sinMic) return;
-        var t = S.pendiente; S.vozBloqueada = false; S.pendiente = null; S.sinMic = false; avisar("");
-        if (t) decir(t).then(function () { escuchar("turno"); }); else escuchar("vigilia");
+        var t = S.pendiente, au = S.pendienteAudio; S.vozBloqueada = false; S.pendiente = null; S.pendienteAudio = null; S.sinMic = false; avisar("");
+        if (t) decir(t, au).then(function () { escuchar("turno"); }); else escuchar("vigilia");
     }
     ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { document.addEventListener(ev, alPrimerToque, true); });
 
@@ -174,7 +206,7 @@
         var dic = {}; palabras(dicho).forEach(function (w) { dic[w] = 1; });
         return p.filter(function (w) { return dic[w]; }).length / p.length >= 0.6;
     }
-    function callar() { S.interrumpido = true; S.ultimo = Date.now(); if (window.speechSynthesis) speechSynthesis.cancel(); estado("escuchando"); }
+    function callar() { S.interrumpido = true; S.ultimo = Date.now(); try { reproductor.pause(); } catch (e) {} if (window.speechSynthesis) speechSynthesis.cancel(); if (S.cortar) S.cortar(); estado("escuchando"); }
     function pararInterrupcion() { if (recInt) { var r = recInt; recInt = null; try { r.onend = null; r.abort(); } catch (e) {} } }
     function vigilarInterrupcion(dicho) {
         if (!Rec || S.sinMic) return;
@@ -188,7 +220,7 @@
             if (!cortado) {
                 var ps = palabras(t), orden = ps.some(function (w) { return /^(silencio|basta|callate|calla|espera|espere|alto|stop)$/.test(w); });
                 if (esEco(t, dicho) && !(orden && ps.length <= 3)) return;   // es su propia voz por los parlantes
-                if (!orden && ps.length < 2) return;                         // un ruido suelto no lo interrumpe
+                if (!orden && ps.length < 2 && (ps[0] || "").length < 4) return;   // un ruido suelto no lo interrumpe
                 cortado = true; callar();
             }
             ultimo = t; $("as-oye").textContent = "«" + t + "»";
@@ -215,7 +247,7 @@
         if (!Rec || S.hablando || !S.activo) return;
         detenerEscucha();
         rec = new Rec(); rec.lang = "es-BO"; rec.interimResults = true; rec.continuous = modo === "vigilia"; rec.maxAlternatives = 1;
-        var oido = "", vence = modo === "turno" ? setTimeout(function () { if (!oido) { detenerEscucha(); $("as-oye").textContent = ""; escuchar("vigilia"); } }, 9000) : null;
+        var oido = "", vence = modo === "turno" ? setTimeout(function () { if (!oido) { detenerEscucha(); $("as-oye").textContent = ""; escuchar(enConversacion() ? "turno" : "vigilia"); } }, 12000) : null;
         S.escuchando = true;
         if (modo === "turno") { estado("escuchando"); $("as-mic").classList.add("is-on"); }
         rec.onresult = function (ev) {
@@ -229,7 +261,7 @@
         /* Si el micrófono arrancó sin preguntar, este equipo ya está autorizado: el aviso de autorización no vuelve. */
         rec.onaudiostart = function () { if (window.CC_equipoAutorizado) window.CC_equipoAutorizado(); };
         rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: use «Descargar autorización» abajo (una sola vez). Mientras tanto puede escribir."); } };
-        rec.onend = function () { var era = S.escuchando; S.escuchando = false; $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar("vigilia"); }, 400); if (S.estado === "escuchando") estado("espera"); };
+        rec.onend = function () { var era = S.escuchando; S.escuchando = false; clearTimeout(vence); $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar(modo === "turno" && enConversacion() ? "turno" : "vigilia"); }, 250); if (S.estado === "escuchando" && !(modo === "turno" && enConversacion())) estado("espera"); };
         try { rec.start(); } catch (e) {}
     }
 
@@ -284,8 +316,19 @@
         return Promise.all([firebase.auth().currentUser.getIdToken(), mcp]).then(function (x) {
             return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + x[0] },
                 body: JSON.stringify({ historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString("es-BO"), mcp_token: x[1] }) });
-        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.texto) throw Object.assign(new Error(j.error || "ia " + r.status), { status: r.status }); return j.texto; }); });
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.texto) throw Object.assign(new Error(j.error || "ia " + r.status), { status: r.status }); return { texto: j.texto, audio: j.audio || null }; }); });
     }
+    /* Frase corta con la misma voz (para «Permítame un momento» mientras consulta). Se pide una vez y se guarda. */
+    var esperas = {};
+    function vozDe(frase) {
+        if (esperas[frase]) return esperas[frase];
+        if (!URL_IA || !window.firebase || !firebase.apps.length || !firebase.auth().currentUser) return Promise.resolve(null);
+        esperas[frase] = firebase.auth().currentUser.getIdToken().then(function (tk) {
+            return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify({ solo_voz: frase }) });
+        }).then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) { return j.audio || null; }, function () { esperas[frase] = null; return null; });
+        return esperas[frase];
+    }
+    var FRASES_ESPERA = ["Permítame un momento.", "Enseguida lo reviso.", "Un instante, por favor."];
     /* t = null: alguien se acercó (dijo «Capital» o tocó Hablar sin decir nada). */
     function atender(t) {
         var mio = S.turno = (S.turno || 0) + 1;   // si llega otra pregunta en el medio, esta respuesta ya no sigue escuchando
@@ -303,24 +346,33 @@
             if (nombreNuevo) return "Un gusto, " + S.quien + ". " + resumen();
             return respuestaBasica(t);
         };
-        var p = S.modoIA === false ? Promise.resolve(local()) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
-            if (e.status === 429) return "Demasiadas preguntas seguidas; permítame un momento.";
+        var llego = false, relleno = Promise.resolve();
+        var p = S.modoIA === false ? Promise.resolve({ texto: local() }) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
+            if (e.status === 429) return { texto: "Demasiadas preguntas seguidas; permítame un momento." };
             S.modoIA = false;
             modo2("Resumen del día en esta pantalla. Conversación completa, tableros y estudios: «Hablar con Capital Corp» (Claude).");
-            return local();
+            return { texto: local() };
         });
-        return p.then(function (resp) {
+        p.then(function () { llego = true; });
+        /* Si la respuesta tarda, avisa con la misma voz que está consultando (sin dejar un silencio largo). */
+        if (t && S.modoIA !== false) setTimeout(function () {
+            if (llego || mio !== S.turno) return;
+            var f = FRASES_ESPERA[Math.floor(Math.random() * FRASES_ESPERA.length)];
+            relleno = vozDe(f).then(function (au) { if (llego || mio !== S.turno || !au) return; S.pensando = false; return decir(f, au).then(function () { if (mio === S.turno && !llego) { S.pensando = true; estado("pensando"); } }); });
+        }, 1400);
+        return p.then(function (r) { return relleno.then(function () { return r; }); }).then(function (r) {
             S.pensando = false;
-            if (mio !== S.turno) return;   // mientras pensaba le hicieron otra pregunta
+            if (mio !== S.turno || S.interrumpido) return;   // mientras pensaba le hicieron otra pregunta
+            var resp = r.texto;
             if (/con qui[eé]n tengo el gusto/i.test(resp)) S.esperaNombre = true;
             S.historial.push({ rol: "asistente", texto: resp });
-            return decir(resp);
+            return decir(resp, r.audio);
         }).then(function () { if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
     }
 
     /* Reposo: sin conversación por 3 minutos, se olvida con quién hablaba (puede acercarse otra persona). */
     setInterval(function () {
-        if (Date.now() - S.ultimo > REPOSO_MS && (S.historial.length || S.quien)) { S.historial = []; S.quien = ""; $("as-dice").textContent = "Diga «Capital» para hablar conmigo."; }
+        if (Date.now() - S.ultimo > REPOSO_MS && S.historial.length) { S.historial = []; S.quien = quienDeSesion(); $("as-dice").textContent = "Diga «Capital» para hablar conmigo."; }
     }, 20000);
 
     /* ---------- Capital Corp en Claude ----------
@@ -347,13 +399,23 @@
     var saludado = false;
     function arrancar() { if (saludado) return; saludado = true; atender(null); }
     setTimeout(arrancar, 4000);
-    $("as-mic").addEventListener("click", function () { if (!S.activo) return; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
+    $("as-mic").addEventListener("click", function () { if (!S.activo) return; pararInterrupcion(); S.interrumpido = true; silenciar(); S.hablando = false; S.interrumpido = false; S.ultimo = Date.now(); escuchar("turno"); });
     /* Tocar la pantalla mientras habla también lo hace callar y escuchar. */
-    document.querySelector(".as-voz").addEventListener("click", function () { if (!S.hablando) return; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
-    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; pararInterrupcion(); S.interrumpido = true; if (window.speechSynthesis) speechSynthesis.cancel(); S.interrumpido = false; detenerEscucha(); atender(t); });
+    document.querySelector(".as-voz").addEventListener("click", function () { if (!S.hablando) return; pararInterrupcion(); S.interrumpido = true; silenciar(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
+    $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; pararInterrupcion(); S.interrumpido = true; silenciar(); S.interrumpido = false; detenerEscucha(); atender(t); });
     $("as-full").addEventListener("click", function () { var d = document.documentElement; (d.requestFullscreen ? d.requestFullscreen() : Promise.resolve()).catch(function () {}); });
 
-    cargarDatos().catch(function () {}).then(function () { setTimeout(arrancar, 300); });
+    /* Quién está en la pantalla: el usuario del ERP con el que se entró (al director, «don José Miguel»). */
+    function quienDeSesion() {
+        var n = "";
+        try { n = (window.CMFB && CMFB.nombre && CMFB.nombre()) || ""; } catch (e) {}
+        if (!n) try { n = (JSON.parse(localStorage.getItem("cb_centro_mando") || "{}").nombre) || ""; } catch (e) {}
+        if (/jos[eé]\s+(miguel\s+)?parada/i.test(n)) return "don José Miguel";
+        var p = String(n).trim().split(/\s+/)[0];
+        return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "";
+    }
+    if (!S.quien) S.quien = quienDeSesion();
+    cargarDatos().catch(function () {}).then(function () { if (!S.quien) S.quien = quienDeSesion(); setTimeout(arrancar, 300); });
     setInterval(function () { if (!document.hidden) cargarDatos().catch(function () {}); }, DATOS_MS);
     $("as-dice").textContent = "Diga «Capital» para hablar conmigo.";
 })();
