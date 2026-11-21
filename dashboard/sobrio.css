@@ -93,7 +93,9 @@ b, strong { font-weight: 600; }
 html body.acc {
     --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
     --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
-    --s-memb: #D5D9DE; --s-snack: #D9AE5B; --s-alq: #8AA4D6; --s-otros: #6FBF95;   /* misma paleta que los gráficos del muro: sobria pero distinguible */
+    /* Un color bien distinto por concepto (validado para fondo oscuro y daltonismo): azul, naranja, verde agua, violeta.
+       El plateado/dorado/lavanda anterior quedaba casi gris y no se distinguía. */
+    --s-memb: #3987e5; --s-snack: #d95926; --s-alq: #199e70; --s-otros: #9085e9;
     --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
     color-scheme: dark;
 }
