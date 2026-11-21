@@ -291,7 +291,8 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     var cm = leer("cb_centro_mando");
     if (!cm || !(cm.vence > Date.now()) || !cm.key_usuario) return;
     var py = cm.tableros_py || [], bo = cm.tableros || [];
-    if (BO ? bo.indexOf("direccion") < 0 : (py.indexOf("accionistas") < 0 && py.indexOf("direccion") < 0 && bo.indexOf("direccion") < 0)) return;
+    var ve = function (l) { return l.indexOf("direccion") >= 0 || l.indexOf("accionistas") >= 0; };   // Dirección o inversionistas
+    if (BO ? !ve(bo) : !(ve(py) || ve(bo))) return;
     desdePortal = true;
     if (!sesion || sesion.key !== cm.key_usuario) sesion = { nombre: cm.nombre || cm.usuario, usuario: cm.usuario, key: cm.key_usuario, vence: cm.vence, portal: true };
   })();

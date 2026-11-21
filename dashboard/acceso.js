@@ -13,7 +13,7 @@
     var KEY_EMPRESA_PY = "3433c7d4-a626-44de-b825-f924334e679c";        // Calistenia Paraguay en el ERP
     var CLAVE_CTX = "cc_contexto";                                       // empresa y país elegidos (Capital Corp)
     /* Un permiso del ERP por tablero; "todo" equivale a todos. */
-    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc"];
+    var TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc", "accionistas"];
 
     var acceso = document.getElementById("acceso");
     var portal = document.getElementById("portal");
@@ -52,7 +52,7 @@
        permisos de datos que en Bolivia (la sesión de datos es una sola). */
     function tablerosPY(s) {
         var bo = (s && s.tableros) || [], py = (s && s.tableros_py) || [], out = [];
-        if (py.indexOf("accionistas") >= 0 || py.indexOf("direccion") >= 0 || bo.indexOf("direccion") >= 0) out.push("accionistas");
+        if (py.indexOf("accionistas") >= 0 || py.indexOf("direccion") >= 0 || bo.indexOf("direccion") >= 0 || bo.indexOf("accionistas") >= 0) out.push("accionistas");
         if (bo.indexOf("legal") >= 0) out.push("legal");
         if (bo.indexOf("marketing") >= 0) out.push("marketing");
         return out;
@@ -147,6 +147,7 @@
         if (pais !== "paraguay") return bo;
         var py = (s.tableros_py || []).slice();
         if (bo.indexOf("direccion") >= 0) py.push("todo");
+        if (bo.indexOf("accionistas") >= 0 && py.indexOf("accionistas") < 0) py.push("accionistas");   // inversionistas: ingresos de los dos países
         ["legal", "marketing"].forEach(function (t) { if (bo.indexOf(t) >= 0 && py.indexOf(t) < 0) py.push(t); });
         return py;
     }

@@ -16,7 +16,7 @@ const MARCA = "---SSofts---";
 const PAGINA_CM = "/centro_mando";
 const KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db"; // Calistenia Bolivia en el ERP
 const KEY_EMPRESA_PY = "3433c7d4-a626-44de-b825-f924334e679c"; // Calistenia Paraguay en el ERP
-const TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc"];
+const TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc", "accionistas"];
 const DIAS_SESION = 30;
 const ORIGENES = ["https://calisteniabolivia-srl.github.io"].concat(process.env.ORIGEN_EXTRA ? [process.env.ORIGEN_EXTRA] : []);
 
@@ -120,7 +120,7 @@ exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, max
     if (!usuario || usuario.length > 80 || !/^[a-f0-9]{32}$/.test(md5)) return res.status(400).json({ error: "Datos de ingreso no válidos." });
     try {
         const r = await ingresar(usuario, md5);
-        if (!r.tableros.length) return res.status(403).json({ error: "Tu usuario no tiene permisos del centro de mando en el ERP." });
+        if (!r.tableros.length && !r.tableros_py.length) return res.status(403).json({ error: "Tu usuario no tiene permisos del centro de mando en el ERP." });
         return res.json({ token: r.token, nombre: r.nombre, tableros: r.tableros, vence: r.vence });
     } catch (e) {
         if (e.codigo === "credenciales") { fallo(ip); return res.status(401).json({ error: "Usuario o contraseña incorrectos." }); }
