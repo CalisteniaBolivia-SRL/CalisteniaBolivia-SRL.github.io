@@ -6,7 +6,9 @@
     "use strict";
     var MOTIVOS = { enfermedad: "Enfermedad", permiso: "Permiso", vacaciones: "Vacaciones", emergencia: "Emergencia", falta_sin_aviso: "Faltó sin avisar", cambio_turno: "Cambio de turno", otro: "Otro" };
     var AVISOS = { anticipado: "Con anticipación", mismo_dia: "El mismo día", sin_aviso: "Sin aviso" };
-    var R = { lista: [], sucursales: [], profes: [], mes: null, suc: "", editar: false, puede: false };
+    var R = { lista: [], sucursales: [], profes: [], mes: null, suc: "", editar: false, puede: false, pais: window.CM_PAIS || "bolivia" };
+    /* Cada país tiene su propio registro (los anteriores a esta separación son de Bolivia). */
+    function delPais(x) { return (x.pais || "bolivia") === R.pais; }
     var $ = function (id) { return document.getElementById(id); };
     function el(tag, attrs, hijos) {
         var e = document.createElement(tag);
@@ -35,7 +37,7 @@
         msg("Cargando…");
         var r = rangoMes();
         return col().where("fecha", ">=", r.desde).where("fecha", "<=", r.hasta).get().then(function (q) {
-            R.lista = q.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).filter(function (x) { return Number(x.estado == null ? 1 : x.estado) > 0; })
+            R.lista = q.docs.map(function (d) { return Object.assign({ key: d.id }, d.data()); }).filter(function (x) { return Number(x.estado == null ? 1 : x.estado) > 0 && delPais(x); })
                 .sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)) || String(b.hora_inicio).localeCompare(String(a.hora_inicio)); });
             msg(""); pintar();
         }).catch(function (e) {
@@ -43,6 +45,7 @@
         });
     }
     function profesoresERP() {
+        if (R.pais !== "bolivia") return Promise.resolve([]);
         if (!window.CM || !CM.conSesion || !CM.conSesion()) return Promise.resolve([]);
         var h = new Date(), d = new Date(h); d.setDate(d.getDate() - 60);
         return CM.llamar("asistencia_por_instructor", { desde: iso(d), hasta: iso(h) }).then(function (r) {
@@ -52,7 +55,7 @@
     }
     function cargarNombres() {
         var hist = col().orderBy("fecha", "desc").limit(300).get().then(function (q) {
-            var n = []; q.docs.forEach(function (d) { var x = d.data(); n.push(x.titular, x.reemplazo); }); return n;
+            var n = []; q.docs.forEach(function (d) { var x = d.data(); if (delPais(x)) n.push(x.titular, x.reemplazo); }); return n;
         }).catch(function () { return []; });
         return Promise.all([hist, profesoresERP()]).then(function (a) {
             var v = {}; a[0].concat(a[1]).forEach(function (n) { var t = bonito(n); if (t) v[norm(t)] = t; });
@@ -101,7 +104,7 @@
                 ev.currentTarget.disabled = true;
                 var u = window.CMFB ? CMFB.usuarioKey() : "", nombre = (window.CM_USUARIO && CM_USUARIO.nombre) || "";
                 var p = x.key ? col().doc(x.key).update(Object.assign(d, { editado_por: u, fecha_edicion: new Date().toISOString() }))
-                    : col().add(Object.assign(d, { estado: 1, registrado_por: u, registrado_nombre: nombre, fecha_on: new Date().toISOString() }));
+                    : col().add(Object.assign(d, { pais: R.pais, estado: 1, registrado_por: u, registrado_nombre: nombre, fecha_on: new Date().toISOString() }));
                 p.then(function () {
                     f.hidden = true; msg("Reemplazo guardado: " + d.titular + " → " + d.reemplazo + " (" + corta(d.fecha) + ").", "ok");
                     if (d.fecha.slice(0, 7) !== R.mes) { R.mes = d.fecha.slice(0, 7); $("rp-mes").value = R.mes; }
@@ -163,11 +166,12 @@
             return [f.fecha, f.sucursal, f.hora_inicio, f.hora_fin, f.clases, f.titular, f.reemplazo, MOTIVOS[f.motivo] || f.motivo, AVISOS[f.aviso] || f.aviso, f.nota, f.registrado_nombre];
         }));
         var blob = new Blob(["﻿" + filas.map(function (r) { return r.map(q).join(";"); }).join("\r\n")], { type: "text/csv;charset=utf-8" });
-        var a = el("a", { href: URL.createObjectURL(blob), download: "reemplazos-" + R.mes + (R.suc ? "-" + R.suc : "") + ".csv" });
+        var a = el("a", { href: URL.createObjectURL(blob), download: "reemplazos-" + R.pais + "-" + R.mes + (R.suc ? "-" + R.suc : "") + ".csv" });
         document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     }
 
     /* ---------- arranque ---------- */
+    document.querySelector(".rp-eyebrow").textContent = "Calistenia Company · " + (R.pais === "paraguay" ? "Paraguay" : "Bolivia") + " · Supervisión";
     R.mes = hoy().slice(0, 7); $("rp-mes").value = R.mes; $("rp-mes").max = R.mes;
     $("rp-mes").addEventListener("change", function () { if (/^\d{4}-\d{2}$/.test(this.value)) { R.mes = this.value; cargar(); } });
     $("rp-suc").addEventListener("change", function () { R.suc = this.value; pintar(); });
@@ -180,7 +184,7 @@
         R.puede = CMFB.tieneRol("supervision");
         $("rp-nuevo").hidden = !R.puede;
         if (!R.puede) msg("Solo lectura: los reemplazos los registra Supervisión.");
-        CMFB.util.sucursales().then(function (l) {
+        (R.pais === "paraguay" ? Promise.resolve([]) : CMFB.util.sucursales()).then(function (l) {
             R.sucursales = l; var s = $("rp-suc");
             l.forEach(function (x) { s.appendChild(el("option", { value: x, text: x })); });
         });

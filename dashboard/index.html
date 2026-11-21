@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../index.css">
     <link rel="stylesheet" href="dasboard.css?v=9">
-    <link rel="stylesheet" href="capital.css?v=3">
+    <link rel="stylesheet" href="capital.css?v=4">
 </head>
 <body class="cc">
     <header class="nav">
@@ -24,6 +24,7 @@
             <a href="#muro" data-tablero="muro">Muro</a>
             <a href="#equipo">Equipo</a>
             <a href="manual.html">Manual</a>
+            <a href="modulos.html" id="nav-modulos" hidden>Módulos</a>
             <span class="cm-hola" id="hola"></span>
             <button type="button" class="cm-salir" id="salir">Salir</button>
         </nav>
@@ -93,40 +94,22 @@
         <section class="cm-hero">
             <p class="cm-eyebrow">Calistenia Company · Paraguay</p>
             <h1>Centro de <span class="red">mando</span></h1>
-            <p class="cm-lead">Tableros de Calistenia Paraguay. Los ingresos se leen en vivo del ERP de Paraguay (guaraníes).</p>
+            <p class="cm-lead">Los mismos módulos que Bolivia, con los datos del ERP de Calistenia Paraguay (guaraníes). Dirección elige en «Módulos» cuáles se ven.</p>
         </section>
-        <section class="cm-block">
+        <section class="cm-block" id="muro-py" hidden>
             <div class="cm-head">
-                <h2>Tableros de <span class="red">Paraguay</span></h2>
+                <h2>Muro de <span class="red" id="cuenta-paraguay">pantallas</span></h2>
+                <p>Abre cada pantalla en su monitor y presiona <b>Pantalla completa</b>. Se ajusta al monitor sin scroll y se actualiza cada 8 segundos.</p>
+            </div>
+            <ol class="cm-screens" id="pantallas-paraguay"></ol>
+        </section>
+        <section class="cm-block" id="equipo-py">
+            <div class="cm-head">
+                <h2>Tus <span class="red">tableros</span></h2>
                 <p>Cada tarjeta respeta los permisos de tu usuario en el ERP.</p>
             </div>
-            <div class="cm-team">
-                <a class="cm-card" data-tablero-py="accionistas" href="../accionistas-py/">
-                    <span class="cm-area">Ingresos en vivo</span>
-                    <span class="cm-who">Dirección · Accionistas</span>
-                    <span class="cm-role">ERP de Calistenia Paraguay</span>
-                    <span class="cm-what">Cierres semanales y mensuales de membresías, snacks y alquileres, actualizados cada 8 segundos</span>
-                </a>
-                <a class="cm-card" data-tablero-py="legal" href="legal.html?pais=paraguay">
-                    <span class="cm-area">Legal</span>
-                    <span class="cm-who">Asesoría legal · Dirección</span>
-                    <span class="cm-role">Contratos, permisos y casos de Paraguay</span>
-                    <span class="cm-what">Vencimientos de contratos y licencias, procesos con su bitácora y calendario de plazos</span>
-                </a>
-                <a class="cm-card" data-tablero-py="marketing" href="redes.html?pais=paraguay">
-                    <span class="cm-area">Redes sociales</span>
-                    <span class="cm-who">Marketing · Paraguay</span>
-                    <span class="cm-role">Respuestas automáticas a comentarios</span>
-                    <span class="cm-what">Facebook e Instagram de Paraguay, casos por aprobar y borradores para TikTok</span>
-                </a>
-                <div class="cm-card cm-card--prox">
-                    <span class="cm-area">Muro, sucursales y clientes</span>
-                    <span class="cm-who">Próximamente</span>
-                    <span class="cm-role">Necesita los datos de Paraguay</span>
-                    <span class="cm-what">El muro de pantallas y los tableros por área se arman igual que en Bolivia cuando el MCP del ERP de Paraguay esté conectado</span>
-                </div>
-            </div>
-            <p class="cm-nota" id="py-sin" hidden>Tu usuario no tiene tableros de Paraguay. Dirección los asigna en la página /centro_mando del ERP de Calistenia Paraguay (o /accionistas para los ingresos).</p>
+            <div class="cm-team" id="tableros-paraguay"></div>
+            <p class="cm-nota" id="py-sin" hidden>Tu usuario no tiene tableros de Paraguay visibles. Dirección asigna los permisos en /centro_mando del ERP de Calistenia Paraguay y elige en «Módulos» cuáles se ven.</p>
         </section>
     </main>
 
@@ -139,23 +122,11 @@
 
         <section class="cm-block" id="muro" data-tablero="muro">
             <div class="cm-head">
-                <h2>Muro de <span class="red">10 pantallas</span></h2>
+                <h2>Muro de <span class="red" id="cuenta-bolivia">pantallas</span></h2>
                 <p>Abre cada pantalla en su monitor y presiona <b>Pantalla completa</b>. Se ajusta al monitor sin scroll y se actualiza cada 8 segundos.</p>
             </div>
-            <ol class="cm-screens">
-                <li><a class="cm-screen" href="muro.html#p1"><span class="cm-num">1</span><span class="cm-name">Resumen</span><span class="cm-desc">Ingresos del mes y de hoy, visitas, activos y alertas</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p2"><span class="cm-num">2</span><span class="cm-name">Ventas</span><span class="cm-desc">12 meses, últimos 30 días y medios de pago</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p3"><span class="cm-num">3</span><span class="cm-name">Sucursales</span><span class="cm-desc">Ranking y tablero contra el mes anterior</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p4"><span class="cm-num">4</span><span class="cm-name">Paquetes y cajeros</span><span class="cm-desc">Qué se vende y quién lo vende</span></a></li>
-                <li><a class="cm-screen cm-screen--cc" href="asistente.html"><span class="cm-num">5</span><span class="cm-name">Capital Corp · asistente</span><span class="cm-desc">Pantalla del medio: le habla, le dice qué atender hoy y responde por voz</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p6"><span class="cm-num">6</span><span class="cm-name">Asistencia 30 días</span><span class="cm-desc">Horas buenas y bajas por sucursal, ocupación y frecuencia</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p7"><span class="cm-num">7</span><span class="cm-name">Ventas ATC</span><span class="cm-desc">CRM de Atención al Cliente: quién trabaja, qué lista y qué canal venden más</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p8"><span class="cm-num">8</span><span class="cm-name">Retención</span><span class="cm-desc">Por vencer, en riesgo y vencidos por sucursal</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p9"><span class="cm-num">9</span><span class="cm-name">Caja y molinetes</span><span class="cm-desc">Cajas abiertas, movimientos y molinetes</span></a></li>
-                <li><a class="cm-screen" href="muro.html#p10"><span class="cm-num">0</span><span class="cm-name">Cámaras</span><span class="cm-desc">Todas las cámaras de todas las sucursales, girando solas</span></a></li>
-            </ol>
-            <p class="cm-nota">La pantalla <a href="muro.html#p5">Asistencia hoy</a> (visitas por sucursal y por hora) sigue disponible para otro monitor.</p>
-        </section>
+            <ol class="cm-screens" id="pantallas-bolivia"></ol>
+                    </section>
 
         <section class="cm-block cm-sinacceso" id="sin-acceso" hidden>
             <h2>Sin tableros <span class="red">asignados</span></h2>
@@ -168,80 +139,7 @@
                 <h2>Tus <span class="red">tableros</span></h2>
                 <p>Cada responsable tiene su tablero con indicadores, controles de fiscalización y su lista de trabajo del día.</p>
             </div>
-            <div class="cm-team">
-                <a class="cm-card" data-tablero="direccion" href="direccion.html">
-                    <span class="cm-area">Dirección General</span>
-                    <span class="cm-who">Jose Miguel Parada</span>
-                    <span class="cm-role">Director</span>
-                    <span class="cm-what">Semáforo por área y de fiscalización, proyección del mes</span>
-                </a>
-                <a class="cm-card" data-tablero="administracion" href="administracion.html">
-                    <span class="cm-area">Administración</span>
-                    <span class="cm-who">Luis Rodrigo Dorado</span>
-                    <span class="cm-role">Administrador</span>
-                    <span class="cm-what">Cajas, control de ingreso, molinetes y sucursales</span>
-                </a>
-                <a class="cm-card" data-tablero="contabilidad" href="contabilidad.html">
-                    <span class="cm-area">Contabilidad y Fiscalización</span>
-                    <span class="cm-who">Rodrigo Gomucio</span>
-                    <span class="cm-role">Contabilidad</span>
-                    <span class="cm-what">Caja contra banco, precios, NIT, convenios y prórrogas</span>
-                </a>
-                <a class="cm-card" data-tablero="supervision" href="supervision.html">
-                    <span class="cm-area">Supervisión</span>
-                    <span class="cm-who">Michell Riobo · Marco Paz</span>
-                    <span class="cm-role">Entrenadores, supervisión y marketing</span>
-                    <span class="cm-what">Sucursales, molinetes, entrenadores y clientes en riesgo</span>
-                </a>
-                <a class="cm-card" data-tablero="supervision" href="reemplazos.html">
-                    <span class="cm-area">Reemplazo de profesores</span>
-                    <span class="cm-who">Supervisión</span>
-                    <span class="cm-role">Registro de faltas y reemplazos</span>
-                    <span class="cm-what">Quién faltó, quién cubrió, cuántas clases, motivo y aviso; resumen del mes y clases cubiertas para pagar</span>
-                </a>
-                <a class="cm-card" data-tablero="marketing" href="marketing.html">
-                    <span class="cm-area">Marketing y Ventas</span>
-                    <span class="cm-who">Michell Riobo · Marco Paz</span>
-                    <span class="cm-role">Entrenadores, supervisión y marketing</span>
-                    <span class="cm-what">Proyección, paquetes, campañas y horas vacías</span>
-                </a>
-                <a class="cm-card" data-tablero="marketing" href="redes.html?pais=bolivia">
-                    <span class="cm-area">Redes sociales</span>
-                    <span class="cm-who">Marketing · Bolivia y Paraguay</span>
-                    <span class="cm-role">Respuestas automáticas a comentarios</span>
-                    <span class="cm-what">Facebook e Instagram responden solos con humor; críticas calmadas y llevadas a privado; casos delicados por aprobar; borradores para TikTok</span>
-                </a>
-                <a class="cm-card" data-tablero="rrhh" href="rrhh.html">
-                    <span class="cm-area">Recursos Humanos</span>
-                    <span class="cm-who">German Gallardo</span>
-                    <span class="cm-role">Recursos Humanos</span>
-                    <span class="cm-what">Productividad de entrenadores y cumplimiento de cajeros</span>
-                </a>
-                <a class="cm-card" data-tablero="reportes" href="reportes.html">
-                    <span class="cm-area">Reportes</span>
-                    <span class="cm-who">Dirección · Administración</span>
-                    <span class="cm-role">Control y auditoría</span>
-                    <span class="cm-what">Traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados</span>
-                </a>
-                <a class="cm-card" data-tablero="jefe_atc" href="comercial.html?vista=jefe">
-                    <span class="cm-area">Jefe de ATC</span>
-                    <span class="cm-who">Eliana Aguilera</span>
-                    <span class="cm-role">Dirige al equipo de atención al cliente</span>
-                    <span class="cm-what">Asigna las listas y campañas a cada ATC, sigue cómo vende cada una, lo que gana, las comisiones a pagar y el control de caja</span>
-                </a>
-                <a class="cm-card" data-tablero="atencion atc" href="comercial.html?vista=atc">
-                    <span class="cm-area">Atención al Cliente (ATC)</span>
-                    <span class="cm-who">ATC de cada sucursal</span>
-                    <span class="cm-role">Llamar, escribir y cerrar ventas</span>
-                    <span class="cm-what">Tu lista de clientes del día con Llamar y WhatsApp, tus seguimientos y lo que vas ganando (Bs 5 por cliente que vuelve)</span>
-                </a>
-                <a class="cm-card" data-tablero="legal" href="legal.html">
-                    <span class="cm-area">Legal</span>
-                    <span class="cm-who">Asesoría legal · Dirección</span>
-                    <span class="cm-role">Contratos, permisos y casos</span>
-                    <span class="cm-what">Vencimientos de contratos y licencias por sucursal, procesos con su bitácora y calendario de plazos</span>
-                </a>
-            </div>
+            <div class="cm-team" id="tableros-bolivia"></div>
         </section>
 
         <section class="cm-block cm-help">
@@ -262,6 +160,7 @@
     <script src="firebase-config.js?v=2"></script>
     <script>window.CM_FB_SIN_BARRA = true;</script>
     <script src="cm-firebase.js?v=10"></script>
-    <script src="acceso.js?v=22"></script>
+    <script src="modulos.js?v=1"></script>
+    <script src="acceso.js?v=23"></script>
 </body>
 </html>
