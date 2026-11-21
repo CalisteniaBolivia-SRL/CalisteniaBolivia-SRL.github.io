@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de uso · Centro de mando</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<style>
+  .mn { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 18px; }
+  .mn h1 { font-family: "Arial Black", Impact, sans-serif; font-weight: 400; font-size: clamp(26px, 5vw, 36px); margin: 0; text-transform: uppercase; letter-spacing: .02em; }
+  .mn-lede { margin: 0; color: #A4A8AF; line-height: 1.5; }
+  .mn-indice { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mn-indice a { color: #D6D8DC; text-decoration: none; border: 1px solid #2B2E33; padding: 5px 10px; font-size: 13px; }
+  .mn-indice a:hover { border-color: #E30613; color: #FFFFFF; }
+  .mn-sec { background: #16181B; border: 1px solid #2B2E33; border-top: 2px solid #E30613; padding: 18px 20px; scroll-margin-top: 12px; }
+  .mn-sec h2 { margin: 0 0 4px; font-size: 20px; }
+  .mn-perfil { margin: 0 0 12px; color: #A4A8AF; font-size: 13px; }
+  .mn-perfil code { color: #FFFFFF; background: #0D0E10; border: 1px solid #2B2E33; padding: 1px 6px; }
+  .mn-sec h3 { margin: 16px 0 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #A4A8AF; }
+  .mn-sec p, .mn-sec li { line-height: 1.55; color: #E6E7E9; }
+  .mn-sec ol, .mn-sec ul { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+  .mn-sec b { color: #FFFFFF; }
+  .mn-erp { margin-top: 14px; padding: 10px 12px; border: 1px dashed #3A3E44; font-size: 13px; color: #A4A8AF; }
+  .mn-erp textarea { width: 100%; box-sizing: border-box; margin-top: 6px; font: 13px/1.5 "Segoe UI", Roboto, Arial, sans-serif; color: #FFFFFF; background: #0D0E10; border: 1px solid #2B2E33; padding: 8px 10px; resize: vertical; }
+  .mn-erp button { margin-top: 6px; font: inherit; color: #0D0E10; background: #FFFFFF; border: 0; padding: 6px 12px; cursor: pointer; }
+  .mn-vacio { color: #A4A8AF; }
+  @media print { .cm-barra, .mn-indice, .mn-erp { display: none; } body { background: #FFF; color: #000; } .mn-sec { background: #FFF; border-color: #999; } .mn-sec p, .mn-sec li, .mn-sec b { color: #000; } }
+</style>
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><span class="cm-quien" id="cm-quien"></span><button type="button" onclick="window.print()">Imprimir</button></div>
+<main class="mn" lang="es">
+  <h1>Manual de uso</h1>
+  <p class="mn-lede" id="mn-lede">Lo que corresponde a tu perfil del ERP. Cada perfil del ERP (rol con permisos en la página /centro_mando) tiene su parte del manual; si te cambian el perfil, esta página cambia sola.</p>
+  <nav class="mn-indice" id="mn-indice" aria-label="Secciones"></nav>
+  <div id="mn-cuerpo"></div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var BASE = "https://calisteniabolivia-srl.github.io/dashboard/manual.html";
+  /* Una sección por perfil del ERP. «permisos»: permisos de /centro_mando que la muestran. «rol»: nombre sugerido del rol en el ERP. */
+  var M = [
+    { id: "todos", titulo: "Para todos", rol: null, permisos: null, html:
+      '<h3>Entrar</h3><ol><li>Abrí <b>calisteniabolivia-srl.github.io/dashboard</b> y entrá con tu <b>mismo usuario y contraseña del ERP</b>. No hay usuarios aparte.</li><li>Ves solo los tableros de tu perfil. Si no te aparece algo que necesitás, pedí a Dirección que revise tu rol en el ERP.</li><li>Después de un cambio de rol: tocá <b>Salir</b> y volvé a entrar.</li></ol>' +
+      '<h3>Si algo no carga</h3><ul><li>Apretá <b>Ctrl + F5</b> (en el celular: menú ⋮ → recargar).</li><li>Si dice que la sesión venció: <b>Salir</b> y volver a entrar.</li><li>«Conectar» (Calistenia): se autoriza una sola vez con tu usuario del ERP para leer datos en vivo.</li></ul>' +
+      '<h3>Cuidado de la información</h3><ul><li>No compartas tu usuario ni la pantalla con personas ajenas. Los datos de clientes son privados.</li><li>Nunca pegues contraseñas ni claves en chats.</li></ul>' },
+    { id: "atencion", titulo: "Atención al Cliente (ATC)", rol: "Atención al Cliente · CM", permisos: ["atencion", "atc"], html:
+      '<h3>Tu trabajo del día</h3><ol><li>Entrá a <b>Atención al Cliente (ATC)</b>. La primera vez quedás sola en tu sucursal.</li><li>Arriba ves cuántos contactos llevás hoy y <b>lo que llevás ganado</b> hasta el corte del <b>25</b>.</li><li>En <b>Pendientes</b> está tu lista. Por cada cliente: <b>Llamar</b> primero; si no atiende, <b>WhatsApp</b> (el mensaje ya va escrito con su nombre).</li><li>Usá el <b>Guion de la llamada</b>: saludo, conexión, oferta y cierre con dos opciones. Tiene respuestas para «lo voy a pensar», «no tengo tiempo» y «está caro».</li><li>Después de cada contacto, marcá <b>¿Cómo te fue?</b>. «Lo va a pensar» vuelve en 2 días; «Sin respuesta», al día siguiente.</li></ol>' +
+      '<h3>Tus comisiones</h3><ul><li><b>Bs 5 por cada cliente que compra</b> dentro de los 15 días de tu último contacto. Sin tope.</li><li>«Compró o va a pagar» suma como <b>por confirmar</b>; se confirma cuando la venta se cobra en caja.</li><li>Se cobra todo lo confirmado del <b>26 al 25</b>. Si tenés meta, ves cuánto te falta y cuántas por día.</li><li>Si un cliente ya tenía plan activo antes de tu contacto, marcá «Ya estaba activo» y seguí con el siguiente.</li></ul>' +
+      '<h3>Reglas</h3><ul><li>Solo se vende el <b>paquete exclusivo</b> de la campaña a los clientes de tu lista. Las ventas a otras personas aparecen en el control de caja.</li><li>Si el cliente pide no ser contactado o el número está mal: «No contactar».</li><li>Si te quedás sin lista, avisá a tu Jefe de ATC.</li></ul>' },
+    { id: "jefe_atc", titulo: "Jefe de ATC", rol: "Jefe de ATC · CM", permisos: ["jefe_atc"], html:
+      '<h3>Cada mañana</h3><ol><li><b>Panel</b>: contactos de hoy, ventas de la semana, comisiones por pagar y cómo va cada chica (quién no tiene actividad).</li><li><b>Plan de hoy</b>: elegí los grupos de clientes (vencen pronto, vencieron hace poco, pases, etc.), revisá la promoción y el mensaje, y <b>asigná las listas</b> por sucursal (lista 1 mañana, lista 2 tarde). Podés fijar un <b>paquete exclusivo</b> de campaña.</li><li>Dejá una <b>nota del día</b> para el equipo.</li></ol>' +
+      '<h3>Durante el día</h3><ul><li><b>Ver una lista</b>: mirá la lista de cualquier chica como la ve ella. Desde ahí podés <b>quitar un cliente</b>, <b>pasarlo a otra ATC</b> o <b>quitar la lista de una sucursal</b> asignada por error.</li><li>Dejá el <b>Panel</b> abierto: así se confirman las ventas con el registro de caja y a las chicas les llega su «¡Se cerró!».</li></ul>' +
+      '<h3>Equipo, metas y pagos</h3><ul><li><b>Equipo</b>: cada ATC aparece al entrar por primera vez. Editá su sucursal y su <b>meta mensual</b>. La <b>planilla</b> ubica sola a cada ATC en su sucursal por su nombre.</li><li><b>Comisiones</b> y <b>Campañas</b>: lo ganado por chica, pagos («Marcar pagado») y el control de caja del paquete exclusivo.</li><li>Tareas y guiones: en «Más…».</li></ul>' },
+    { id: "direccion", titulo: "Dirección", rol: "Dirección · CM", permisos: ["direccion"], html:
+      '<h3>Qué mirar</h3><ul><li><b>Dirección</b>: semáforo por área y de fiscalización, proyección del mes.</li><li><b>Muro</b>: las pantallas en vivo (ver «Muro»).</li><li><b>Ventas ATC</b> (pantalla 7 del muro): quién trabaja y quién no, conversión por lista y por canal.</li></ul>' +
+      '<h3>Configurar</h3><ul><li>Roles y permisos: se dan en el ERP (página /centro_mando). Cada rol tiene su texto de manual: copialo desde «Texto para el perfil del ERP» al final de cada sección.</li><li>Cámaras: en el muro, pantalla 0 → <b>Configurar</b> → dirección del puente.</li></ul>' },
+    { id: "muro", titulo: "Muro y asistente «Capital Corp»", rol: "Muro · CM", permisos: ["muro"], html:
+      '<h3>Pantallas del muro</h3><ul><li>Teclas <b>1 a 9 y 0</b> cambian de pantalla: Resumen, Ventas, Sucursales, Paquetes y cajeros, Asistencia hoy, Asistencia 30 días (horas buenas y bajas por sucursal), <b>Ventas ATC</b>, Retención, Caja y molinetes, <b>Cámaras</b>.</li><li><b>Cámaras</b>: todas las sucursales girando solas; se puede pausar o elegir una sucursal. Solo se ven desde equipos con Tailscale de la empresa.</li><li><b>Pantalla completa</b>: botón arriba a la derecha.</li></ul>' +
+      '<h3>Asistente «Capital Corp»</h3><ul><li>Al entrar saluda y queda <b>siempre escuchando</b>: se le habla directo y responde con los datos reales del ERP.</li><li>Si se le dice «ya no hables», «descansa» o «eso es todo», queda atento; para volver: <b>«Capital…»</b>.</li><li>Si uno empieza a hablar mientras responde, se calla y escucha.</li><li>Equipo nuevo del muro: descargar la <b>autorización</b> una sola vez (micrófono, cámara y sonido).</li></ul>' },
+    { id: "administracion", titulo: "Administración", rol: "Administración · CM", permisos: ["administracion"], html:
+      '<ul><li>Cajas, control de ingreso, molinetes y sucursales.</li><li><b>Comisiones de los ATC</b>: lo que ganó cada ATC y el <b>control de caja</b> del paquete exclusivo (ventas a personas fuera de la lista).</li><li>Al abrir esa sección también se confirman las ventas de las ATC con el registro de caja.</li></ul>' },
+    { id: "contabilidad", titulo: "Contabilidad y fiscalización", rol: "Contabilidad · CM", permisos: ["contabilidad"], html:
+      '<ul><li>Caja contra banco, precios, NIT, convenios y prórrogas.</li><li>Revisá las alertas del día y anotá lo que requiere corrección en el ERP.</li></ul>' },
+    { id: "supervision", titulo: "Supervisión", rol: "Supervisión · CM", permisos: ["supervision"], html:
+      '<ul><li>Sucursales, molinetes y clientes en riesgo.</li><li><b>Horas buenas y horas bajas</b> por sucursal: para planificar personal y promociones de horario.</li><li>«¿Cuántos días vino cada cliente?»: los que vienen 4 días o menos al mes se pasan a Atención al Cliente.</li></ul>' },
+    { id: "marketing", titulo: "Marketing y redes sociales", rol: "Marketing · CM", permisos: ["marketing"], html:
+      '<ul><li><b>Marketing y Ventas</b>: proyección, paquetes, campañas y horas vacías.</li><li><b>Redes sociales</b>: Facebook e Instagram responden solos; las críticas se calman y pasan a privado; los casos delicados quedan <b>para aprobar</b>. En conversaciones podés tomar el control, asignar y dejar notas.</li><li>TikTok: borradores para publicar a mano.</li></ul>' },
+    { id: "rrhh", titulo: "Recursos Humanos", rol: "RRHH · CM", permisos: ["rrhh"], html:
+      '<ul><li>Productividad de entrenadores y cumplimiento de cajeros.</li></ul>' },
+    { id: "reportes", titulo: "Reportes", rol: "Reportes · CM", permisos: ["reportes"], html:
+      '<ul><li>Control y auditoría: traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados.</li><li>Todo lo raro se revisa con la sucursal y se deja anotado.</li></ul>' },
+    { id: "legal", titulo: "Legal", rol: "Legal · CM", permisos: ["legal"], html:
+      '<ul><li>Vencimientos de contratos y licencias por sucursal.</li><li>Procesos con su bitácora y calendario de plazos.</li></ul>' }
+  ];
+  var s = null;
+  try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+  if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+  var t = s.tableros, todo = ["direccion", "muro", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "jefe_atc"].every(function (x) { return t.indexOf(x) >= 0; });
+  document.getElementById("cm-quien").textContent = s.nombre || "";
+  var mias = M.filter(function (m) { return !m.permisos || m.permisos.some(function (p) { return t.indexOf(p) >= 0; }); });
+  var dir = t.indexOf("direccion") >= 0;
+  var idx = document.getElementById("mn-indice"), cuerpo = document.getElementById("mn-cuerpo");
+  mias.forEach(function (m) {
+    var a = document.createElement("a"); a.href = "#" + m.id; a.textContent = m.titulo; idx.appendChild(a);
+    var sec = document.createElement("section"); sec.className = "mn-sec"; sec.id = m.id;
+    var h = document.createElement("h2"); h.textContent = m.titulo; sec.appendChild(h);
+    if (m.rol) { var p = document.createElement("p"); p.className = "mn-perfil"; p.innerHTML = "Perfil del ERP: <b></b> · permiso en /centro_mando: "; p.querySelector("b").textContent = m.rol;
+      m.permisos.forEach(function (x, i) { var c = document.createElement("code"); c.textContent = x; if (i) p.appendChild(document.createTextNode(" o ")); p.appendChild(c); }); sec.appendChild(p); }
+    var d = document.createElement("div"); d.innerHTML = m.html; sec.appendChild(d);
+    /* Dirección: el texto listo para pegar en la descripción del rol en el ERP (así el manual queda escrito en cada perfil). */
+    if (dir && m.rol) {
+      var e = document.createElement("div"); e.className = "mn-erp";
+      e.appendChild(document.createTextNode("Texto para el perfil del ERP («" + m.rol + "» → descripción):"));
+      var ta = document.createElement("textarea"); ta.rows = 3; ta.readOnly = true;
+      ta.value = "Centro de mando — " + m.titulo + ". Entra con tu usuario del ERP en calisteniabolivia-srl.github.io/dashboard. Manual de funciones y uso: " + BASE + "#" + m.id;
+      var b = document.createElement("button"); b.type = "button"; b.textContent = "Copiar";
+      b.onclick = function () { ta.select(); try { navigator.clipboard.writeText(ta.value).then(function () { b.textContent = "Copiado"; }); } catch (x) { document.execCommand("copy"); b.textContent = "Copiado"; } };
+      e.appendChild(ta); e.appendChild(b); sec.appendChild(e);
+    }
+    cuerpo.appendChild(sec);
+  });
+  if (mias.length <= 1) { var v = document.createElement("p"); v.className = "mn-vacio"; v.textContent = "Tu usuario todavía no tiene un perfil del centro de mando en el ERP. Pedí a Dirección que te lo asigne."; cuerpo.appendChild(v); }
+  if (todo) document.getElementById("mn-lede").textContent = "Tenés acceso a todo: ves el manual de todos los perfiles. Al final de cada uno está el texto para pegar en la descripción del rol en el ERP.";
+  if (location.hash) { var x = document.getElementById(location.hash.slice(1)); if (x) setTimeout(function () { x.scrollIntoView(); }, 50); }
+})();
+</script>
+</body>
+</html>
