@@ -87,22 +87,22 @@ b, strong { font-weight: 600; }
 }
 .cb-card, .co-card, .pj-card, .crm-card, .crm-kpi, .rp-card, .rp-kpi, .lg-card { background: var(--s-panel) !important; border-color: var(--s-linea) !important; }
 
-/* ---------- Ingresos en vivo: siempre en negro y con gama sobria ---------- */
-:root, :root:not([data-theme="dark"]) {
+/* ---------- Ingresos en vivo: siempre en negro y con gama sobria ----------
+   Solo en esa página (body.acc): las variables --ink/--muted/... también las usa el portal con otro sentido
+   (por ejemplo, el fondo de los campos de ingreso), así que no se tocan en el resto. */
+html body.acc {
     --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
     --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
     --s-memb: #D5D9DE; --s-snack: #D9AE5B; --s-alq: #8AA4D6; --s-otros: #6FBF95;   /* misma paleta que los gráficos del muro: sobria pero distinguible */
     --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
     color-scheme: dark;
 }
-@media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-        --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
-        --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
-        --s-memb: #D5D9DE; --s-snack: #D9AE5B; --s-alq: #8AA4D6; --s-otros: #6FBF95;   /* misma paleta que los gráficos del muro: sobria pero distinguible */
-        --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
-        color-scheme: dark;
-    }
+
+/* Campos de texto del portal: siempre fondo oscuro y letra clara (también con autocompletar del navegador). */
+.cm-form input { background: var(--s-panel) !important; color: var(--s-blanco) !important; border-color: var(--s-linea-2) !important; caret-color: var(--s-blanco); }
+.cm-form input:focus-visible { outline: 1px solid var(--s-plata) !important; border-color: var(--s-plata) !important; }
+.cm-form input:-webkit-autofill, .cm-form input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--s-blanco) !important; -webkit-box-shadow: 0 0 0 1000px var(--s-panel) inset !important; transition: background-color 9999s;
 }
 
 /* ---------- Detalles ---------- */
