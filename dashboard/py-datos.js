@@ -151,7 +151,35 @@
     }
     function dif(a, b) { return Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5); }
     function pagina(lista, a) { var off = Number(a.offset) || 0, lim = Number(a.limite) || 50; var f = lista.slice(off, off + lim); return { total: lista.length, filas: f, siguiente_offset: off + lim < lista.length ? off + lim : null }; }
+    /* Ventas de membresías con el mismo formato que Bolivia (para las comisiones de Atención al Cliente). */
+    function listarVentas(a) {
+        var l = vigentes().filter(function (v) { return entre(v, a) && v.membresias > 0; }).sort(function (x, y) { return x.f.localeCompare(y.f); });
+        var keys = Object.keys(ventas), porObj = new Map(); keys.forEach(function (k) { porObj.set(ventas[k], k); });
+        var filas = l.map(function (v) {
+            var paq = Object.keys(v.p || {}).filter(function (k) { return v.p[k] > 0; })[0] || "Paquete";
+            return { key_paquete_venta: porObj.get(v), fecha: v.f + " 12:00:00", paquete: paq, sucursal: SUCURSAL, precio: Math.round(v.membresias),
+                cajero: v.u ? ((usuarios && usuarios[v.u]) || "Cajero " + String(v.u).slice(0, 4).toUpperCase()) : null,
+                clientes: v.cl ? [{ key_usuario: v.cl, cliente: v.cn }] : [], key_usuario: v.cl || null, cliente: v.cn || null };
+        });
+        return pagina(filas, a);
+    }
+    /* Paquetes de calistenia del ERP de Paraguay (para elegir el paquete exclusivo de una campaña). */
+    var paquetes = null;
+    function listarPaquetes() {
+        if (paquetes) return Promise.resolve({ filas: paquetes });
+        return cargarERP().then(function () {
+            return ERP.pedir({ version: "1.0", service: "inventario", component: "modelo", type: "getAll", key_empresa: ERP.KEY_EMPRESA, key_usuario: claveUsuario() }, 60000);
+        }).then(function (m) {
+            var d = m.data || {}, l = Array.isArray(d) ? d : Object.keys(d).map(function (k) { return d[k]; });
+            paquetes = l.filter(function (x) { return x && Number(x.estado == null ? 1 : x.estado) > 0 && TIPOS[x.key_tipo_producto] === "membresias"; }).map(function (x) {
+                return { key: x.key, descripcion: String(x.descripcion || "").trim(), precio: Number(x.precio_venta) || 0, dias: duracion(x.descripcion), usa_molinete: true, vendible_en_caja: true, sucursales: [SUCURSAL] };
+            });
+            return { filas: paquetes };
+        }).catch(function () { return { filas: [] }; });
+    }
     var HERR = {
+        listar_ventas: listarVentas,
+        listar_paquetes: function () { return listarPaquetes(); },
         reporte_ventas: reporteVentas,
         listar_clientes_activos: function () { var h = hoy(), n = membresias().filter(function (m) { return m.fecha_fin >= h; }).length; return { total: n, clientes_por_sucursal: [{ sucursal: SUCURSAL, clientes: n }], filas: [] }; },
         clientes_por_vencer: function (a) { var h = hoy(), d = Number(a.dias) || 7; return pagina(membresias().filter(function (m) { var x = dif(m.fecha_fin, h); return x >= 0 && x <= d; }).map(function (m) { return Object.assign({ dias_para_vencer: dif(m.fecha_fin, h) }, m); }).sort(function (x, y) { return x.fecha_fin.localeCompare(y.fecha_fin); }), a); },
@@ -167,7 +195,7 @@
             if (/^comercial_|^legal_|^cuentas_por_pagar_/.test(nombre)) return original.call(CM, nombre, args);   // datos propios (Firestore)
             var h = HERR[nombre];
             if (!h) return Promise.resolve(vacio(nombre));
-            return listo().then(function () { return h(args || {}); });
+            return listo().then(function () { return h(args || {}); });   // (las que devuelven promesa también sirven)
         };
         CM.conSesion = function () { return true; };      // Paraguay no usa la sesión del MCP de Bolivia
         CM.iniciarSesion = function () {};

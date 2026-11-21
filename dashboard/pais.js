@@ -6,8 +6,10 @@
     var pais = /[?&]pais=paraguay\b/.test(location.search) ? "paraguay" : "bolivia";
     window.CM_PAIS = pais;
     window.CM_MONEDA = pais === "paraguay" ? "Gs" : "Bs";
+    /* Comisión de Atención al Cliente por venta confirmada, en la moneda de cada país. */
+    window.CM_COMISION = pais === "paraguay" ? 10000 : 5;
     if (pais !== "paraguay") return;
-    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html"];
+    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html"];
     var pag = location.pathname.split("/").pop() || "index.html";
     document.documentElement.classList.add("cm-py");
     function aplicar() {

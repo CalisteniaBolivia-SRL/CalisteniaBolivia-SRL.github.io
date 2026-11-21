@@ -52,7 +52,8 @@
     }
     function opciones(lista, valor) { return lista.map(function (o) { return el("option", { value: o[0], text: o[1], selected: String(o[0]) === String(valor == null ? "" : valor) }); }); }
     var num = function (v) { var n = Number(v); return isFinite(n) ? n : 0; };
-    var bs = function (v) { return "Bs " + Math.round(num(v)).toLocaleString("es-BO"); };
+    var COM_ATC = window.CM_COMISION || 5;
+    var bs = function (v) { return (window.CM_MONEDA || "Bs") + " " + Math.round(num(v)).toLocaleString("es-BO"); };
     var fecha = function (s) { if (!s) return "—"; var p = String(s).slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0].slice(2) : String(s); };
     var hoy = function () { return L.iso(new Date()); };
     var hace = function (n) { var d = new Date(); d.setDate(d.getDate() - n); return L.iso(d); };
@@ -382,7 +383,7 @@
         var meta = num(S.yo.meta_mensual), rk = S.ranking;
         var caja = el("section", { class: "co-incentivo", "aria-label": "Lo que vas ganando" });
         if (S.comSinDatos) {
-            caja.appendChild(el("p", {}, [el("b", { text: "Bs 5 por cada cliente que vuelve" }), " dentro de los 15 días de tu contacto. Para ver lo que vas ganando, entra una vez con tu usuario de Calistenia: ",
+            caja.appendChild(el("p", {}, [el("b", { text: bs(COM_ATC) + " por cada cliente que vuelve" }), " dentro de los 15 días de tu contacto. Para ver lo que vas ganando, entra una vez con tu usuario de Calistenia: ",
                 el("button", { type: "button", class: "co-btn", text: "Conectar", onclick: function () { window.CM.iniciarSesion(location.pathname.split("/").pop() + location.hash); } })]));
             return caja;
         }
@@ -396,7 +397,7 @@
         caja.appendChild(el("div", { class: "co-inc-datos" }, datosInc.map(function (d) { return el("div", {}, [el("b", { text: d[0] }), el("span", { text: d[1] })]); })));
         if (meta) caja.appendChild(el("div", { class: "co-inc-barra", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(meta), "aria-valuenow": String(Math.min(tot.ventas, meta)) }, [el("i", { style: "width:" + Math.min(100, Math.round(tot.ventas / meta * 100)) + "%" })]));
         var falta = rk && rk.puesto > 1 && rk.lider > tot.comision ? Math.ceil((rk.lider - tot.comision) / 5) : 0;
-        caja.appendChild(el("p", { class: "co-inc-nota", text: rk && rk.puesto === 1 && tot.comision > 0 ? "¡Vas primera en el equipo! Cada cliente que vuelve suma Bs 5." : falta ? "Con " + falta + (falta === 1 ? " cliente más" : " clientes más") + " alcanzas al primer puesto. Cada uno suma Bs 5." : "Cada cliente que vuelve dentro de los 15 días de tu contacto suma Bs 5." }));
+        caja.appendChild(el("p", { class: "co-inc-nota", text: rk && rk.puesto === 1 && tot.comision > 0 ? "¡Vas primera en el equipo! Cada cliente que vuelve suma " + bs(COM_ATC) + "." : falta ? "Con " + falta + (falta === 1 ? " cliente más" : " clientes más") + " alcanzas al primer puesto. Cada uno suma " + bs(COM_ATC) + "." : "Cada cliente que vuelve dentro de los 15 días de tu contacto suma " + bs(COM_ATC) + "." }));
         return caja;
     }
     /* Clientes de la lista del Plan de hoy que la ATC todavía no contactó (sin gestión desde que se le asignó). */
@@ -618,7 +619,7 @@
                 ["Seguimientos para hoy", String(seg.length), seg.filter(function (x) { return x.crm.seguimiento_estado === "vencido"; }).length + " atrasados", seg.length ? "warn" : null],
                 ["Contactados este mes", String(contactadosMes)],
                 ["Clientes recuperados", String(tot.ventas), meta ? "Meta del mes: " + meta + " (" + Math.round(tot.ventas / meta * 100) + "%)" : "Este mes", tot.ventas ? "ok" : null],
-                ["Mi comisión del mes", bs(tot.comision), "Bs 5 por cliente recuperado", tot.comision ? "ok" : null]
+                ["Mi comisión del mes", bs(tot.comision), bs(COM_ATC) + " por cliente recuperado", tot.comision ? "ok" : null]
             ]));
             var pend = S.tareas.filter(function (t) { return !t.hecha; });
             if (pend.length) {
@@ -790,7 +791,7 @@
                 ["Contactados en el período", contactados.toLocaleString("es-BO"), todos.length ? Math.round(contactados / todos.length * 100) + "% de la cartera" : ""],
                 ["Seguimientos atrasados", String(todos.filter(function (x) { return x.crm.seguimiento_estado === "vencido"; }).length), "Clientes con seguimiento vencido", null],
                 ["Clientes recuperados", String(totalVentas), "Ventas atribuidas a un ATC", totalVentas ? "ok" : null],
-                ["Comisiones a pagar", bs(totalCom), "Bs 5 por cliente recuperado"]
+                ["Comisiones a pagar", bs(totalCom), bs(COM_ATC) + " por cliente recuperado"]
             ]));
             if (pendienteMaster(c)) return;
             c.appendChild(el("div", { class: "co-card" }, [el("h3", { class: "co-h3", text: "Ranking del equipo" }), tablaEquipo(false)]));

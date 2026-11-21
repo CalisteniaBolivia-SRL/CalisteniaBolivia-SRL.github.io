@@ -43,7 +43,7 @@
     var esPase = function (p) { return /\b(plan\s+)?(diari|semanal|pase)/i.test(String(p || "")); };
 
     /* ---------- lo que la página recuerda en este navegador ---------- */
-    var CLAVE = "atc_plan_v1";
+    var CLAVE = "atc_plan_v1" + (window.CM_PAIS === "paraguay" ? "_py" : "");
     function leerPrefs() { try { return JSON.parse(localStorage.getItem(CLAVE) || "null") || {}; } catch (e) { return {}; } }
     function guardarPrefs() { try { localStorage.setItem(CLAVE, JSON.stringify(P.prefs)); } catch (e) {} }
 
@@ -117,6 +117,19 @@
           promo: "PLAN AMIGOS X3: 3 personas por Bs 500 (dos que ya entrenaron y uno nuevo).",
           mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Estamos invitando a quienes ya entrenaron con nosotros a volver, y me acordé de vos 😊 Tenemos el {promo} Es ideal para volver con amigos y motivarse juntos. ¿Te paso los detalles?" }
     ];
+    /* Paraguay: mismas listas, con sus paquetes y precios en guaraníes (se pueden editar en cada grupo). */
+    if (window.CM_PAIS === "paraguay") {
+        var PROMO_PY = {
+            vencen: "renovación anticipada con el PAQUETE TRIMESTRAL a Gs 750.000 (sale Gs 250.000 por mes) o la PROMO 2 MESES a Gs 499.000.",
+            v1: "PROMO 2 MESES a Gs 499.000, o el PAQUETE MENSUAL.",
+            pases: "PAQUETE MENSUAL: un mes entero de entrenamiento.",
+            v16: "PROMO AMISTAD a Gs 299.000.",
+            cumple: "PLAN CUMPLEAÑERO a Gs 150.000.",
+            v46: "PROMO AMISTAD a Gs 299.000: mejor si venís con alguien.",
+            v91: "PROMO AMISTAD a Gs 299.000 para volver con un amigo."
+        };
+        SEGS.forEach(function (x) { if (PROMO_PY[x.id] != null) x.promo = PROMO_PY[x.id]; x.porque = String(x.porque).replace(/ Ojo:.*$/, ""); });
+    }
     /* Grupos de vencidos: mismo filtro, fecha y orden. */
     SEGS.forEach(function (s, i) {
         s.n = i + 1;

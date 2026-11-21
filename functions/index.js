@@ -15,6 +15,7 @@ const ERP_WS_URL = process.env.ERP_WS_URL || "wss://serp.servisofts.com/ws/";
 const MARCA = "---SSofts---";
 const PAGINA_CM = "/centro_mando";
 const KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db"; // Calistenia Bolivia en el ERP
+const KEY_EMPRESA_PY = "3433c7d4-a626-44de-b825-f924334e679c"; // Calistenia Paraguay en el ERP
 const TABLEROS = ["muro", "direccion", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "atc", "jefe_atc"];
 const DIAS_SESION = 30;
 const ORIGENES = ["https://calisteniabolivia-srl.github.io"].concat(process.env.ORIGEN_EXTRA ? [process.env.ORIGEN_EXTRA] : []);
@@ -37,7 +38,8 @@ function idUnico() { return require("crypto").randomUUID(); }
 function loginERP(usuario, passwordMd5) {
     return new Promise((resolver, rechazar) => {
         let ws, buffer = "", enviado = false, pidiendo = false, terminado = false, login = null;
-        const idLogin = idUnico(), idPermisos = idUnico();
+        const idLogin = idUnico(), idPermisos = idUnico(), idPermisosPY = idUnico();
+        let paginasBO = null;
         const fin = () => { terminado = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} };
         const fallar = (codigo) => { if (terminado) return; fin(); rechazar(Object.assign(new Error(codigo), { codigo })); };
         let reloj = setTimeout(() => fallar("tiempo"), 40000);
@@ -67,10 +69,17 @@ function loginERP(usuario, passwordMd5) {
                     reloj = setTimeout(() => fallar("permisos"), 15000);
                     ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
                         key_usuario: key, key_empresa: KEY_EMPRESA, _ssocket_promise: idPermisos }) + "\n");
-                } else if (pidiendo && (m._ssocket_promise === idPermisos || (m.component === "usuarioPage" && m.type === "getAll"))) {
+                } else if (pidiendo && paginasBO === null && (m._ssocket_promise === idPermisos || (m.component === "usuarioPage" && m.type === "getAll"))) {
+                    if (m.estado !== "exito") { fin(); return rechazar(Object.assign(new Error("permisos"), { codigo: "permisos" })); }
+                    paginasBO = m.data || {};
+                    /* Después, los permisos del mismo usuario en el ERP de Paraguay (si no responde, sigue sin ellos). */
+                    clearTimeout(reloj);
+                    reloj = setTimeout(() => { if (!terminado) { fin(); resolver({ login, paginas: paginasBO, paginasPY: {} }); } }, 8000);
+                    ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
+                        key_usuario: login.key || login.key_usuario, key_empresa: KEY_EMPRESA_PY, _ssocket_promise: idPermisosPY }) + "\n");
+                } else if (pidiendo && paginasBO !== null && (m._ssocket_promise === idPermisosPY || (m.component === "usuarioPage" && m.type === "getAll"))) {
                     fin();
-                    if (m.estado !== "exito") return rechazar(Object.assign(new Error("permisos"), { codigo: "permisos" }));
-                    resolver({ login, paginas: m.data || {} });
+                    resolver({ login, paginas: paginasBO, paginasPY: m.estado === "exito" ? (m.data || {}) : {} });
                 }
             }
         });
@@ -94,10 +103,11 @@ async function ingresar(usuario, passwordMd5) {
     const r = await loginERP(usuario, passwordMd5);
     const uid = String(r.login.key || r.login.key_usuario);
     const tableros = permisosERP(r.paginas);
+    const tableros_py = permisosERP(r.paginasPY || {});
     const nombre = nombreDe(r.login, usuario);
     const vence = Date.now() + DIAS_SESION * 86400000;
-    const token = await admin.auth().createCustomToken(uid, { cm: 1, tableros, nombre, usuario: usuario.slice(0, 80), vence });
-    return { token, uid, nombre, tableros, vence };
+    const token = await admin.auth().createCustomToken(uid, { cm: 1, tableros, tableros_py, nombre, usuario: usuario.slice(0, 80), vence });
+    return { token, uid, nombre, tableros, tableros_py, vence };
 }
 
 exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, maxInstances: 5, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {

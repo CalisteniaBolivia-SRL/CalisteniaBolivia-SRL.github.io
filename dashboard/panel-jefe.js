@@ -21,8 +21,8 @@
     var pad = function (n) { return (n < 10 ? "0" : "") + n; };
     function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
     var hoy = function () { return iso(new Date()); };
-    var bs = function (n) { return "Bs " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
-    var COMISION = 5;
+    var bs = function (n) { return (window.CM_MONEDA || "Bs") + " " + Math.round(Number(n) || 0).toLocaleString("es-BO"); };
+    var COMISION = window.CM_COMISION || 5;
     /* Período de pago de comisiones: del 26 al 25 (se paga lo confirmado hasta el 25). Devuelve el día 26 de inicio. */
     function periodoDe(fechaIso) { var p = String(fechaIso).slice(0, 10).split("-"), y = +p[0], m = +p[1] - 1, d = +p[2]; return iso(d >= 26 ? new Date(y, m, 26) : new Date(y, m - 1, 26)); }
     function finPeriodo(ini) { var p = ini.split("-"); return iso(new Date(+p[0], +p[1], 25)); }

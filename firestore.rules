@@ -226,5 +226,83 @@ service cloud.firestore {
 
     // Todo lo demás (incluida la antigua colección "roles"), cerrado.
     match /{documento=**} { allow read, write: if false; }
+
+    // ---------- CRM de Paraguay: el mismo sistema que Bolivia, con sus propias colecciones (py_com_*) ----------
+    // Generado a partir de las reglas de Bolivia: mismos controles, con los permisos de /centro_mando del ERP de Paraguay
+    // (token.tableros_py). Dirección de Bolivia tiene acceso a todo en Paraguay.
+    function permisoPY(p) {
+      return sesion() && (('tableros_py' in request.auth.token && request.auth.token.tableros_py.hasAny([p]))
+        || request.auth.token.tableros.hasAny(['direccion']));
+    }
+    function centralPY() { return permisoPY('jefe_atc'); }
+    function esATCPY() { return permisoPY('atencion') || permisoPY('atc'); }
+    function equipoATCPY() { return centralPY() || esATCPY(); }
+    function veComercialPY() { return equipoATCPY() || permisoPY('administracion') || permisoPY('direccion') || permisoPY('muro'); }
+    function soyATCPY() {
+      return esATCPY() && exists(/databases/$(database)/documents/py_com_ejecutiva/$(yo()))
+        && get(/databases/$(database)/documents/py_com_ejecutiva/$(yo())).data.estado > 0;
+    }
+    match /py_com_config/{id} {
+      allow read: if veComercialPY();
+      allow write: if centralPY();
+    }
+    match /py_com_ejecutiva/{uid} {
+      allow read: if veComercialPY();
+      // Un ATC se registra solo la primera vez que entra (sin sucursales ni meta); lo demás lo decide ATC Central.
+      allow create: if centralPY() || (esATCPY() && uid == yo()
+        && soloCampos(['nombre', 'key_usuario', 'sucursales', 'meta_mensual', 'estado', 'fecha_on', 'autoregistro'])
+        && request.resource.data.key_usuario == yo() && request.resource.data.sucursales.size() == 0
+        && request.resource.data.meta_mensual == 0 && request.resource.data.estado == 1 && texto('nombre', 120));
+      allow update, delete: if centralPY();
+    }
+    match /py_com_comision_conf/{id} {
+      allow read: if centralPY() || permisoPY('administracion') || permisoPY('direccion') || permisoPY('muro')
+        || (esATCPY() && resource.data.key_ejecutiva == yo());
+      allow create, update: if centralPY() || permisoPY('administracion');
+      allow delete: if false;
+    }
+    match /py_com_asignacion/{cliente} {
+      allow read: if veComercialPY();
+      allow write: if centralPY();
+    }
+    match /py_com_campana/{id} {
+      allow read: if veComercialPY();
+      allow write: if centralPY();
+    }
+    match /py_com_pago/{id} {
+      allow read: if veComercialPY();
+      allow create, update: if (centralPY() || permisoPY('administracion')) && soloCampos(['key_ejecutiva', 'semana', 'monto', 'ventas', 'estado', 'fecha_on', 'pagado_por'])
+        && request.resource.data.monto is number && request.resource.data.monto > 0 && request.resource.data.pagado_por == yo();
+      allow delete: if false;
+    }
+    match /py_com_guion/{id} {
+      allow read: if veComercialPY();
+      allow write: if centralPY();
+    }
+    match /py_com_comision_anulada/{id} {
+      allow read: if veComercialPY();
+      allow write: if centralPY();
+    }
+    match /py_com_tarea/{id} {
+      allow read: if veComercialPY();
+      allow create, delete: if centralPY();
+      // ATC Central edita todo; un ATC solo marca como hecha una tarea suya o de todo el equipo.
+      allow update: if centralPY()
+        || (soyATCPY()
+            && (resource.data.key_ejecutiva == null || resource.data.key_ejecutiva == yo())
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hecha', 'fecha_hecha', 'comentario_cierre'])
+            && request.resource.data.hecha is bool && texto('comentario_cierre', 2000));
+    }
+    match /py_com_gestion/{id} {
+      allow read: if veComercialPY();
+      // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
+      allow create: if (centralPY() || (soyATCPY() && request.resource.data.key_ejecutiva == yo()))
+        && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'ya_activo', 'otro']
+        && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() <= 120
+        && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
+      allow update, delete: if centralPY();
+    }
   }
 }
