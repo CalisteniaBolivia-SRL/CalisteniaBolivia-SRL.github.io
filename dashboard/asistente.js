@@ -14,6 +14,8 @@
     var CONVERSA_MS = 2 * 60000;
     function enConversacion() { return Date.now() - S.ultimo < CONVERSA_MS; }
 
+    var PY = window.CM_PAIS === "paraguay", MON = PY ? "Gs" : "Bs", MON_LARGO = PY ? "guaraníes" : "bolivianos", LOC = PY ? "es-PY" : "es-BO";
+    if (PY) { var tp = document.getElementById("as-titulo-pais"); if (tp) tp.textContent = "Para atender hoy · Paraguay"; }
     var S = { estado: "espera", datos: null, historial: [], quien: "", modoIA: null, ultimo: Date.now(), escuchando: false, hablando: false, activo: false };
 
     /* ---------- reloj ---------- */
@@ -81,7 +83,7 @@
             var mes = suma(vMes, "total"), ant = suma(vAnt, "total");
             var ranking = vMes.map(function (r) { return { sucursal: String(r.grupo || "").trim(), total: Number(r.total) || 0 }; }).filter(function (r) { return r.sucursal; }).sort(function (p, q) { return q.total - p.total; });
             var d = {
-                pais: "Bolivia", moneda: "Bs", fecha: hoy,
+                pais: PY ? "Paraguay" : "Bolivia", moneda: MON, fecha: hoy,
                 ingresos_hoy: x[0] ? Math.round(suma(vHoy, "total")) : null, ventas_hoy: x[0] ? suma(vHoy, "ventas") : null,
                 ingresos_mes: x[1] ? Math.round(mes) : null, ingresos_mismo_periodo_mes_anterior: x[2] ? Math.round(ant) : null,
                 variacion_mes_pct: x[1] && x[2] && ant > 0 ? Math.round((mes - ant) / ant * 100) : null,
@@ -106,13 +108,13 @@
             if (sub) { var sm = document.createElement("small"); sm.textContent = sub; a.appendChild(sm); }
             k.appendChild(a);
         }
-        kpi("Ingresos de hoy", "Bs " + n(d.ingresos_hoy), d.ventas_hoy != null ? n(d.ventas_hoy) + " ventas" : "");
-        kpi("Ingresos del mes", "Bs " + n(d.ingresos_mes), d.variacion_mes_pct != null ? (d.variacion_mes_pct >= 0 ? "+" : "") + d.variacion_mes_pct + "% vs. mismos días del mes anterior" : "", d.variacion_mes_pct == null ? "" : d.variacion_mes_pct >= 0 ? "ok" : "bad");
+        kpi("Ingresos de hoy", MON + " " + n(d.ingresos_hoy), d.ventas_hoy != null ? n(d.ventas_hoy) + " ventas" : "");
+        kpi("Ingresos del mes", MON + " " + n(d.ingresos_mes), d.variacion_mes_pct != null ? (d.variacion_mes_pct >= 0 ? "+" : "") + d.variacion_mes_pct + "% vs. mismos días del mes anterior" : "", d.variacion_mes_pct == null ? "" : d.variacion_mes_pct >= 0 ? "ok" : "bad");
         kpi("Visitas de hoy", n(d.visitas_hoy));
         kpi("Vencen en 7 días", n(d.por_vencer_7_dias), "Aún no renovaron", d.por_vencer_7_dias > 0 ? "warn" : "");
         kpi("Sin venir 14 días o más", n(d.sin_venir_14_dias), "Con plan vigente", d.sin_venir_14_dias > 0 ? "warn" : "");
         kpi("Cajas abiertas hace más de 2 días", n(d.cajas_abiertas_mas_de_2_dias), d.cajas_abiertas != null ? n(d.cajas_abiertas) + " cajas abiertas en total" : "", d.cajas_abiertas_mas_de_2_dias > 0 ? "bad" : "ok");
-        if (d.sucursal_lider_mes) kpi("Sucursal líder del mes", d.sucursal_lider_mes.sucursal, "Bs " + n(d.sucursal_lider_mes.total));
+        if (d.sucursal_lider_mes) kpi("Sucursal líder del mes", d.sucursal_lider_mes.sucursal, MON + " " + n(d.sucursal_lider_mes.total));
     }
 
     /* ---------- voz ---------- */
@@ -131,8 +133,8 @@
        sigue atento: si la persona habla, se calla al instante. */
     var reproductor = new Audio(); reproductor.preload = "auto";
     function frases(t) { return String(t).match(/[^.!?…]+[.!?…]*\s*/g) || [String(t)]; }
-    function decir(texto, audio) {
-        $("as-dice").textContent = texto;
+    function decir(texto, audio, mostrar) {
+        $("as-dice").textContent = mostrar || texto;
         S.ultimo = Date.now();
         return new Promise(function (fin) {
             S.hablando = true; S.interrumpido = false; detenerEscucha(); estado("hablando");
@@ -288,7 +290,7 @@
         return ps.slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(" ");
     }
     function saludo() { var h = new Date().getHours(); return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches"; }
-    function bs(v) { return v == null ? "sin dato" : Math.round(v).toLocaleString("es-BO") + " bolivianos"; }
+    function bs(v) { return v == null ? "sin dato" : Math.round(v).toLocaleString(LOC) + " " + MON_LARGO; }
     /* Modo básico: el resumen del día armado aquí. */
     function resumen() {
         var d = S.datos;
@@ -316,12 +318,40 @@
         return "En este momento no puedo consultar eso, señor. Le puedo dar el resumen del día, ingresos, visitas, vencimientos o cajas.";
     }
     function modo2(t) { $("as-modo").textContent = t; }
+    /* Respuesta por partes: cada frase llega con su voz y se dice apenas llega (no espera la respuesta entera). */
+    function preguntarIAFlujo(alFrase) {
+        if (!URL_IA || !window.firebase || !firebase.apps.length || !firebase.auth().currentUser) return Promise.reject(new Error("sin_sesion_datos"));
+        var mcp = !PY && window.CM && CM.token ? CM.token().catch(function () { return null; }) : Promise.resolve(null);
+        return Promise.all([firebase.auth().currentUser.getIdToken(), mcp]).then(function (x) {
+            return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + x[0] },
+                body: JSON.stringify({ stream: true, pais: PY ? "paraguay" : "bolivia", historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString(LOC), mcp_token: x[1] }) });
+        }).then(function (r) {
+            if (!r.ok || !r.body || !/ndjson/.test(r.headers.get("content-type") || "")) throw Object.assign(new Error("ia " + r.status), { status: r.status, sinFlujo: r.ok });
+            var lector = r.body.getReader(), dec = new TextDecoder(), buf = "", texto = "", n = 0;
+            function leer() {
+                return lector.read().then(function (x) {
+                    if (x.value) buf += dec.decode(x.value, { stream: true });
+                    var i;
+                    while ((i = buf.indexOf("\n")) >= 0) {
+                        var l = buf.slice(0, i); buf = buf.slice(i + 1); if (!l.trim()) continue;
+                        var j = JSON.parse(l);
+                        if (j.error) throw Object.assign(new Error(j.error), { status: 502 });
+                        if (j.frase) { n++; texto += (texto ? " " : "") + j.frase; alFrase(j.frase, j.audio || null); }
+                        if (j.fin && j.texto) texto = j.texto;
+                    }
+                    if (x.done) { if (!n) throw new Error("sin_respuesta"); return texto; }
+                    return leer();
+                });
+            }
+            return leer();
+        });
+    }
     function preguntarIA() {
         if (!URL_IA || !window.firebase || !firebase.apps.length || !firebase.auth().currentUser) return Promise.reject(new Error("sin_sesion_datos"));
         var mcp = window.CM && CM.token ? CM.token().catch(function () { return null; }) : Promise.resolve(null);
         return Promise.all([firebase.auth().currentUser.getIdToken(), mcp]).then(function (x) {
             return fetch(URL_IA, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + x[0] },
-                body: JSON.stringify({ historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString("es-BO"), mcp_token: x[1] }) });
+                body: JSON.stringify({ pais: PY ? "paraguay" : "bolivia", historial: S.historial.slice(-16), datos: S.datos, interlocutor: S.quien, ahora: new Date().toLocaleString(LOC), mcp_token: PY ? null : x[1] }) });
         }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.texto) throw Object.assign(new Error(j.error || "ia " + r.status), { status: r.status }); return { texto: j.texto, audio: j.audio || null }; }); });
     }
     /* Frase corta con la misma voz (para «Permítame un momento» mientras consulta). Se pide una vez y se guarda. */
@@ -354,33 +384,48 @@
             S.esperaNombre = false;
         }
         S.pensando = true; estado("pensando");
+        /* Saludo: amable y al instante, sin cifras que nadie pidió. */
+        if (!t) {
+            var hola = saludo() + (S.quien ? ", " + S.quien : "") + ". ¿En qué lo puedo ayudar?";
+            S.historial.push({ rol: "asistente", texto: hola });
+            return vozDe(hola).then(function (au) { S.pensando = false; return decir(hola, au); })
+                .then(function () { if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
+        }
         var local = function () {
-            if (!t) return S.quien ? saludo() + ", " + S.quien + ". " + resumen() : saludo() + ". Soy Capital Corp, a su servicio. ¿Con quién tengo el gusto?";
-            if (nombreNuevo) return "Un gusto, " + S.quien + ". " + resumen();
+            if (nombreNuevo) return "Un gusto, " + S.quien + ". ¿En qué lo puedo ayudar?";
             return respuestaBasica(t);
         };
-        var llego = false, relleno = Promise.resolve();
-        var p = S.modoIA === false ? Promise.resolve({ texto: local() }) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
-            if (e.status === 429) return { texto: "Demasiadas preguntas seguidas; permítame un momento." };
-            S.modoIA = false;
-            modo2("Modo básico: resumen del día en esta pantalla.");
-            return { texto: local() };
-        });
-        p.then(function () { llego = true; });
-        /* Si la respuesta tarda, avisa con la misma voz que está consultando (sin dejar un silencio largo). */
-        if (t && S.modoIA !== false) setTimeout(function () {
+        /* Las frases se dicen en orden apenas llegan; si le hablan en el medio, se corta todo. */
+        var llego = false, cola = [], corriendo = false, terminado = false, mostrado = "", finCola, colaHecha = new Promise(function (r) { finCola = r; });
+        function siguiente() {
+            if (mio !== S.turno || S.interrumpido) { cola = []; corriendo = false; finCola(); return; }
+            var x = cola.shift();
+            if (!x) { corriendo = false; if (terminado) finCola(); return; }
+            corriendo = true; mostrado += (mostrado ? " " : "") + x[0];
+            decir(x[0], x[1], mostrado).then(siguiente);
+        }
+        function alFrase(f, a) { llego = true; S.pensando = false; cola.push([f, a]); if (!corriendo) siguiente(); }
+        var p = S.modoIA === false ? Promise.resolve(local()).then(function (x) { alFrase(x, null); return x; })
+            : preguntarIAFlujo(alFrase).catch(function (e) {
+                if (llego) throw e;
+                if (e && e.sinFlujo) return preguntarIA().then(function (x) { alFrase(x.texto, x.audio); return x.texto; });   // servidor sin respuesta por partes
+                throw e;
+            }).then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
+                var r = e && e.status === 429 ? "Demasiadas preguntas seguidas, señor; permítame un momento." : (S.modoIA = false, modo2("Modo básico: resumen del día en esta pantalla."), local());
+                alFrase(r, null); return r;
+            });
+        /* Si tarda en llegar la primera frase, avisa con la misma voz (sin dejar un silencio largo). */
+        if (S.modoIA !== false) setTimeout(function () {
             if (llego || mio !== S.turno) return;
             var f = FRASES_ESPERA[Math.floor(Math.random() * FRASES_ESPERA.length)];
-            relleno = vozDe(f).then(function (au) { if (llego || mio !== S.turno || !au) return; S.pensando = false; return decir(f, au).then(function () { if (mio === S.turno && !llego) { S.pensando = true; estado("pensando"); } }); });
-        }, 1400);
-        return p.then(function (r) { return relleno.then(function () { return r; }); }).then(function (r) {
-            S.pensando = false;
-            if (mio !== S.turno || S.interrumpido) return;   // mientras pensaba le hicieron otra pregunta
-            var resp = r.texto;
-            if (/con qui[eé]n tengo el gusto/i.test(resp)) S.esperaNombre = true;
-            S.historial.push({ rol: "asistente", texto: resp });
-            return decir(resp, r.audio);
-        }).then(function () { if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
+            vozDe(f).then(function (au) { if (llego || mio !== S.turno || !au || corriendo) return; cola.unshift([f, au]); if (!corriendo) siguiente(); mostrado = ""; });
+        }, 2200);
+        return p.then(function (texto) {
+            terminado = true; if (!corriendo) finCola();
+            if (/con qui[eé]n tengo el gusto/i.test(texto || "")) S.esperaNombre = true;
+            if (texto) S.historial.push({ rol: "asistente", texto: texto });
+            return colaHecha;
+        }).then(function () { S.pensando = false; if (S.interrumpido || mio !== S.turno) return; $("as-oye").textContent = ""; escuchar("turno"); });
     }
 
     /* Reposo: sin conversación por 3 minutos, se olvida con quién hablaba (puede acercarse otra persona). */

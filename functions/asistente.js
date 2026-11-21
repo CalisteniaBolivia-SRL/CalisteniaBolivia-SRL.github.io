@@ -22,7 +22,8 @@ const LECTURA = ["quien_soy", "listar_sucursales", "listar_servicios", "listar_p
     "cajas_abiertas", "listar_cajas", "ver_caja", "reporte_movimientos_caja", "listar_cuentas_banco", "movimientos_banco",
     "listar_molinetes", "estado_molinetes", "reporte_accesos_molinete", "usuarios_en_molinete"];
 const ORIGENES = ["https://calisteniabolivia-srl.github.io"].concat(process.env.ORIGEN_EXTRA ? [process.env.ORIGEN_EXTRA] : []);
-const PERMITIDOS = ["muro", "direccion"];
+/* Lo usan el muro, Dirección e inversionistas (permiso «accionistas»), de Bolivia o de Paraguay. */
+const PERMITIDOS = ["muro", "direccion", "accionistas"];
 
 function sistema() {
     return [
@@ -33,7 +34,8 @@ function sistema() {
         "",
         "Lo que dices se lee en voz alta:",
         "- Frases cortas y naturales, para el oído. Nada de listas, viñetas, asteriscos, tablas ni emojis.",
-        "- Ve directo al punto: la respuesta en la primera frase. Como máximo unas 60 palabras, salvo que te pidan detalle.",
+        "- Ve directo al punto: la PRIMERA frase es corta y ya responde (se empieza a decir mientras pensás el resto). Como máximo unas 60 palabras, salvo que te pidan detalle.",
+        "- Sé muy cálido y cercano, con buena energía, como el mejor asistente ejecutivo. Si el saludo es solo un saludo, saluda y pregunta en qué puedes ayudar: NO des cifras ni resúmenes que nadie pidió.",
         "- Usa puntos y comas para marcar las pausas naturales al hablar.",
         "- Montos de Bolivia en bolivianos, redondeados (\"unos cuarenta y dos mil bolivianos\"); porcentajes enteros.",
         "",
@@ -70,11 +72,14 @@ async function responder(cuerpo, opciones) {
     const datos = JSON.stringify(cuerpo.datos || {}).slice(0, 12000);
     const quien = String(cuerpo.interlocutor || "").trim().slice(0, 80);
     const ahora = String(cuerpo.ahora || "").slice(0, 60);
-    const contexto = "<datos_del_dia>\n" + datos + "\n</datos_del_dia>\n<momento>" + ahora + "</momento>\n<interlocutor>" + (quien || "desconocido") + "</interlocutor>";
-    if (!mensajes.length) mensajes.push({ role: "user", content: "(Alguien se acaba de acercar a la pantalla. Salúdalo.)" });
+    const pais = cuerpo.pais === "paraguay" ? "paraguay" : "bolivia";
+    const empresa = pais === "paraguay" ? "<empresa>Calistenia Paraguay: una sucursal (Multiplaza, Asunción). Montos en guaraníes (Gs). Los datos vienen en datos_del_dia; no hay herramientas de consulta para Paraguay.</empresa>\n"
+        : "<empresa>Calistenia Bolivia: 11 sucursales en Santa Cruz. Montos en bolivianos (Bs).</empresa>\n";
+    const contexto = empresa + "<datos_del_dia>\n" + datos + "\n</datos_del_dia>\n<momento>" + ahora + "</momento>\n<interlocutor>" + (quien || "desconocido") + "</interlocutor>";
+    if (!mensajes.length) mensajes.push({ role: "user", content: "(Alguien se acaba de acercar a la pantalla. Salúdalo brevemente y pregunta en qué lo puedes ayudar, sin dar cifras.)" });
     const ultimo = mensajes[mensajes.length - 1];
     ultimo.content = contexto + "\n\n" + ultimo.content;
-    const token = typeof cuerpo.mcp_token === "string" && cuerpo.mcp_token.length > 10 && cuerpo.mcp_token.length < 8192 ? cuerpo.mcp_token : null;
+    const token = pais === "bolivia" && typeof cuerpo.mcp_token === "string" && cuerpo.mcp_token.length > 10 && cuerpo.mcp_token.length < 8192 ? cuerpo.mcp_token : null;
     const pedido = { model: MODELO, max_tokens: 1500, output_config: { effort: "low" }, system: sistema(), messages: mensajes, betas: [] };
     if (/^claude-(opus|sonnet|fable)/.test(MODELO)) { pedido.betas.push("server-side-fallback-2026-07-01"); pedido.fallbacks = "default"; }
     if (token) {
@@ -85,12 +90,30 @@ async function responder(cuerpo, opciones) {
         pedido.tools = [{ type: "mcp_toolset", mcp_server_name: "calistenia", default_config: { enabled: false }, configs }];
     }
     if (!pedido.betas.length) delete pedido.betas;
-    let r = await cliente.beta.messages.create(pedido);
+    /* Con «alFrase», la respuesta llega por partes: cada frase completa se entrega apenas está lista
+       (la página la empieza a decir mientras Claude sigue con el resto). */
+    const alFrase = opciones && opciones.alFrase;
+    let resto = "";
+    const limpiar = (t) => t.replace(/[*#_`|]/g, "").replace(/\s+/g, " ").trim();
+    const cortar = (final) => {
+        if (!alFrase) return;
+        let m;
+        while ((m = /^([\s\S]*?[.!?…])\s+([\s\S]*)$/.exec(resto))) { const f = limpiar(m[1]); if (f) alFrase(f); resto = m[2]; }
+        if (final) { const f = limpiar(resto); if (f) alFrase(f); resto = ""; }
+    };
+    const pedirUna = async () => {
+        if (!alFrase) return cliente.beta.messages.create(pedido);
+        const st = cliente.beta.messages.stream(pedido);
+        st.on("text", (d) => { resto += d; cortar(false); });
+        return st.finalMessage();
+    };
+    let r = await pedirUna();
     /* Si el servidor pausa un turno largo (varias consultas), se continúa hasta 3 veces. */
     for (let i = 0; i < 3 && r.stop_reason === "pause_turn"; i++) {
         pedido.messages = pedido.messages.concat([{ role: "assistant", content: r.content }]);
-        r = await cliente.beta.messages.create(pedido);
+        r = await pedirUna();
     }
+    cortar(true);
     if (r.stop_reason === "refusal") return "Le ruego me disculpe, eso no puedo responderlo. ¿Le ayudo con otra cosa?";
     const texto = (r.content || []).filter((b) => b.type === "text").map((b) => b.text).join(" ").replace(/[*#_`|]/g, "").replace(/\s+/g, " ").trim();
     return texto || "Disculpe, no alcancé a formular la respuesta. ¿Me lo repite?";
@@ -128,7 +151,8 @@ async function verificar(req) {
         const t = await admin.auth().verifyIdToken(m[1]);
         if (t.cm !== 1 || !(Number(t.vence) > Date.now())) return null;
         const tab = Array.isArray(t.tableros) ? t.tableros : [];
-        return PERMITIDOS.some((p) => tab.indexOf(p) >= 0) ? t : null;
+        const tabPY = Array.isArray(t.tableros_py) ? t.tableros_py : [];
+        return PERMITIDOS.some((p) => tab.indexOf(p) >= 0 || tabPY.indexOf(p) >= 0) ? t : null;
     } catch (e) { return null; }
 }
 
@@ -151,6 +175,22 @@ exports.asistente = onRequest({ region: "southamerica-east1", cors: ORIGENES, se
         if (typeof cuerpo.solo_voz === "string") {
             const f = cuerpo.solo_voz.trim().slice(0, 200);
             return res.json({ texto: f, audio: f ? await voz(f) : null });
+        }
+        if (cuerpo.stream === true) {
+            /* Respuesta por partes (NDJSON): una línea por frase, con su audio, en orden. */
+            res.status(200).set("Content-Type", "application/x-ndjson; charset=utf-8").set("Cache-Control", "no-store");
+            let cadena = Promise.resolve(), n = 0;
+            const alFrase = (frase) => {
+                const a = cuerpo.con_voz === false ? Promise.resolve(null) : voz(frase);
+                cadena = cadena.then(() => a).then((audio) => { n++; res.write(JSON.stringify({ frase, audio }) + "\n"); });
+            };
+            let texto;
+            try { texto = await responder(cuerpo, { alFrase }); }
+            catch (e) { console.error("asistente", e.status || "", e.message); await cadena; res.write(JSON.stringify({ error: "El asistente no respondió. Intente de nuevo." }) + "\n"); return res.end(); }
+            await cadena;
+            if (!n && texto) { res.write(JSON.stringify({ frase: texto, audio: cuerpo.con_voz === false ? null : await voz(texto) }) + "\n"); }
+            res.write(JSON.stringify({ fin: true, texto }) + "\n");
+            return res.end();
         }
         const texto = await responder(cuerpo);
         return res.json({ texto, audio: cuerpo.con_voz === false ? null : await voz(texto) });
