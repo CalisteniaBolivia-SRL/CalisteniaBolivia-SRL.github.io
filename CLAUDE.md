@@ -4,6 +4,16 @@ Sitio estático (GitHub Pages) en `dashboard/`, con Firebase (proyecto `centro-d
 El acceso es SIEMPRE con el usuario y la contraseña del ERP (S-ERP de Servisofts) y los permisos de la página
 `/centro_mando` de cada ERP. No inventar otros mecanismos de acceso.
 
+## LEY: Bolivia y Paraguay son APPS GEMELAS
+Palabras del director: «Cuando yo modifique algo, tiene que modificarse en los dos lugares. No quiero estar configurando
+dos veces. Prácticamente siempre son apps gemelas.»
+- Todo pedido, mejora o corrección se aplica **automáticamente en Bolivia y Paraguay**, aunque el pedido nombre un solo
+  país. No preguntar si hacerlo en el otro: hacerlo.
+- Si algo existe en un país y no en el otro, se construye en el otro con el mismo formato (ej.: «Ingresos en vivo»).
+- Al terminar, el informe al director dice siempre **cómo quedó en cada país** (Bolivia / Paraguay) y, si en uno falta
+  un dato del ERP, qué falta y que el módulo ya quedó listo con el aviso.
+- Nunca hace falta configurar dos veces: lo configurable por país se limita al checklist de módulos visibles.
+
 ## Regla permanente: un solo centro de mando para todos los países
 - **Bolivia y Paraguay usan los mismos módulos.** Cada módulo existe UNA vez (registro en `dashboard/modulos.js`) y se
   abre por país con `?pais=bolivia|paraguay` (`dashboard/pais.js` define `window.CM_PAIS`).
