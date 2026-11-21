@@ -13,15 +13,15 @@
 
     var MODULOS = [
         /* ---------- Muro ---------- */
-        { id: "m_resumen", tipo: "pantalla", num: "1", nombre: "Resumen", que: "Ingresos del mes y de hoy, visitas, activos y alertas", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p1"); } },
-        { id: "m_ventas", tipo: "pantalla", num: "2", nombre: "Ventas", que: "12 meses, últimos 30 días y medios de pago", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p2"); } },
-        { id: "m_sucursales", tipo: "pantalla", num: "3", nombre: "Sucursales", que: "Ranking y tablero contra el mes anterior", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p3"); } },
-        { id: "m_paquetes", tipo: "pantalla", num: "4", nombre: "Paquetes y cajeros", que: "Qué se vende y quién lo vende", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p4"); } },
+        { id: "m_resumen", datosPY: true, tipo: "pantalla", num: "1", nombre: "Resumen", que: "Ingresos del mes y de hoy, visitas, activos y alertas", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p1"); } },
+        { id: "m_ventas", datosPY: true, tipo: "pantalla", num: "2", nombre: "Ventas", que: "12 meses, últimos 30 días y medios de pago", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p2"); } },
+        { id: "m_sucursales", datosPY: true, tipo: "pantalla", num: "3", nombre: "Sucursales", que: "Ranking y tablero contra el mes anterior", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p3"); } },
+        { id: "m_paquetes", datosPY: true, tipo: "pantalla", num: "4", nombre: "Paquetes y cajeros", que: "Qué se vende y quién lo vende", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p4"); } },
         { id: "m_asistente", tipo: "pantalla", num: "5", nombre: "Capital Corp · asistente", que: "Asistente de voz con los datos del día", permisos: ["muro", "direccion"], cc: true, href: function (p) { return url("asistente.html", p); } },
         { id: "m_asis_hoy", tipo: "pantalla", num: "5b", nombre: "Asistencia hoy", que: "Visitas por sucursal y por hora", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p5"); } },
         { id: "m_asis_30", tipo: "pantalla", num: "6", nombre: "Asistencia 30 días", que: "Horas buenas y bajas por sucursal, ocupación y frecuencia", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p6"); } },
         { id: "m_ventas_atc", tipo: "pantalla", num: "7", nombre: "Ventas ATC", que: "CRM de Atención al Cliente: quién trabaja, qué lista y qué canal venden más", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p7"); } },
-        { id: "m_retencion", tipo: "pantalla", num: "8", nombre: "Retención", que: "Por vencer, en riesgo y vencidos por sucursal", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p8"); } },
+        { id: "m_retencion", datosPY: true, tipo: "pantalla", num: "8", nombre: "Retención", que: "Por vencer, en riesgo y vencidos por sucursal", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p8"); } },
         { id: "m_caja", tipo: "pantalla", num: "9", nombre: "Caja y molinetes", que: "Cajas abiertas, movimientos y molinetes", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p9"); } },
         { id: "m_camaras", tipo: "pantalla", num: "0", nombre: "Cámaras", que: "Todas las cámaras de todas las sucursales, girando solas", permisos: ["muro"], href: function (p) { return url("muro.html", p, "#p10"); } },
         /* ---------- Tableros ---------- */

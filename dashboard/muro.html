@@ -8,8 +8,9 @@
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-<script src="pais.js?v=1"></script>
+<script src="pais.js?v=2"></script>
 <script src="cm-mcp.js?v=3"></script>
+<script src="py-datos.js?v=1"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -815,11 +816,11 @@ dash.calc('c_ret_suc', {
 
 /* Utilidades de formato y gráficos */
 (function () {
-  const loc = d3.formatLocale({ decimal: ',', thousands: ' ', grouping: [3], currency: ['Bs ', ''] });
+  const loc = d3.formatLocale({ decimal: ',', thousands: ' ', grouping: [3], currency: [(window.CM_MONEDA || 'Bs') + ' ', ''] });
   const f0 = loc.format(',.0f'), f1 = loc.format(',.1f');
   const ok = (n) => n != null && n !== '' && isFinite(Number(n));
   const CB = {};
-  CB.bs = (n) => ok(n) ? 'Bs ' + f0(Number(n)) : '—';
+  CB.bs = (n) => ok(n) ? (window.CM_MONEDA || 'Bs') + ' ' + f0(Number(n)) : '—';
   CB.num = (n) => ok(n) ? f0(Number(n)) : '—';
   CB.dec = (n) => ok(n) ? f1(Number(n)) : '—';
   CB.pct = (n) => ok(n) ? f0(Number(n)) + '%' : '—';

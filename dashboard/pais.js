@@ -5,12 +5,13 @@
     "use strict";
     var pais = /[?&]pais=paraguay\b/.test(location.search) ? "paraguay" : "bolivia";
     window.CM_PAIS = pais;
+    window.CM_MONEDA = pais === "paraguay" ? "Gs" : "Bs";
     if (pais !== "paraguay") return;
-    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html"];
+    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html"];
     var pag = location.pathname.split("/").pop() || "index.html";
     document.documentElement.classList.add("cm-py");
     function aplicar() {
-        document.querySelectorAll('[class*="eyebrow"]').forEach(function (e) { if (/Bolivia/.test(e.textContent)) e.textContent = e.textContent.replace(/Bolivia/g, "Paraguay"); });
+        document.querySelectorAll('[class*="eyebrow"]').forEach(function (e) { if (/Bolivia|Santa Cruz/.test(e.textContent)) e.textContent = e.textContent.replace(/Bolivia/g, "Paraguay").replace(/Santa Cruz/g, "Asunción"); });
         if (!/Paraguay/.test(document.title)) document.title = document.title.replace(/ · Calistenia Company$/, " · Paraguay · Calistenia Company");
         if (LISTOS.indexOf(pag) >= 0) return;
         var css = document.createElement("style");
