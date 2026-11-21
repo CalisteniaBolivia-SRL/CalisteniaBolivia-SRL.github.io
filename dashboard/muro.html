@@ -400,18 +400,26 @@
       <h2 class="cb-h2">Asistencia · últimos 30 días</h2>
       <p class="cb-lede">Vinieron <b data-draw="k_frec_clientes" data-source="frecuencia" data-field="clientes_total" data-row="0">—</b> clientes distintos, cada uno <b data-draw="k_frec_prom" data-source="frecuencia" data-field="promedio_dias" data-row="0">—</b> días en promedio.</p>
     </div>
-    <div class="cb-card" id="p6-diario">
-      <h3 class="cb-h3">Visitas por día</h3>
-      <div class="cb-chart" data-draw="ch_asis_30" data-source="asis_30d"></div>
+    <div class="cb-row">
+      <div class="cb-card" id="p6-horas">
+        <h3 class="cb-h3">Horas buenas y horas bajas · por sucursal</h3>
+        <p class="cb-note" data-draw="txt_horas">—</p>
+        <div class="cb-chart" data-draw="ch_horas_prom" data-source="ocupacion"></div>
+      </div>
+      <div class="cb-card" id="p6-diario">
+        <h3 class="cb-h3">Visitas por día</h3>
+        <div class="cb-chart" data-draw="ch_asis_30" data-source="asis_30d"></div>
+      </div>
     </div>
     <div class="cb-row">
       <div class="cb-card" id="p6-ocupacion">
-        <h3 class="cb-h3">Ocupación promedio por día y hora</h3>
-        <p class="cb-note">Visitas promedio en esa hora. Sirve para planificar turnos y horarios.</p>
+        <h3 class="cb-h3">Personas por sucursal, por día y hora</h3>
+        <p class="cb-note">Promedio de una sucursal en esa hora (todas las sucursales divididas entre su cantidad).</p>
         <div class="cb-chart" data-draw="ch_heat" data-source="ocupacion"></div>
       </div>
       <div class="cb-card" id="p6-frecuencia">
         <h3 class="cb-h3">¿Cuántos días vino cada cliente?</h3>
+        <p class="cb-note" data-draw="txt_frec">—</p>
         <div class="cb-chart" data-draw="ch_frec" data-source="frecuencia"></div>
       </div>
     </div>
@@ -557,7 +565,7 @@
     p3: ['ventas_mes_suc', 'ventas_mesant_suc', 'ventas_hoy_suc', 'activos', 'asis_suc_30'],
     p4: ['ventas_paquete', 'ventas_cajero'],
     p5: ['asis_hoy', 'asis_30d'],
-    p6: ['asis_30d', 'ocupacion', 'frecuencia'],
+    p6: ['asis_30d', 'ocupacion', 'frecuencia', 'asis_suc_30'],
     p7: ['instructores'],
     p8: ['activos', 'por_vencer', 'sin_asistir', 'vencidos'],
     p9: ['molinetes', 'cajas', 'movs_caja']
@@ -651,7 +659,7 @@ dash.loader('frecuencia', {
   fn: ({ answer }) => {
     if (answer && answer.error) throw new Error(typeof answer.error === 'string' ? answer.error : answer.error.message);
     const r = (answer && answer.resumen) || {};
-    return ((answer && answer.distribucion) || []).map((d) => ({ veces: d.veces, clientes: d.clientes, clientes_total: r.clientes, promedio_dias: r.promedio_dias_por_cliente }));
+    return ((answer && answer.distribucion) || []).map((d) => ({ veces: d.veces, clientes: d.clientes, clientes_total: r.clientes, promedio_dias: r.promedio_dias_por_cliente, mediana: r.mediana }));
   }
 });
 dash.loader('instructores', { description: 'Lista de entrenadores, con las visitas fuera de turno en cada fila.', fn: ({ answer }) => { if (answer && answer.error) throw new Error(typeof answer.error === 'string' ? answer.error : answer.error.message); return ((answer && answer.entrenadores) || []).map((r) => ({ ...r, sucursales: String(r.sucursales ?? '').trim(), visitas_fuera_de_turnos: answer.visitas_fuera_de_turnos })); } });
@@ -898,7 +906,7 @@ dash.calc('c_ret_suc', {
       .attr('x', (d) => x(d[o.x])).attr('width', x.bandwidth())
       .attr('y', (d) => y(Number(d[o.y]) || 0)).attr('height', (d) => Math.max(0, y(0) - y(Number(d[o.y]) || 0)))
       .attr('rx', Math.min(3, x.bandwidth() / 4))
-      .style('fill', (d, i) => (o.muted && o.muted(d, i)) ? 'var(--cds-chart-muted)' : 'var(--cb-accent)')
+      .style('fill', (d, i) => o.color ? o.color(d, i) : (o.muted && o.muted(d, i)) ? 'var(--cds-chart-muted)' : 'var(--cb-accent)')
       .on('mousemove', (ev, d) => { const [px, py] = d3.pointer(ev, el); tip.show(o.tip(d), px, py); })
       .on('mouseleave', () => tip.hide());
     if (o.labels && x.bandwidth() >= 30) {
@@ -933,7 +941,7 @@ dash.calc('c_ret_suc', {
   };
 
   /* Mapa de calor día × hora */
-  CB.heat = (el, rows) => {
+  CB.heat = (el, rows, unidad) => {
     el.replaceChildren();
     if (!rows.length) { const p = document.createElement('div'); p.className = 'cb-fail'; p.textContent = 'Sin datos en este período'; el.append(p); return; }
     const dias = [...new Set(rows.map((r) => r.dia))].sort((a, b) => rows.find((r) => r.dia === a).orden - rows.find((r) => r.dia === b).orden);
@@ -958,12 +966,12 @@ dash.calc('c_ret_suc', {
       .attr('x', (r) => m.l + horas.indexOf(r.hora) * cw + 1).attr('y', (r) => m.t + dias.indexOf(r.dia) * ch + 1)
       .attr('width', Math.max(1, cw - 2)).attr('height', ch - 2).attr('rx', 2)
       .style('fill', 'var(--cb-accent)').style('fill-opacity', (r) => op(r.promedio))
-      .on('mousemove', (ev, r) => { const [px, py] = d3.pointer(ev, el); tip.show([r.dia + ' · ' + r.hora, CB.num(r.promedio) + ' visitas promedio'], px, py); })
+      .on('mousemove', (ev, r) => { const [px, py] = d3.pointer(ev, el); tip.show([r.dia + ' · ' + r.hora, (r.promedio < 10 ? CB.dec(r.promedio) : CB.num(r.promedio)) + ' ' + (unidad || 'visitas promedio')], px, py); })
       .on('mouseleave', () => tip.hide());
     if (cw >= 30) {
       svg.append('g').selectAll('text').data(celdas.filter((r) => r.promedio >= 1)).join('text').attr('class', 'cb-cell-t')
         .attr('x', (r) => m.l + horas.indexOf(r.hora) * cw + cw / 2).attr('y', (r) => m.t + dias.indexOf(r.dia) * ch + ch / 2).attr('dy', '0.32em').attr('text-anchor', 'middle')
-        .style('fill', (r) => op(r.promedio) > 0.55 ? 'var(--color-bg)' : 'var(--color-fg)').text((r) => Math.round(r.promedio));
+        .style('fill', (r) => op(r.promedio) > 0.55 ? 'var(--color-bg)' : 'var(--color-fg)').text((r) => r.promedio < 10 ? CB.dec(r.promedio) : Math.round(r.promedio));
     }
   };
 
@@ -1115,8 +1123,60 @@ dash.draw('ch_asis_30', (el) => {
   });
 });
 dash.draw('ch_heat', (el) => {
-  if (!CB.listo(el, ['ocupacion'])) return;
-  CB.heat(el, dash.data('ocupacion').data);
+  if (!CB.listo(el, ['ocupacion', 'asis_suc_30'])) return;
+  const n = cbSucursales();
+  CB.heat(el, dash.data('ocupacion').data.map((r) => ({ ...r, promedio: (Number(r.promedio) || 0) / n })).filter((r) => r.promedio >= 0.5), 'personas por sucursal');
+});
+/* ---------- Horas buenas y horas bajas (promedio por sucursal) ----------
+   La ocupación viene sumada de todas las sucursales; dividida entre las sucursales que tuvieron visitas
+   da cuántas personas entran en promedio a UNA sucursal en esa hora. */
+const CB_DIAS_SEM = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes'];
+function cbSucursales() {
+  const l = CB.rows('asis_suc_30').filter((r) => r.grupo && (r.visitas == null || Number(r.visitas) > 0));
+  return Math.max(1, l.length);
+}
+function cbHorasSemana() {
+  const n = cbSucursales(), por = {};
+  CB.rows('ocupacion').forEach((r) => { if (!CB_DIAS_SEM.includes(r.dia)) return; (por[r.hora] = por[r.hora] || []).push(Number(r.promedio) || 0); });
+  return Object.keys(por).sort().map((h) => ({ hora: h, por_suc: por[h].reduce((a, b) => a + b, 0) / CB_DIAS_SEM.length / n }))
+    .filter((r) => r.por_suc >= 0.5);
+}
+function cbClasifica(rows) {
+  const abiertas = rows.filter((r) => r.hora >= '06:00' && r.hora <= '20:00');   // 21 h es el cierre
+  const orden = abiertas.slice().sort((a, b) => b.por_suc - a.por_suc);
+  return { buenas: orden.slice(0, 3).map((r) => r.hora), bajas: orden.slice(-3).map((r) => r.hora), orden };
+}
+const cbH = (h) => String(h).slice(0, 2) + ' h';
+dash.draw('ch_horas_prom', (el) => {
+  if (!CB.listo(el, ['ocupacion', 'asis_suc_30'])) return;
+  const rows = cbHorasSemana(), c = cbClasifica(rows);
+  CB.barV(el, rows, {
+    x: 'hora', y: 'por_suc', aria: 'Personas por sucursal en cada hora, de lunes a viernes', fmtTick: CB.num, fmtX: (h) => h.slice(0, 2),
+    labels: (d) => d.por_suc < 10 ? CB.dec(d.por_suc) : CB.num(d.por_suc),
+    color: (d) => c.buenas.includes(d.hora) ? 'var(--cb-accent)' : c.bajas.includes(d.hora) ? 'var(--cb-red, #E5484D)' : 'var(--cds-chart-muted)',
+    tip: (d) => [d.hora + ' · lunes a viernes', CB.dec(d.por_suc) + ' personas por sucursal' + (c.buenas.includes(d.hora) ? ' · hora buena' : c.bajas.includes(d.hora) ? ' · hora baja' : '')]
+  });
+});
+dash.draw('txt_horas', (el) => {
+  if (dash.data('ocupacion').status !== 'ok' || dash.data('asis_suc_30').status !== 'ok') { el.textContent = '—'; return; }
+  const rows = cbHorasSemana(), c = cbClasifica(rows), v = {}; rows.forEach((r) => { v[r.hora] = r.por_suc; });
+  if (!rows.length) { el.textContent = 'Sin datos en este período.'; return; }
+  const rango = (hs) => { const x = hs.map((h) => v[h]); return CB.num(Math.min(...x)) + ' a ' + CB.num(Math.max(...x)); };
+  const sab = CB.rows('ocupacion').filter((r) => r.dia === 'sábado' && Number(r.promedio) >= 1).map((r) => r.hora).sort();
+  el.replaceChildren();
+  const b = (t) => { const e = document.createElement('b'); e.textContent = t; return e; };
+  el.append('Horas buenas (lunes a viernes): ', b(c.buenas.slice().sort().map(cbH).join(', ')), ', con ' + rango(c.buenas) + ' personas por sucursal. Horas bajas: ',
+    b(c.bajas.slice().sort().map(cbH).join(', ')), ', con ' + rango(c.bajas) + '. Ahí conviene una promoción de horario. ' +
+    'En el gráfico: claras, horas buenas; rojas, horas bajas. Promedio de ' + cbSucursales() + ' sucursales.' + (sab.length ? ' Los sábados se entrena de ' + cbH(sab[0]) + ' a ' + cbH(sab[sab.length - 1]) + '.' : ''));
+});
+dash.draw('txt_frec', (el) => {
+  if (dash.data('frecuencia').status !== 'ok') { el.textContent = '—'; return; }
+  const rows = CB.rows('frecuencia'), tot = rows.reduce((a, r) => a + (Number(r.clientes) || 0), 0);
+  if (!tot) { el.textContent = 'Sin datos en este período.'; return; }
+  const suma = (ks) => rows.filter((r) => ks.includes(String(r.veces))).reduce((a, r) => a + (Number(r.clientes) || 0), 0);
+  const pocos = suma(['1 vez', '2-4']), fieles = suma(['13-20', '21+']);
+  el.textContent = Math.round(pocos / tot * 100) + '% vino 4 días o menos en 30 días (' + CB.num(pocos) + ' clientes, riesgo de no renovar: pasarlos a Atención al Cliente). ' +
+    Math.round(fieles / tot * 100) + '% vino 13 días o más (' + CB.num(fieles) + ' clientes fieles). La mitad vino ' + (rows[0] && rows[0].mediana != null ? rows[0].mediana : '—') + ' días o más.';
 });
 dash.draw('ch_frec', (el) => {
   if (!CB.listo(el, ['frecuencia'])) return;
