@@ -91,7 +91,7 @@ b, strong { font-weight: 600; }
 :root, :root:not([data-theme="dark"]) {
     --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
     --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
-    --s-memb: #D9DCE0; --s-snack: #8D9299; --s-alq: #5C6168; --s-otros: #3E4247;
+    --s-memb: #D5D9DE; --s-snack: #D9AE5B; --s-alq: #8AA4D6; --s-otros: #6FBF95;   /* misma paleta que los gráficos del muro: sobria pero distinguible */
     --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
     color-scheme: dark;
 }
@@ -99,7 +99,7 @@ b, strong { font-weight: 600; }
     :root:not([data-theme="dark"]) {
         --page: var(--s-negro); --surface: var(--s-panel); --surface-2: var(--s-panel-2); --border: var(--s-linea);
         --ink: var(--s-blanco); --ink-2: var(--s-plata); --muted: var(--s-plata-2); --grid: #1D1F22; --axis: var(--s-linea-2);
-        --s-memb: #D9DCE0; --s-snack: #8D9299; --s-alq: #5C6168; --s-otros: #3E4247;
+        --s-memb: #D5D9DE; --s-snack: #D9AE5B; --s-alq: #8AA4D6; --s-otros: #6FBF95;   /* misma paleta que los gráficos del muro: sobria pero distinguible */
         --sel: rgba(255,255,255,.06); --up: var(--s-ok); --down: #C76A62; --error: #C76A62;
         color-scheme: dark;
     }
