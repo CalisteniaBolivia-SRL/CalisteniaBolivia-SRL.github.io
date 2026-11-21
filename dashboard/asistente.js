@@ -259,10 +259,19 @@
             if (m && final) { detenerEscucha(); var resto = m[1].trim(); $("as-oye").textContent = "«" + t + "»"; resto.length > 3 ? atender(resto) : atender(null); }
         };
         /* Si el micrófono arrancó sin preguntar, este equipo ya está autorizado: el aviso de autorización no vuelve. */
-        rec.onaudiostart = function () { if (window.CC_equipoAutorizado) window.CC_equipoAutorizado(); };
-        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") { S.sinMic = true; avisar("Este equipo no tiene permitido el micrófono para el sitio: use «Descargar autorización» abajo (una sola vez). Mientras tanto puede escribir."); } };
+        rec.onaudiostart = function () { if (window.CC_equipoAutorizado) window.CC_equipoAutorizado(); if (S.sinMic || !$("as-mic").hidden) { S.sinMic = false; $("as-mic").hidden = true; avisar(""); } };
+        rec.onerror = function (e) { if (e.error === "not-allowed" || e.error === "service-not-allowed") micBloqueado(); };
         rec.onend = function () { var era = S.escuchando; S.escuchando = false; clearTimeout(vence); $("as-mic").classList.remove("is-on"); if (era && !S.hablando && !S.pensando && !S.sinMic) setTimeout(function () { escuchar(modo === "turno" && enConversacion() ? "turno" : "vigilia"); }, 250); if (S.estado === "escuchando" && !(modo === "turno" && enConversacion())) estado("espera"); };
         try { rec.start(); } catch (e) {}
+    }
+
+    /* Micrófono sin permiso: en el celular hace falta un toque para que el navegador pregunte; en la PC del muro, la autorización. */
+    var MOVIL = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    function micBloqueado() {
+        S.sinMic = true;
+        $("as-mic").hidden = false;
+        avisar(MOVIL ? "Para que lo escuche, toque «Activar micrófono» y permita el micrófono. Si no le pregunta: candado de la barra de direcciones → Permisos → Micrófono → Permitir."
+            : "Este equipo no tiene permitido el micrófono: toque «Activar micrófono» o use «Descargar autorización» (una sola vez). Mientras tanto puede escribir.");
     }
 
     /* ---------- conversación ---------- */
@@ -297,7 +306,6 @@
     }
     function respuestaBasica(t) {
         var d = S.datos || {}, x = t.toLowerCase();
-        if (/claude|cloud|clod|claud|tablero|dashboard|estudio|an[aá]lisis|suger|recomend|estrategia|marketing|inteligencia/.test(x)) { setTimeout(abrirClaude, 3500); return "Con gusto. Le abro Capital Corp en Claude, donde puedo consultar los datos en vivo y prepararle eso."; }
         if (/resumen|pendiente|atender|c[oó]mo vamos|novedad/.test(x)) return resumen();
         if (/sucursal|ranking|mejor|peor|l[ií]der/.test(x) && d.sucursal_lider_mes) return "En el mes lidera " + d.sucursal_lider_mes.sucursal + " con " + bs(d.sucursal_lider_mes.total) + (d.sucursal_ultima_mes ? ", y la que más atrás va es " + d.sucursal_ultima_mes.sucursal + " con " + bs(d.sucursal_ultima_mes.total) : "") + ".";
         if (/ingres|venta|factur|plata|dinero/.test(x)) return "Hoy llevamos " + bs(d.ingresos_hoy) + " y en el mes " + bs(d.ingresos_mes) + (d.variacion_mes_pct != null ? ", " + Math.abs(d.variacion_mes_pct) + " por ciento " + (d.variacion_mes_pct >= 0 ? "arriba" : "abajo") + " del mes pasado a la misma fecha" : "") + ".";
@@ -305,9 +313,7 @@
         if (/venc|renov|retenc|riesgo/.test(x)) return n(d.por_vencer_7_dias) + " clientes vencen en siete días, " + n(d.sin_venir_14_dias) + " no vienen hace dos semanas y " + n(d.vencidos_30_dias) + " vencieron en el último mes. Atención al Cliente tiene las listas.";
         if (/caja/.test(x)) return "Hay " + n(d.cajas_abiertas) + " cajas abiertas, " + n(d.cajas_abiertas_mas_de_2_dias) + " de ellas hace más de dos días.";
         if (/gracias/.test(x)) return "Es un placer" + (S.quien ? ", " + S.quien : "") + ". Aquí estaré.";
-        /* Lo que esta pantalla no sabe responder se continúa en Claude, con los datos en vivo. */
-        setTimeout(abrirClaude, 4500);
-        return "Eso se lo respondo mejor en Claude, con los datos en vivo. Le abro la ventana de Capital Corp: repítame ahí su pregunta.";
+        return "En este momento no puedo consultar eso, señor. Le puedo dar el resumen del día, ingresos, visitas, vencimientos o cajas.";
     }
     function modo2(t) { $("as-modo").textContent = t; }
     function preguntarIA() {
@@ -330,7 +336,14 @@
     }
     var FRASES_ESPERA = ["Permítame un momento.", "Enseguida lo reviso.", "Un instante, por favor."];
     /* t = null: alguien se acercó (dijo «Capital» o tocó Hablar sin decir nada). */
+    var A_DESCANSAR = /\b(ya no hables|deja de hablar|no hables m[aá]s|c[aá]llate|desc[aá]nsa|eso es todo|hasta luego)\b/i;
     function atender(t) {
+        if (t && A_DESCANSAR.test(t)) {
+            S.turno = (S.turno || 0) + 1; S.historial.push({ rol: "usuario", texto: t });
+            var adios = "Muy bien, señor. Quedo atento: cuando me necesite, diga «Capital».";
+            S.historial.push({ rol: "asistente", texto: adios });
+            return decir(adios).then(function () { S.ultimo = 0; $("as-oye").textContent = ""; escuchar("vigilia"); });
+        }
         var mio = S.turno = (S.turno || 0) + 1;   // si llega otra pregunta en el medio, esta respuesta ya no sigue escuchando
         S.ultimo = Date.now();
         var nombreNuevo = false;
@@ -350,7 +363,7 @@
         var p = S.modoIA === false ? Promise.resolve({ texto: local() }) : preguntarIA().then(function (x) { S.modoIA = true; modo2(""); return x; }, function (e) {
             if (e.status === 429) return { texto: "Demasiadas preguntas seguidas; permítame un momento." };
             S.modoIA = false;
-            modo2("Resumen del día en esta pantalla. Conversación completa, tableros y estudios: «Hablar con Capital Corp» (Claude).");
+            modo2("Modo básico: resumen del día en esta pantalla.");
             return { texto: local() };
         });
         p.then(function () { llego = true; });
@@ -375,23 +388,6 @@
         if (Date.now() - S.ultimo > REPOSO_MS && S.historial.length) { S.historial = []; S.quien = quienDeSesion(); $("as-dice").textContent = "Diga «Capital» para hablar conmigo."; }
     }, 20000);
 
-    /* ---------- Capital Corp en Claude ----------
-       La conversación completa (tableros, estudios, sugerencias) se hace en Claude, con el conector de Calistenia,
-       dentro de la suscripción de la empresa. Cada equipo guarda el enlace de su proyecto «Capital Corp». */
-    var K_CLAUDE = "cc_claude_proyecto";
-    function urlClaude() { try { var u = localStorage.getItem(K_CLAUDE); if (u && /^https:\/\/claude\.ai\//.test(u)) return u; } catch (e) {} return window.CC_CLAUDE_URL || "https://claude.ai/projects"; }
-    function pintarEnlace() { $("as-claude").href = urlClaude(); $("as-enlace").textContent = /\/project\//.test(urlClaude()) ? "Cambiar el proyecto de Claude de este equipo" : "Elegir el proyecto de Claude de este equipo"; }
-    function abrirClaude() { var w = window.open(urlClaude(), "capital-corp-claude"); if (!w) location.href = urlClaude(); }
-    $("as-enlace").addEventListener("click", function () {
-        var u = window.prompt("Pegue el enlace del proyecto «Capital Corp» en Claude (se copia de la barra de direcciones, empieza con https://claude.ai/project/):", urlClaude());
-        if (u == null) return;
-        u = u.trim();
-        if (!/^https:\/\/claude\.ai\/[^\s]*$/.test(u)) { avisar("El enlace debe empezar con https://claude.ai/"); setTimeout(function () { avisar(""); }, 6000); return; }
-        try { localStorage.setItem(K_CLAUDE, u); } catch (e) {}
-        pintarEnlace();
-    });
-    pintarEnlace();
-
     /* ---------- controles ---------- */
     /* Arranca solo: saluda en cuanto están los datos (o a los 4 segundos) y queda escuchando. */
     S.activo = true;
@@ -399,7 +395,8 @@
     var saludado = false;
     function arrancar() { if (saludado) return; saludado = true; atender(null); }
     setTimeout(arrancar, 4000);
-    $("as-mic").addEventListener("click", function () { if (!S.activo) return; pararInterrupcion(); S.interrumpido = true; silenciar(); S.hablando = false; S.interrumpido = false; S.ultimo = Date.now(); escuchar("turno"); });
+    /* Solo aparece si el micrófono está bloqueado: el toque le permite al navegador pedir el permiso. */
+    $("as-mic").addEventListener("click", function () { S.sinMic = false; avisar(""); pararInterrupcion(); S.interrumpido = true; silenciar(); S.hablando = false; S.interrumpido = false; S.ultimo = Date.now(); escuchar("turno"); });
     /* Tocar la pantalla mientras habla también lo hace callar y escuchar. */
     document.querySelector(".as-voz").addEventListener("click", function () { if (!S.hablando) return; pararInterrupcion(); S.interrumpido = true; silenciar(); S.hablando = false; S.interrumpido = false; escuchar("turno"); });
     $("as-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("as-texto").value.trim(); if (!t) return; $("as-texto").value = ""; S.activo = true; pararInterrupcion(); S.interrumpido = true; silenciar(); S.interrumpido = false; detenerEscucha(); atender(t); });
@@ -410,7 +407,7 @@
         var n = "";
         try { n = (window.CMFB && CMFB.nombre && CMFB.nombre()) || ""; } catch (e) {}
         if (!n) try { n = (JSON.parse(localStorage.getItem("cb_centro_mando") || "{}").nombre) || ""; } catch (e) {}
-        if (/jos[eé]\s+(miguel\s+)?parada/i.test(n)) return "don José Miguel";
+        if (/jos[eé]\s+(miguel\s+)?parada/i.test(n)) return "señor";
         var p = String(n).trim().split(/\s+/)[0];
         return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "";
     }
