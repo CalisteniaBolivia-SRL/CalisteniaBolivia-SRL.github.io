@@ -1,0 +1,22 @@
+# Puente de cámaras del centro de mando (go2rtc) · computadora de la oficina
+# 1. Reemplace USUARIO, CLAVE y DIRECCION por los de cada grabador Dahua (los mismos que usa SmartPSS).
+#    DIRECCION = IP pública o dominio (DDNS) del grabador de esa sucursal.
+# 2. Una línea por cámara. El nombre SIEMPRE «Sucursal - Nombre de la cámara»: así el centro de mando las agrupa solas.
+#    channel = número de cámara en el grabador (1, 2, 3…). subtype=1 = calidad liviana (recomendado para ver muchas a la vez).
+# 3. Este archivo tiene contraseñas: NO lo suba a internet ni lo mande por chat. Queda solo en esa computadora.
+
+api:
+  listen: "127.0.0.1:1984"   # solo esta computadora; afuera se publica por Tailscale (privado)
+  origin: "*"                # deja que el centro de mando lea la lista de cámaras
+
+rtsp:
+  listen: ""                 # no abre otros puertos
+
+webrtc:
+  listen: ""
+
+streams:
+  "Berea - Cámara 1": rtsp://USUARIO:CLAVE@DIRECCION:554/cam/realmonitor?channel=1&subtype=1
+  "Berea - Cámara 2": rtsp://USUARIO:CLAVE@DIRECCION:554/cam/realmonitor?channel=2&subtype=1
+  "Chonta - Cámara 1": rtsp://USUARIO:CLAVE@DIRECCION:554/cam/realmonitor?channel=1&subtype=1
+  # … una línea por cada cámara de cada sucursal
