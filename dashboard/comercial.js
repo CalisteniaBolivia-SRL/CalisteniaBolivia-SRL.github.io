@@ -441,7 +441,7 @@
     function ctxLista(ej, soloVer) {
         return { yo: ej, asignaciones: S.asignaciones, ultimas: S.ultimas, gestiones: S.ultimas, guiones: S.guiones,
             tareas: soloVer ? [] : S.tareas.filter(function (t) { return !t.key_ejecutiva || t.key_ejecutiva === ej.key; }),
-            comisiones: soloVer ? (S.comRecientes || []).filter(function (x) { return x.key_ejecutiva === ej.key && String(x.fecha_venta).slice(0, 7) === hoy().slice(0, 7); }) : S.comisiones,
+            comisiones: soloVer ? (S.comRecientes || []).filter(function (x) { return x.key_ejecutiva === ej.key; }) : S.comisiones,
             llamar: llamar, avisar: avisar, soloVer: soloVer, gestionar: soloVer ? gestionLista() : null };
     }
     /* Quitar o pasar clientes de una lista ya asignada (Jefe de ATC, en «Ver una lista»). */
@@ -1003,6 +1003,8 @@
 
     /* ---------- arranque ---------- */
     function arrancar() {
+    /* La ATC ve sus comisiones del período de pago (del 26 al 25), no del mes calendario. */
+    if (!MASTER && window.ATC_milista && ATC_milista.periodoPago) { var pp = ATC_milista.periodoPago(); S.periodo = { desde: pp.desde, hasta: hoy() < pp.hasta ? hoy() : pp.hasta }; }
     $("#co-titulo").textContent = MASTER ? "Jefe de ATC" : "Mi lista de clientes";
     $("#co-sub").textContent = MASTER
         ? "Asigna las listas y campañas a cada ATC, sigue cómo vende cada una, lo que gana y lo que se paga en comisiones."
