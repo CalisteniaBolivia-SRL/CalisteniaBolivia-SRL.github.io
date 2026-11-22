@@ -110,7 +110,10 @@ async function ingresar(usuario, passwordMd5) {
     const tableros_py = permisosERP(r.paginasPY || {});
     const nombre = nombreDe(r.login, usuario);
     const vence = Date.now() + DIAS_SESION * 86400000;
-    const token = await admin.auth().createCustomToken(uid, { cm: 1, tableros, tableros_py, nombre, usuario: usuario.slice(0, 80), vence });
+    /* cm: sesión del centro de mando (solo con permisos en /centro_mando). ref: cualquier usuario del ERP, para su
+       panel de «Mis referidos» (las reglas de Firestore no le dan nada más). */
+    const cm = tableros.length || tableros_py.length ? 1 : 0;
+    const token = await admin.auth().createCustomToken(uid, { cm, ref: 1, tableros, tableros_py, nombre, usuario: usuario.slice(0, 80), vence });
     return { token, uid, nombre, tableros, tableros_py, vence };
 }
 
@@ -124,8 +127,8 @@ exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, max
     if (!usuario || usuario.length > 80 || !/^[a-f0-9]{32}$/.test(md5)) return res.status(400).json({ error: "Datos de ingreso no válidos." });
     try {
         const r = await ingresar(usuario, md5);
-        if (!r.tableros.length && !r.tableros_py.length) return res.status(403).json({ error: "Tu usuario no tiene permisos del centro de mando en el ERP." });
-        return res.json({ token: r.token, nombre: r.nombre, tableros: r.tableros, vence: r.vence });
+        /* Sin permisos en /centro_mando igual entra, solo a su panel de referidos (ref). */
+        return res.json({ token: r.token, nombre: r.nombre, tableros: r.tableros, tableros_py: r.tableros_py, vence: r.vence, solo_referidos: !r.tableros.length && !r.tableros_py.length });
     } catch (e) {
         if (e.codigo === "credenciales") { fallo(ip); return res.status(401).json({ error: "Usuario o contraseña incorrectos." }); }
         if (e.codigo === "permisos") return res.status(502).json({ error: "No se pudieron leer los permisos del ERP." });

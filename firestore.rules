@@ -224,6 +224,97 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- Códigos de referido: sesión de cualquier usuario del ERP ----------
+    function refSesion() { return request.auth != null && request.auth.token.ref == 1 && request.auth.token.vence > request.time.toMillis(); }
+    function refAdmin() { return permiso('direccion') || permiso('administracion'); }
+    function refAdminPY() { return permisoPY('direccion') || permisoPY('administracion'); }
+
+    // ---------- Códigos de referido · Bolivia (colecciones ref_*) ----------
+    // Cualquier usuario del ERP (token.ref) ve solo lo suyo; Dirección y Administración configuran, sincronizan con el ERP
+    // y liquidan. El cliente se anota sin sesión desde el link/QR: solo puede CREAR su inscripción (no leer nada).
+    match /ref_config/{d} { allow read: if refSesion(); allow write: if refAdmin(); }
+    match /ref_codigo_idx/{codigo} {
+      allow read: if true;   // la página pública muestra a quién pertenece el código (solo el primer nombre)
+      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{1,14}-CAL$')
+        && soloCampos(['key_usuario', 'nombre', 'estado', 'fecha_on']) && texto('nombre', 40);
+      allow update, delete: if refAdmin();
+    }
+    match /ref_codigo/{uid} {
+      allow read: if (refSesion() && uid == yo()) || refAdmin();
+      allow create: if refSesion() && uid == yo() && request.resource.data.key_usuario == yo() && request.resource.data.estado == 1
+        && soloCampos(['codigo', 'key_usuario', 'nombre', 'ci', 'telefono', 'familiares', 'estado', 'fecha_on'])
+        && texto('ci', 20) && texto('telefono', 20) && texto('nombre', 120) && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30;
+      // El trabajador solo puede actualizar su celular y sus familiares (el código y el carnet no cambian).
+      allow update: if (refSesion() && uid == yo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'familiares', 'fecha_edicion'])
+        && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30) || refAdmin();
+      allow delete: if false;
+    }
+    match /ref_inscripcion/{id} {
+      allow create: if soloCampos(['codigo', 'ci', 'telefono', 'nombre', 'fecha_on', 'estado'])
+        && request.resource.data.estado == 'nueva' && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.ci is string && request.resource.data.ci.size() <= 20 && request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read, update: if refAdmin();
+      allow delete: if false;
+    }
+    match /ref_cliente/{id} { allow read, write: if refAdmin(); }
+    match /ref_alerta/{id} { allow read, write: if refAdmin(); }
+    match /ref_comision/{id} {
+      allow read: if refAdmin() || (refSesion() && resource.data.key_trabajador == yo());
+      allow create, update: if refAdmin();
+      allow delete: if false;
+    }
+    match /ref_liquidacion/{id} {
+      allow read: if refAdmin() || (refSesion() && resource.data.key_trabajador == yo());
+      allow create: if refAdmin() && request.resource.data.neto is number && request.resource.data.neto > 0 && request.resource.data.pagado_por == yo();
+      allow update, delete: if false;
+    }
+    match /ref_resumen/{periodo} { allow read: if refSesion(); allow write: if refAdmin(); }
+
+    // ---------- Códigos de referido · Paraguay (colecciones py_ref_*) ----------
+    // Cualquier usuario del ERP (token.ref) ve solo lo suyo; Dirección y Administración configuran, sincronizan con el ERP
+    // y liquidan. El cliente se anota sin sesión desde el link/QR: solo puede CREAR su inscripción (no leer nada).
+    match /py_ref_config/{d} { allow read: if refSesion(); allow write: if refAdminPY(); }
+    match /py_ref_codigo_idx/{codigo} {
+      allow read: if true;   // la página pública muestra a quién pertenece el código (solo el primer nombre)
+      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{1,14}-CAL$')
+        && soloCampos(['key_usuario', 'nombre', 'estado', 'fecha_on']) && texto('nombre', 40);
+      allow update, delete: if refAdminPY();
+    }
+    match /py_ref_codigo/{uid} {
+      allow read: if (refSesion() && uid == yo()) || refAdminPY();
+      allow create: if refSesion() && uid == yo() && request.resource.data.key_usuario == yo() && request.resource.data.estado == 1
+        && soloCampos(['codigo', 'key_usuario', 'nombre', 'ci', 'telefono', 'familiares', 'estado', 'fecha_on'])
+        && texto('ci', 20) && texto('telefono', 20) && texto('nombre', 120) && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30;
+      // El trabajador solo puede actualizar su celular y sus familiares (el código y el carnet no cambian).
+      allow update: if (refSesion() && uid == yo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'familiares', 'fecha_edicion'])
+        && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30) || refAdminPY();
+      allow delete: if false;
+    }
+    match /py_ref_inscripcion/{id} {
+      allow create: if soloCampos(['codigo', 'ci', 'telefono', 'nombre', 'fecha_on', 'estado'])
+        && request.resource.data.estado == 'nueva' && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.ci is string && request.resource.data.ci.size() <= 20 && request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read, update: if refAdminPY();
+      allow delete: if false;
+    }
+    match /py_ref_cliente/{id} { allow read, write: if refAdminPY(); }
+    match /py_ref_alerta/{id} { allow read, write: if refAdminPY(); }
+    match /py_ref_comision/{id} {
+      allow read: if refAdminPY() || (refSesion() && resource.data.key_trabajador == yo());
+      allow create, update: if refAdminPY();
+      allow delete: if false;
+    }
+    match /py_ref_liquidacion/{id} {
+      allow read: if refAdminPY() || (refSesion() && resource.data.key_trabajador == yo());
+      allow create: if refAdminPY() && request.resource.data.neto is number && request.resource.data.neto > 0 && request.resource.data.pagado_por == yo();
+      allow update, delete: if false;
+    }
+    match /py_ref_resumen/{periodo} { allow read: if refSesion(); allow write: if refAdminPY(); }
+
     // Todo lo demás (incluida la antigua colección "roles"), cerrado.
     match /{documento=**} { allow read, write: if false; }
 
