@@ -37,6 +37,7 @@
         { id: "redes", tipo: "tablero", nombre: "Redes sociales", quien: { bolivia: "Marketing · Bolivia", paraguay: "Marketing · Paraguay" }, rol: "Respuestas automáticas a comentarios", que: "Facebook e Instagram responden solos; casos delicados por aprobar; borradores para TikTok", permisos: ["marketing"], datosPY: true, href: function (p) { return "redes.html?pais=" + (p || "bolivia"); } },
         { id: "rrhh", tipo: "tablero", nombre: "Recursos Humanos", quien: { bolivia: "German Gallardo" }, rol: "Recursos Humanos", que: "Productividad de entrenadores y cumplimiento de cajeros", permisos: ["rrhh"], href: function (p) { return url("rrhh.html", p); } },
         { id: "reportes", tipo: "tablero", nombre: "Reportes", quien: { bolivia: "Dirección · Administración" }, rol: "Control y auditoría", que: "Traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados", permisos: ["reportes"], href: function (p) { return url("reportes.html", p); } },
+        { id: "referidos", tipo: "tablero", datosPY: true, todos: true, nombre: "Mis referidos", quien: { bolivia: "Todo el equipo", paraguay: "Todo el equipo" }, rol: "Tu código, tus cierres y tu comisión", que: "Compartí tu código por WhatsApp o QR y mirá cuánto ganás por cada cliente nuevo; Dirección y Administración liquidan desde acá", permisos: [], href: function (p) { return url("referidos.html", p); } },
         { id: "jefe_atc", datosPY: true, tipo: "tablero", nombre: "Jefe de ATC", quien: { bolivia: "Eliana Aguilera" }, rol: "Dirige al equipo de atención al cliente", que: "Asigna listas y campañas, sigue cómo vende cada ATC, lo que gana, las comisiones a pagar y el control de caja", permisos: ["jefe_atc"], href: function (p) { return url("comercial.html?vista=jefe", p); } },
         { id: "atc", datosPY: true, tipo: "tablero", nombre: "Atención al Cliente (ATC)", quien: { bolivia: "ATC de cada sucursal", paraguay: "ATC" }, rol: "Llamar, escribir y cerrar ventas", que: "Tu lista del día con Llamar y WhatsApp, tus seguimientos y lo que vas ganando por cada cliente que vuelve", permisos: ["atencion", "atc"], href: function (p) { return url("comercial.html?vista=atc", p); } },
         { id: "legal", tipo: "tablero", nombre: "Legal", quien: { bolivia: "Asesoría legal · Dirección", paraguay: "Asesoría legal · Dirección" }, rol: "Contratos, permisos y casos", que: "Vencimientos de contratos y licencias, procesos con su bitácora y calendario de plazos", permisos: ["legal"], datosPY: true, href: function (p) { return url("legal.html", p); } }
@@ -68,7 +69,7 @@
                 });
         }).catch(function () { return null; });
     }
-    function tieneAlguno(m, permisos) { return (permisos || []).indexOf("todo") >= 0 || m.permisos.some(function (p) { return (permisos || []).indexOf(p) >= 0; }); }
+    function tieneAlguno(m, permisos) { return m.todos || (permisos || []).indexOf("todo") >= 0 || m.permisos.some(function (p) { return (permisos || []).indexOf(p) >= 0; }); }
     function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
 
     /* Arma en el portal la lista del muro y las tarjetas de tableros de ese país, según permisos y checklist. */

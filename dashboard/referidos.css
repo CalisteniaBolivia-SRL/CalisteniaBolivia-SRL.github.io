@@ -1,0 +1,78 @@
+/* Mis referidos · mismo lenguaje del centro de mando: negro, plata, recuadros rectos, verde/ámbar/rojo solo para estados. */
+.cm-barra { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #25272B; background: #09090A; }
+.cm-barra a, .cm-barra button { color: #C4C8CE; text-decoration: none; font: inherit; font-size: 13px; background: none; border: 1px solid #34373C; padding: 6px 10px; cursor: pointer; }
+.cm-quien { margin-left: auto; color: #8D9299; font-size: 13px; }
+
+.rf { max-width: 1100px; margin: 0 auto; padding: 22px 16px 64px; display: flex; flex-direction: column; gap: 14px; }
+.rf-eyebrow { color: #8D9299; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.rf-titulo { margin: 4px 0 6px; font-size: clamp(26px, 4vw, 36px); letter-spacing: .03em; text-transform: uppercase; }
+.rf-muted { margin: 0; color: #8D9299; font-size: 13px; line-height: 1.5; }
+.rf-msg { margin: 0; color: #C4C8CE; font-size: 14px; }
+.rf-msg.is-bad { color: #C76A62; }
+.rf-error { margin: 0; color: #C76A62; font-size: 13px; min-height: 1em; }
+.rf-h3 { margin: 16px 0 8px; font-size: 14px; color: #C4C8CE; text-transform: uppercase; letter-spacing: .06em; }
+
+.rf-card { background: #121315; border: 1px solid #25272B; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rf-card h2 { margin: 0; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; }
+.rf-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; }
+.rf-scroll { overflow-x: auto; }
+
+.rf-form { display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+.rf-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #8D9299; }
+.rf-form input, .rf-filtros input, .rf-fam-fila input, .rf-input-num { font: inherit; font-size: 14px; padding: 9px 10px; border: 1px solid #34373C; background: #18191C; color: #F3F4F5; border-radius: 0; text-transform: none; letter-spacing: 0; min-width: 0; }
+.rf-fila2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.rf-fam { border: 1px solid #25272B; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.rf-fam legend { padding: 0 6px; color: #C4C8CE; font-size: 13px; }
+.rf-fam-fila { display: grid; grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr auto; gap: 8px; align-items: center; }
+.rf-cfg .rf-fam-fila { grid-template-columns: 1fr 1fr auto; }
+@media (max-width: 640px) { .rf-fam-fila { grid-template-columns: 1fr 1fr; } .rf-fam-fila .rf-quitar { grid-column: 1 / -1; } }
+
+.rf-btn { font: inherit; font-size: 13px; font-weight: 600; color: #F3F4F5; background: none; border: 1px solid #34373C; padding: 9px 14px; cursor: pointer; text-decoration: none; display: inline-flex; gap: 8px; align-items: center; justify-content: center; border-radius: 0; }
+.rf-btn:hover, .rf-btn:focus-visible { border-color: #C4C8CE; }
+.rf-btn.is-fuerte { background: #F3F4F5; color: #09090A; border-color: #F3F4F5; }
+.rf-btn:disabled { opacity: .5; cursor: default; }
+.rf-btn svg { width: 18px; height: 18px; }
+.rf-wa { background: #1F7A4D !important; border-color: #1F7A4D !important; color: #FFFFFF !important; }
+.rf-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.rf-tabs { display: flex; gap: 8px; border-bottom: 1px solid #25272B; }
+.rf-tab { font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #8D9299; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 6px; cursor: pointer; }
+.rf-tab.is-on { color: #F3F4F5; border-bottom-color: #C4C8CE; }
+
+.rf-codigo { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+.rf-codigo-txt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rf-label { color: #8D9299; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.rf-codigo-grande { font-size: clamp(32px, 6vw, 48px); letter-spacing: .08em; line-height: 1; }
+.rf-link { color: #C4C8CE; font-size: 13px; word-break: break-all; }
+.rf-qr { width: 160px; height: 160px; background: #FFFFFF; padding: 6px; flex: none; }
+.rf-qr svg { width: 100%; height: 100%; display: block; }
+
+.rf-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.rf-kpi { background: #121315; border: 1px solid #25272B; border-left: 2px solid #34373C; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.rf-kpi-t { color: #8D9299; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.rf-kpi-v { font-size: 26px; font-weight: 600; }
+.rf-kpi-s { color: #8D9299; font-size: 12px; }
+.rf-kpi.is-fuerte { border-left-color: #C4C8CE; }
+.rf-kpi.is-bad .rf-kpi-v { color: #C76A62; }
+
+.rf-meta-txt { margin: 0; font-size: 16px; }
+.rf-barra { height: 10px; background: #18191C; border: 1px solid #25272B; }
+.rf-barra i { display: block; height: 100%; background: #C4C8CE; transition: width .4s; }
+
+.rf-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rf-tabla th, .rf-tabla td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #25272B; vertical-align: middle; }
+.rf-tabla th { color: #8D9299; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+.rf-tabla .is-num { text-align: right; white-space: nowrap; }
+.rf-tabla tr.is-yo td { background: #18191C; font-weight: 600; }
+.rf-input-num { width: 90px; text-align: right; }
+
+.rf-chip { display: inline-block; padding: 2px 8px; font-size: 11px; letter-spacing: .04em; border: 1px solid #34373C; white-space: nowrap; }
+.rf-chip.is-pendiente { color: #C9A867; border-color: #5a4b2c; }
+.rf-chip.is-ganada { color: #7FB79A; border-color: #2f4a3b; }
+.rf-chip.is-pagada { color: #C4C8CE; }
+.rf-chip.is-revertida, .rf-chip.is-alerta { color: #C76A62; border-color: #5a2f2b; }
+
+.rf-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.rf-filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #8D9299; letter-spacing: .06em; text-transform: uppercase; }
+.rf-sinc { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+.rf-login { max-width: 460px; }
