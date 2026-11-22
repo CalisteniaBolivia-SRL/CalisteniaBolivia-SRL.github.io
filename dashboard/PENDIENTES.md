@@ -42,8 +42,8 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 - Logo de Capital Corp y empresa «S&P» en la entrada del grupo.
 - Mantener la alerta de gasto de Google (1 USD) y revisar el consumo de Claude y de la voz.
 
-## Códigos de referido (rama claude/referidos)
-- Publicar la función erpLogin (cualquier usuario del ERP entra a «Mis referidos») y las reglas de Firestore (ref_*, py_ref_*): falta volver a autorizar Google Cloud.
+## Códigos de referido
+- Publicado el 22/11: función erpLogin (sesión «ref» para cualquier usuario del ERP y permiso «accionistas») y reglas ref_* / py_ref_*.
 - Crear en el ERP de Bolivia el paquete con descuento para referidos (ej. «PROMO REFERIDO»): la comisión se calcula sobre lo cobrado.
 - Paraguay: el módulo y las colecciones py_ref_* están listos; falta que el ERP de Paraguay permita buscar clientes por cédula y ver el recibo de cada venta (hoy el cruce muestra el aviso).
 - A futuro: % por nivel del trabajador (hoy: global y por paquete).
