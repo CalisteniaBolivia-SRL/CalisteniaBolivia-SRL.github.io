@@ -23,7 +23,8 @@ if (Test-Path $conf) {
     Write-Host '   Ya existía espejo.config.json: se deja como está.'
 } else {
     $js = (Invoke-WebRequest -UseBasicParsing -Uri "$base/firebase-config.js").Content
-    $apiKey = [regex]::Match($js, 'apiKey\s*:\s*"([^"]+)"').Groups[1].Value
+    # La clave real (empieza con AIza y no es el ejemplo «AIza...» que figura más abajo en el archivo).
+    $apiKey = ([regex]::Matches($js, '"?apiKey"?\s*:\s*"(AIza[0-9A-Za-z_-]{20,})"') | Select-Object -First 1).Groups[1].Value
     if (-not $apiKey) { throw 'No se encontró la apiKey en firebase-config.js.' }
     $letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'.ToCharArray()
     $bytes = New-Object byte[] 28
@@ -36,6 +37,7 @@ if (Test-Path $conf) {
     } catch {
         Write-Host '   ATENCION: no se pudo crear el usuario de la PC (puede que ya exista). Copie este mensaje y mándeselo a Claude:'
         Write-Host "   $($_.Exception.Message)"
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { Write-Host "   $($_.ErrorDetails.Message)" }
         return
     }
     $o = [ordered]@{ proyecto = 'centro-de-comando-a57cf'; apiKey = $apiKey; usuario = $correo; clave = $clave; lugar = 'oficina'; segundos = 10; ancho = 1600 }
