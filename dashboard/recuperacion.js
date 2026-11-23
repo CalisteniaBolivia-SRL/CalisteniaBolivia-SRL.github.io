@@ -488,9 +488,26 @@
         });
     }
     /* Asigna las 2 listas de una sucursal. Si la misma ATC tiene las dos, se le asignan juntas. */
+    /* ATC que reciben lista en una sucursal: las elegidas en la tabla y, con «Repartir entre todas», además todas las
+       ATC activas que tienen esa sucursal en Equipo (antes solo había 2 listas por sucursal y la tercera ATC quedaba sin nada). */
+    function repartir() { return P.prefs.repartir !== false; }
+    function atcsDe(x) {
+        var a1 = elegidaPara(x.sucursal, 1), a2 = elegidaPara(x.sucursal, 2), out = [];
+        var base = repartir() ? [a1, a2].concat(equipoDe(x.sucursal).de.map(function (e) { return e.key; })) : [a1, a2];
+        base.forEach(function (k) { if (k && out.indexOf(k) < 0) out.push(k); });
+        return out;
+    }
     function asignarSucursal(x) {
         var a1 = elegidaPara(x.sucursal, 1), a2 = elegidaPara(x.sucursal, 2), pedidos = [];
-        if (a1 && a1 === a2) pedidos.push({ ej: a1, n: 1, clientes: paquete(x.listas[0].concat(x.listas[1]), 0) });
+        var atcs = atcsDe(x);
+        if (repartir() && atcs.length) {
+            /* Se reparten los clientes de la sucursal entre todas sus ATC, intercalados (cada una recibe de todos los grupos). */
+            var max = Number(P.prefs.max) || 0, pool = max > 0 ? x.todos.slice(0, max * Math.max(2, atcs.length)) : x.todos;
+            var partes = atcs.map(function () { return []; });
+            pool.forEach(function (c, i) { partes[i % atcs.length].push(c); });
+            atcs.forEach(function (k, j) { if (partes[j].length) pedidos.push({ ej: k, n: j + 1, clientes: paquete(partes[j], 0) }); });
+        }
+        else if (a1 && a1 === a2) pedidos.push({ ej: a1, n: 1, clientes: paquete(x.listas[0].concat(x.listas[1]), 0) });
         else {
             if (a1 && x.listas[0].length) pedidos.push({ ej: a1, n: 1, clientes: paquete(x.listas[0], 0) });
             if (a2 && x.listas[1].length) pedidos.push({ ej: a2, n: 2, clientes: paquete(x.listas[1], 0) });
@@ -504,8 +521,10 @@
         }, Promise.resolve()).then(function () { return hechos; });
     }
     function asignarVarias(listas, boton) {
-        var conAtc = listas.filter(function (x) { return elegidaPara(x.sucursal, 1) || elegidaPara(x.sucursal, 2); });
-        if (!conAtc.length) { avisar("Elige al menos una ATC en la tabla.", "warn"); return; }
+        var conAtc = listas.filter(function (x) { return atcsDe(x).length > 0; });
+        var sinAtc = listas.filter(function (x) { return !atcsDe(x).length && x.todos.length; }).map(function (x) { return x.sucursal; });
+        if (!conAtc.length) { avisar("Elige al menos una ATC en la tabla." + (sinAtc.length ? " Sin ATC: " + sinAtc.join(", ") + "." : ""), "warn"); return; }
+        var recibieron = {};
         var textoBoton = boton.textContent;
         boton.disabled = true;
         var hechos = [], fallas = [], i = 0, cortar = false;
@@ -515,7 +534,7 @@
             if (cortar || i >= conAtc.length) return Promise.resolve();
             var x = conAtc[i++];
             boton.textContent = "Asignando " + x.sucursal + " (" + i + " de " + conAtc.length + ")…";
-            return asignarSucursal(x).then(function (h) { hechos = hechos.concat(h); }, function (e) {
+            return asignarSucursal(x).then(function (h) { hechos = hechos.concat(h); atcsDe(x).forEach(function (k) { recibieron[k] = 1; }); }, function (e) {
                 var m = (e && e.message) || String(e);
                 fallas.push(x.sucursal + ": " + m);
                 if (/permiso|vuelve a ingresar|vuelvas a ingresar/i.test(m)) cortar = true;
@@ -523,8 +542,12 @@
         }
         sig().then(function () {
             boton.textContent = textoBoton; boton.disabled = false;
-            if (fallas.length) avisar(hechos.length + " listas asignadas. No se pudo asignar → " + fallas.join(" · "), "bad");
-            else avisar("Listo: " + hechos.length + " listas asignadas. Cada ATC ya la ve en «Mi lista».");
+            /* Quién quedó afuera y por qué: sucursales sin ATC y ATC activas sin lista (casi siempre, sin sucursal en Equipo). */
+            var sinLista = ((P.ctx && P.ctx.equipo) || []).filter(activa).filter(function (e) { return !recibieron[e.key]; })
+                .map(function (e) { return e.nombre + ((e.sucursales || []).length ? " (" + e.sucursales.join(", ") + ": sin clientes en los grupos elegidos)" : " (no tiene sucursal en Equipo)"); });
+            var extra = (sinAtc.length ? " Sucursales sin ATC: " + sinAtc.join(", ") + "." : "") + (sinLista.length ? " ATC sin lista: " + sinLista.join(" · ") + "." : "");
+            if (fallas.length) avisar(hechos.length + " listas asignadas. No se pudo asignar → " + fallas.join(" · ") + extra, "bad");
+            else avisar("Listo: " + hechos.length + " listas asignadas: " + hechos.join(", ") + ". Cada ATC ya la ve en «Mi lista»." + extra, extra ? "warn" : "ok", extra ? 60000 : 15000);
             if (hechos.length) return P.ctx.recargar();
         }).catch(function (e) { boton.textContent = textoBoton; boton.disabled = false; avisar("Se cortó la asignación: " + ((e && e.message) || e) + ". Lo asignado hasta ahí quedó guardado.", "bad"); });
     }
@@ -569,14 +592,16 @@
             nota.value = P.prefs.nota || "";
             nota.addEventListener("change", function () { P.prefs.nota = nota.value.trim(); guardarPrefs(); });
             var reemp = el("input", { type: "checkbox", checked: P.prefs.reemplazar !== false, onchange: function (e) { P.prefs.reemplazar = e.target.checked; guardarPrefs(); } });
+            var repart = el("input", { type: "checkbox", checked: repartir(), onchange: function (e) { P.prefs.repartir = e.target.checked; guardarPrefs(); pintar(); } });
             partes.push(el("div", { class: "co-card pl-nota" }, [
                 el("label", {}, ["Mensaje para las ATC (lo ven arriba de su lista)", nota]),
-                el("label", { class: "co-check" }, [reemp, "Al asignar, reemplazar la lista anterior de cada ATC en esa sucursal (lo que ya contactaron queda registrado)"])
+                el("label", { class: "co-check" }, [reemp, "Al asignar, reemplazar la lista anterior de cada ATC en esa sucursal (lo que ya contactaron queda registrado)"]),
+                el("label", { class: "co-check" }, [repart, "Repartir entre todas las ATC de cada sucursal (si una sucursal tiene 3 o más ATC, todas reciben su parte)"])
             ]));
         }
         partes.push(el("div", { class: "pl-listas-cab" }, [
             el("label", {}, ["Clientes por lista (0 = todos)", max]),
-            el("p", { class: "co-muted pl-resumen" }, [elegidos.length ? (miles(total) + " clientes en " + listas.length + " sucursales, en 2 listas por sucursal" + (quedan ? ". Quedan " + miles(quedan) + " para otro día (sube el número si quieres darles más)." : ".")) : "Elige al menos un grupo arriba para armar las listas."]),
+            el("p", { class: "co-muted pl-resumen" }, [elegidos.length ? (miles(total) + " clientes en " + listas.length + " sucursales, " + (repartir() ? "repartidos entre las ATC de cada sucursal" : "en 2 listas por sucursal") + (quedan ? ". Quedan " + miles(quedan) + " para otro día (sube el número si quieres darles más)." : ".")) : "Elige al menos un grupo arriba para armar las listas."]),
             P.ctx && conEquipo ? el("button", { type: "button", class: "co-primario", text: "Asignar todas las sucursales", disabled: !total, onclick: function (e) { asignarVarias(listas, e.currentTarget); } }) : null,
             el("button", { type: "button", class: P.ctx && conEquipo ? "co-btn" : "co-primario", text: "Descargar todo en Excel", disabled: !total, onclick: function (e) { descargarTodas(listas, e.currentTarget); } })
         ]));
@@ -591,7 +616,7 @@
                     onclick: function (e) { descargarLista(x, n, e.currentTarget); } }), bajada && !asignar ? el("span", { class: "co-chip co-ok", text: "bajada " + bajada }) : null]);
             };
             var acciones = el("div", { class: "co-acciones" }, [
-                asignar ? el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Asignar", disabled: !(elegidaPara(x.sucursal, 1) || elegidaPara(x.sucursal, 2)) || !x.todos.length, onclick: function (e) {
+                asignar ? el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Asignar", disabled: !atcsDe(x).length || !x.todos.length, onclick: function (e) {
                     var b = e.currentTarget; b.disabled = true; b.textContent = "Asignando…";
                     asignarSucursal(x).then(function (h) { avisar(x.sucursal + ": " + (h.length ? "lista asignada a " + h.join(" y ") + "." : "elige las ATC.")); return P.ctx.recargar(); })
                         .catch(function (err) { avisar(x.sucursal + ": no se pudo asignar. " + ((err && err.message) || err), "bad"); b.disabled = false; b.textContent = "Asignar"; });
@@ -602,7 +627,11 @@
             var celdas = [el("td", { class: "pl-suc" }, [el("b", { text: x.sucursal })])].concat(
                 elegidos.map(function (s) { return el("td", { class: "co-num", text: x.porSeg[s.id] ? miles(x.porSeg[s.id]) : "·" }); }),
                 [el("td", { class: "co-num" }, [el("b", { text: miles(x.todos.length) })])]);
-            if (asignar) celdas = celdas.concat([el("td", {}, [celdaAtc(x, 1)]), el("td", {}, [celdaAtc(x, 2)]), el("td", {}, [acciones]), el("td", {}, [celdaAvance(x)])]);
+            if (asignar) {
+                var ats = atcsDe(x), nota = !ats.length ? el("p", { class: "co-muted pl-reparto", text: "Sin ATC: elige una o carga la sucursal en Equipo." })
+                    : repartir() && ats.length > 2 ? el("p", { class: "co-muted pl-reparto", text: "Se reparte entre " + ats.length + " ATC: " + ats.map(nombreAtc).join(", ") + "." }) : null;
+                celdas = celdas.concat([el("td", {}, [celdaAtc(x, 1)]), el("td", {}, [celdaAtc(x, 2), nota]), el("td", {}, [acciones]), el("td", {}, [celdaAvance(x)])]);
+            }
             else celdas = celdas.concat([el("td", {}, [excel(1)]), el("td", {}, [excel(2)]), el("td", {}, [acciones])]);
             tb.appendChild(el("tr", {}, celdas));
             if (P.viendo === x.sucursal) {

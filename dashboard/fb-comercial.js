@@ -266,7 +266,7 @@
        (nombre, teléfono, grupo, dato, promoción y mensaje de WhatsApp) para que la ATC trabaje sin depender del MCP.
        Con reemplazar, la lista anterior de esa ATC en esa sucursal se da de baja (sus contactos registrados quedan). */
     CMFB.registrar("comercial_plan_asignar", function (a) {
-        var ej = clave(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), n = Number(a.lista_n) === 2 ? 2 : 1;
+        var ej = clave(a.key_ejecutiva), suc = U.txt(a, "sucursal", 120, true), n = Math.min(30, Math.max(1, parseInt(a.lista_n, 10) || 1));   // una lista por ATC de la sucursal
         var nota = U.txt(a, "nota", 600, false), lote = U.ahora(), clientes = Array.isArray(a.clientes) ? a.clientes : [];
         if (!ej) throw U.err("Elige la ATC.");
         if (!clientes.length) throw U.err("La lista está vacía.");
