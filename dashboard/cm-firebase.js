@@ -16,7 +16,23 @@
     function sinFirebase(msg) { return Object.assign(new Error(msg), { sinFirebase: true }); }
     function usuarioKey() { return estado.usuario ? estado.usuario.uid : ""; }
     function nombre() { return (estado.claims && estado.claims.nombre) || ""; }
-    function sesionVigente() { return !!(estado.usuario && estado.claims.cm === 1 && Number(estado.claims.vence) > Date.now()); }
+    /* Sesión del portal (permisos del ERP releídos sin contraseña). */
+    function sesionPortal() { try { return JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) { return null; } }
+    /* En este equipo quedó la sesión de datos de otra persona (el portal es de un usuario y Firebase de otro). */
+    function otraPersona() {
+        var s = sesionPortal();
+        return !!(estado.usuario && s && s.key_usuario && s.key_usuario !== estado.usuario.uid);
+    }
+    function sesionVigente() { return !!(estado.usuario && estado.claims.cm === 1 && Number(estado.claims.vence) > Date.now()) && !otraPersona(); }
+    /* Permisos que el ERP ya tiene (portal) pero el token de Firebase todavía no: el token conserva los del último
+       ingreso con contraseña (dura 30 días); a quien le dieron un permiso después, Firestore lo rechaza. */
+    function permisosFaltantes() {
+        if (!sesionVigente()) return [];
+        var s = sesionPortal() || {}, c = estado.claims || {}, ct = c.tableros || [], cp = c.tableros_py || [];
+        var falta = (s.tableros || []).filter(function (t) { return ct.indexOf(t) < 0; });
+        if (ct.indexOf("direccion") < 0) (s.tableros_py || []).forEach(function (t) { if (cp.indexOf(t) < 0 && falta.indexOf(t) < 0) falta.push(t); });
+        return falta;
+    }
     /* Permiso del ERP (página /centro_mando) incluido en la sesión. */
     function tieneRol(r) { return sesionVigente() && (estado.claims.tableros || []).indexOf(r) >= 0; }
     /* Permiso en el país del módulo: en Paraguay, los de /centro_mando del ERP de Paraguay (Dirección de Bolivia, todo). */
@@ -47,11 +63,14 @@
     }
     function pintarBarra() {
         if (!document.body || !document.querySelector(".cm-barra") || window.CM_FB_SIN_BARRA) return;
-        if (estado.configurado && !estado.error && sesionVigente()) { var x = document.getElementById("cm-fb-barra"); if (x) x.remove(); return; }
+        var faltan = permisosFaltantes();
+        if (estado.configurado && !estado.error && sesionVigente() && !faltan.length) { var x = document.getElementById("cm-fb-barra"); if (x) x.remove(); return; }
         var b = barra(); b.textContent = ""; b.className = "cm-fb-barra is-warn";
         var t = document.createElement("span");
         if (!estado.configurado) t.textContent = "Falta configurar Firebase para guardar los datos de este módulo.";
         else if (estado.error) { t.textContent = "No se pudo abrir la sesión de datos: " + estado.error; b.className = "cm-fb-barra is-bad"; }
+        else if (otraPersona()) { t.textContent = "En este equipo quedó abierta la sesión de datos de otra persona. Para trabajar con tu usuario, vuelve a ingresar."; b.className = "cm-fb-barra is-bad"; }
+        else if (faltan.length) { t.textContent = "Tus permisos del ERP cambiaron desde tu último ingreso (nuevo: " + faltan.join(", ") + "). Hasta que vuelvas a ingresar con tu usuario y contraseña del ERP, no vas a poder guardar con esos permisos (por ejemplo, asignar listas)."; b.className = "cm-fb-barra is-bad"; }
         else t.textContent = "Para guardar y ver los datos de este módulo, sal del centro de mando y vuelve a ingresar con tu usuario y contraseña del ERP.";
         b.appendChild(t);
         if (estado.configurado) {
@@ -101,7 +120,13 @@
                 if (!sesionVigente()) throw sinFirebase("Sal del centro de mando y vuelve a ingresar con tu usuario del ERP para usar este módulo.");
                 return h(JSON.parse(JSON.stringify(args || {})), nombre);
             }).then(function (r) { return r; }, function (e) {
-                if (e && e.code === "permission-denied") throw sinFirebase("Tu usuario del ERP no tiene permiso para esto en /centro_mando.");
+                if (e && e.code === "permission-denied") {
+                    var f = permisosFaltantes();
+                    throw sinFirebase(f.length ? "Te dieron el permiso (" + f.join(", ") + ") después de tu último ingreso: sal del centro de mando y vuelve a ingresar con tu usuario del ERP para que se active."
+                        : "Tu usuario del ERP no tiene permiso para esto en /centro_mando. Si te lo dieron hace poco, sal y vuelve a ingresar.");
+                }
+                if (e && e.code === "resource-exhausted") throw sinFirebase("Se llegó al límite de uso de la base de datos por hoy (Firebase). Avísale a Dirección.");
+                if (e && e.code === "unavailable") throw sinFirebase("No hay conexión con la base de datos. Revisa el internet y vuelve a intentar.");
                 throw e;
             });
         };
@@ -172,7 +197,7 @@
     }
 
     window.CMFB = {
-        listo: listo, estado: estado, tieneRol: tieneRol, tieneRolPais: tieneRolPais, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente,
+        listo: listo, estado: estado, tieneRol: tieneRol, tieneRolPais: tieneRolPais, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente, permisosFaltantes: permisosFaltantes, otraPersona: otraPersona,
         entrarConERP: entrarConERP, salir: salir,
         registrar: function (nombreH, fn) { herramientas[nombreH] = fn; },
         util: { db: db, ahora: ahora, docs: docs, vigentes: vigentes, err: err, txt: txt, opcion: opcion, fecha: fecha, monto: monto, entero: entero, url: url, bool: bool, sucursales: sucursales }

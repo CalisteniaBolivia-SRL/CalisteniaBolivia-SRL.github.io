@@ -19,8 +19,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
-<script src="cm-firebase.js?v=12"></script>
-<script src="fb-comercial.js?v=22"></script>
+<script src="cm-firebase.js?v=13"></script>
+<script src="fb-comercial.js?v=23"></script>
 <script>
 /* Dos roles separados, dos vistas: ?vista=jefe (permiso "jefe_atc" = Jefe de ATC) y ?vista=atc (permiso "atencion" o "atc" = Atención al Cliente).
    Quien tiene los dos permisos (por ejemplo Dirección con "todo") entra a la vista que eligió en el portal. */
@@ -42,6 +42,11 @@
 })();
 </script>
 <link rel="stylesheet" href="sobrio.css?v=6">
+<style>
+  /* El resultado de «Asignar» se ve aunque se esté abajo en la tabla. */
+  #co-aviso:not(:empty) { position: sticky; top: 8px; z-index: 60; padding: 10px 14px; font-size: 1em; background: #121315; border: 1px solid #3A3D42; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+  #co-aviso.is-bad:not(:empty) { border-color: #C76A62; }
+</style>
 </head>
 <body>
 <div class="cm-barra"><a href="./">← Centro de mando</a><a href="manual.html#atencion">Manual</a><span class="cm-quien" id="cm-quien"></span><button type="button" id="cm-salir">Salir</button></div>
@@ -82,10 +87,10 @@
 
 <script src="iconos.js?v=1"></script>
 <script src="comercial-logica.js?v=1"></script>
-<script src="recuperacion.js?v=8"></script>
+<script src="recuperacion.js?v=9"></script>
 <script src="mi-lista.js?v=12"></script>
 <script src="panel-jefe.js?v=3"></script>
-<script src="comercial.js?v=25"></script>
+<script src="comercial.js?v=26"></script>
 <script>
 (function () {
     var q = document.getElementById("cm-quien");

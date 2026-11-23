@@ -55,9 +55,11 @@
             return ref.set(d).then(function () { return Object.assign({ key: ref.id }, d); });
         });
     }
-    function asignaciones() {
-        /* Las asignaciones del «Plan de hoy» traen además la foto del cliente (nombre, teléfono, grupo, mensaje). */
-        return U.docs(col("com_asignacion")).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); });
+    function asignaciones(keyEj) {
+        /* Las asignaciones del «Plan de hoy» traen además la foto del cliente (nombre, teléfono, grupo, mensaje).
+           Con keyEj (vista de la ATC) se leen solo las suyas; sin keyEj (Jefe de ATC), todas. */
+        var q = keyEj ? col("com_asignacion").where("key_ejecutiva", "==", keyEj) : col("com_asignacion");
+        return U.docs(q).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); });
     }
     function gestionesDesde(desde) {
         return memo("gest:" + desde, function () { return U.docs(col("com_gestion").where("fecha_on", ">=", desde)).then(function (l) { return U.vigentes(l).sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); }); });
@@ -209,12 +211,12 @@
             /* Las comisiones de la ATC salen de las confirmadas (las deja el tablero del Jefe de ATC con las ventas
                del ERP): la ATC no necesita conexión con Calistenia. */
             var com = comisionesConfirmadas(e.key, r.desde, r.hasta).catch(function () { return null; });
-            return Promise.all([equipo(), asignaciones(), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), com]).then(function (x) {
+            return Promise.all([equipo(), asignaciones(e.key), gestionesDesde(menosDias(hoy(), 366)), tareas(e.key), guiones(), com]).then(function (x) {
                 var nom = nombresEquipo(x[0]), todas = x[5];
                 var mias = todas ? todas.filter(function (c) { return c.key_ejecutiva === e.key; }) : null;
                 var ranking = null;   // el puesto en el equipo ya no se muestra a la ATC
                 x[5] = mias;
-                return { data: { ejecutiva: e, ranking: ranking, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key || !a.lote; }), ultimas_gestiones: ultimas(x[2], nom),
+                return { data: { ejecutiva: e, ranking: ranking, equipo: x[0], asignaciones: x[1].filter(function (a) { return a.key_ejecutiva === e.key; }), ultimas_gestiones: ultimas(x[2], nom),
                     tareas: x[3].map(function (t) { return Object.assign({}, t, { ejecutiva: t.key_ejecutiva ? nom[t.key_ejecutiva] : null }); }),
                     guiones: x[4], comisiones: x[5] || [], comisiones_sin_datos: x[5] === null, comision_por_venta: COMISION_BS, ventana_dias: VENTANA_DIAS } };
             });
@@ -268,15 +270,23 @@
         var nota = U.txt(a, "nota", 600, false), lote = U.ahora(), clientes = Array.isArray(a.clientes) ? a.clientes : [];
         if (!ej) throw U.err("Elige la ATC.");
         if (!clientes.length) throw U.err("La lista está vacía.");
-        if (clientes.length > 500) throw U.err("Una lista admite hasta 500 clientes.");
-        var docs = clientes.map(function (c) {
-            var k = U.txt(c, "key_cliente", 120, true);
-            if (/[/]/.test(k)) throw U.err("Cliente no válido: " + k);
-            return { id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + U.txt(c, "grupo_titulo", 120, false), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.usuarioKey(),
+        /* Hasta 1000: las dos listas de una sucursal pueden ir juntas a la misma ATC. */
+        if (clientes.length > 1000) throw U.err("Una asignación admite hasta 1000 clientes.");
+        /* La foto de cada cliente se RECORTA (no se rechaza): un teléfono con varios números o un mensaje largo
+           no puede tirar abajo la lista entera de la sucursal. */
+        function rec(c, campo, max) { var v = c[campo]; if (v == null) return null; var s = String(v).trim(); return s ? s.slice(0, max) : null; }
+        var vistos = {}, docs = [];
+        clientes.forEach(function (c) {
+            var k = String(c.key_cliente == null ? "" : c.key_cliente).trim().replace(/\//g, "-").slice(0, 120);
+            if (!k) throw U.err("Hay un cliente sin identificador en la lista (" + (rec(c, "cliente", 80) || "sin nombre") + ").");
+            if (k === "." || k === ".." || /^__.*__$/.test(k)) throw U.err("Cliente no válido: " + k);
+            if (vistos[k]) return;   // repetido en la lista: una sola vez
+            vistos[k] = 1;
+            docs.push({ id: k, d: { key_ejecutiva: ej, motivo: "Plan de hoy · " + (rec(c, "grupo_titulo", 120) || ""), estado: 1, fecha_on: lote, key_usuario_registro: CMFB.usuarioKey(),
                 lote: lote, lista_n: n, sucursal: suc, orden: Number(c.orden) || 0, nota_jefa: nota,
-                cliente: U.txt(c, "cliente", 200, false), telefono: U.txt(c, "telefono", 40, false), grupo: U.txt(c, "grupo", 20, false), grupo_n: Number(c.grupo_n) || null,
-                grupo_titulo: U.txt(c, "grupo_titulo", 120, false), dato: U.txt(c, "dato", 200, false), promo: U.txt(c, "promo", 300, false), mensaje: U.txt(c, "mensaje", 1000, false),
-                campana_id: U.txt(c, "campana_id", 80, false), paquete_key: U.txt(c, "paquete_key", 120, false), paquete_nombre: U.txt(c, "paquete_nombre", 200, false) } };
+                cliente: rec(c, "cliente", 200), telefono: rec(c, "telefono", 40), grupo: rec(c, "grupo", 20), grupo_n: Number(c.grupo_n) || null,
+                grupo_titulo: rec(c, "grupo_titulo", 120), dato: rec(c, "dato", 200), promo: rec(c, "promo", 300), mensaje: rec(c, "mensaje", 1000),
+                campana_id: rec(c, "campana_id", 80), paquete_key: rec(c, "paquete_key", 120), paquete_nombre: rec(c, "paquete_nombre", 200) } });
         });
         var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
         return col("com_ejecutiva").doc(ej).get().then(function (x) {
