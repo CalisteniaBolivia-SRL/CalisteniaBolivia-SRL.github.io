@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=12"></script>
-<script src="modulos.js?v=6"></script>
+<script src="modulos.js?v=8"></script>
 <script>
 (function () {
     var s = null;
@@ -91,6 +91,7 @@
     var db = firebase.firestore(), cfg = {};
     var b = this; b.disabled = true; $("md-msg").textContent = "Guardando…"; $("md-msg").className = "md-msg";
     Promise.all(PAISES.map(function (p) {
+      M.lista.forEach(function (m) { if (m.alias) estado[p][m.alias] = estado[p][m.id]; });   // módulos fusionados: un solo valor
       cfg[p] = { visibles: estado[p], fecha_edicion: new Date().toISOString(), editado_por: CMFB.usuarioKey() };
       return db.collection("com_config").doc("modulos_" + p).set(cfg[p]);
     })).then(function () {

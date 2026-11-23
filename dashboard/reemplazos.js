@@ -171,7 +171,7 @@
     }
 
     /* ---------- arranque ---------- */
-    document.querySelector(".rp-eyebrow").textContent = "Calistenia Company · " + (R.pais === "paraguay" ? "Paraguay" : "Bolivia") + " · Supervisión";
+    document.querySelector(".rp-eyebrow").textContent = "Calistenia Company · " + (R.pais === "paraguay" ? "Paraguay" : "Bolivia") + " · Supervisores";
     R.mes = hoy().slice(0, 7); $("rp-mes").value = R.mes; $("rp-mes").max = R.mes;
     $("rp-mes").addEventListener("change", function () { if (/^\d{4}-\d{2}$/.test(this.value)) { R.mes = this.value; cargar(); } });
     $("rp-suc").addEventListener("change", function () { R.suc = this.value; pintar(); });
@@ -183,7 +183,7 @@
         if (!window.CMFB || !CMFB.sesionVigente()) { msg("Sal del centro de mando y volvé a entrar con tu usuario del ERP para usar este registro.", "bad"); return; }
         R.puede = CMFB.tieneRol("supervision");
         $("rp-nuevo").hidden = !R.puede;
-        if (!R.puede) msg("Solo lectura: los reemplazos los registra Supervisión.");
+        if (!R.puede) msg("Solo lectura: los reemplazos los registran los supervisores.");
         (R.pais === "paraguay" ? Promise.resolve([]) : CMFB.util.sucursales()).then(function (l) {
             R.sucursales = l; var s = $("rp-suc");
             l.forEach(function (x) { s.appendChild(el("option", { value: x, text: x })); });
