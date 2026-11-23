@@ -315,6 +315,17 @@ service cloud.firestore {
     }
     match /py_ref_resumen/{periodo} { allow read: if refSesion(); allow write: if refAdminPY(); }
 
+    // ---------- Cámaras: espejo de SmartPSS de la oficina ----------
+    // Escribe solo el usuario propio de la PC de la oficina (Firebase Auth con correo y clave, guardados solo en esa PC).
+    // Lo ven el muro, Dirección, Jefe de ATC y Supervisión.
+    match /cam_espejo/{lugar} {
+      allow read: if permiso('muro') || permiso('direccion') || permiso('jefe_atc') || permiso('supervision');
+      allow write: if request.auth != null && request.auth.token.email == 'camaras-oficina@centro-de-mando.calistenia'
+        && request.auth.token.firebase.sign_in_provider == 'password' && lugar.matches('^[a-z0-9_-]{1,30}$')
+        && request.resource.data.keys().hasOnly(['img', 'fecha', 'ancho', 'alto', 'pc', 'cada'])
+        && request.resource.data.img is string && request.resource.data.img.size() < 1000000;
+    }
+
     // Todo lo demás (incluida la antigua colección "roles"), cerrado.
     match /{documento=**} { allow read, write: if false; }
 

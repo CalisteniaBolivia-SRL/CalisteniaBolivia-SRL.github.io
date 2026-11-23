@@ -1,0 +1,9 @@
+{
+  "proyecto": "centro-de-comando-a57cf",
+  "apiKey": "LA_API_KEY_PUBLICA_DE_FIREBASE",
+  "usuario": "camaras-oficina@centro-de-mando.calistenia",
+  "clave": "LA_CLAVE_DE_ESTA_PC_VA_SOLO_EN_LA_PC",
+  "lugar": "oficina",
+  "segundos": 10,
+  "ancho": 1600
+}
