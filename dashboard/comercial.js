@@ -322,7 +322,7 @@
         var ponerBanner = function () { if (banner) c.insertBefore(banner, c.firstChild); };
         if (S.tab === TAB_PLAN[0]) {
             /* Con el rol de Jefe de ATC (y Firebase activo) puede asignar las listas a las ATC; si no, solo descargarlas. */
-            window.ATC_plan.montar(c, MASTER && !S.sinHerramientas ? { equipo: S.equipo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, recargar: cargar,
+            window.ATC_plan.montar(c, MASTER && !S.sinHerramientas ? { equipo: S.equipo, asignaciones: S.asignaciones, ultimas: S.ultimas, llamar: llamar, recargar: function () { return cargar({ ligero: true }); },   /* tras asignar no se releen los vencidos */
                 irA: function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); } } : null);
             ponerBanner();
             return;

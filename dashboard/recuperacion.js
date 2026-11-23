@@ -358,7 +358,8 @@
     }
 
     /* ---------- pintar ---------- */
-    function avisar(t, tono) { var m = document.getElementById("co-aviso"); if (!m) return; m.textContent = t; m.className = "co-msg is-" + (tono || "ok"); clearTimeout(avisar.t); avisar.t = setTimeout(function () { m.textContent = ""; }, 9000); }
+    /* Los errores quedan 30 s a la vista (los demás avisos, 9 s), salvo que se indique otro tiempo. */
+    function avisar(t, tono, ms) { var m = document.getElementById("co-aviso"); if (!m) return; m.textContent = t; m.className = "co-msg is-" + (tono || "ok"); clearTimeout(avisar.t); avisar.t = setTimeout(function () { m.textContent = ""; }, ms || (tono === "bad" ? 30000 : 9000)); }
     function pintarAvance() { var n = P.cont && P.cont.querySelector(".pl-avance"); if (n) n.textContent = P.avance || "Cargando…"; }
     function chipPrioridad(s) { var p = PRIORIDAD[s.prioridad]; return el("span", { class: "pl-prio " + p[1], text: p[0] }); }
 
@@ -481,7 +482,7 @@
     function paquete(lista, base) {
         return lista.map(function (c, i) {
             var s = SEG[c.seg];
-            return { key_cliente: String(c.key).replace(/\//g, "-"), cliente: c.cliente, telefono: c.telefono, sucursal: c.sucursal, grupo: s.id, grupo_n: s.n,
+            return { key_cliente: String(c.key).replace(/\//g, "-").slice(0, 120), cliente: c.cliente, telefono: c.telefono, sucursal: c.sucursal, grupo: s.id, grupo_n: s.n,
                 grupo_titulo: s.titulo, dato: c.dato, promo: promoVisible(s), mensaje: mensajePara(c, true), orden: base + i,
                 campana_id: exclusivo(s) ? P.fecha + "_" + s.id : null, paquete_key: exclusivo(s) ? exclusivo(s).key : null, paquete_nombre: exclusivo(s) ? exclusivo(s).nombre : null };
         });
@@ -505,18 +506,27 @@
     function asignarVarias(listas, boton) {
         var conAtc = listas.filter(function (x) { return elegidaPara(x.sucursal, 1) || elegidaPara(x.sucursal, 2); });
         if (!conAtc.length) { avisar("Elige al menos una ATC en la tabla.", "warn"); return; }
+        var textoBoton = boton.textContent;
         boton.disabled = true;
-        var hechos = [], i = 0;
+        var hechos = [], fallas = [], i = 0, cortar = false;
+        /* Si una sucursal falla, se anota el motivo y se sigue con las demás; solo se corta si es un problema de permiso
+           o de sesión (las siguientes fallarían igual). */
         function sig() {
-            if (i >= conAtc.length) return Promise.resolve();
+            if (cortar || i >= conAtc.length) return Promise.resolve();
             var x = conAtc[i++];
             boton.textContent = "Asignando " + x.sucursal + " (" + i + " de " + conAtc.length + ")…";
-            return asignarSucursal(x).then(function (h) { hechos = hechos.concat(h); }).then(sig);
+            return asignarSucursal(x).then(function (h) { hechos = hechos.concat(h); }, function (e) {
+                var m = (e && e.message) || String(e);
+                fallas.push(x.sucursal + ": " + m);
+                if (/permiso|vuelve a ingresar|vuelvas a ingresar/i.test(m)) cortar = true;
+            }).then(sig);
         }
         sig().then(function () {
-            avisar("Listo: " + hechos.length + " listas asignadas. Cada ATC ya la ve en «Mi lista».");
-            return P.ctx.recargar();
-        }).catch(function (e) { avisar("Se cortó la asignación: " + ((e && e.message) || e) + ". Lo asignado hasta ahí quedó guardado.", "bad"); boton.disabled = false; });
+            boton.textContent = textoBoton; boton.disabled = false;
+            if (fallas.length) avisar(hechos.length + " listas asignadas. No se pudo asignar → " + fallas.join(" · "), "bad");
+            else avisar("Listo: " + hechos.length + " listas asignadas. Cada ATC ya la ve en «Mi lista».");
+            if (hechos.length) return P.ctx.recargar();
+        }).catch(function (e) { boton.textContent = textoBoton; boton.disabled = false; avisar("Se cortó la asignación: " + ((e && e.message) || e) + ". Lo asignado hasta ahí quedó guardado.", "bad"); });
     }
 
     function celdaAtc(x, n) {
