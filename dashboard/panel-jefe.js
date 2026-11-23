@@ -150,6 +150,7 @@
         });
         sec.appendChild(tabla);
         p.appendChild(sec);
+        p.appendChild(ventasDetalle(ctx, d, nom2(ctx)));
 
         /* Resultados de la semana */
         var tot = d.contactosSemana;
@@ -162,6 +163,46 @@
         })));
         p.appendChild(rs);
         cont.appendChild(p);
+    }
+
+    function nom2(ctx) { var n = {}; (ctx.equipo || []).forEach(function (e) { n[e.key] = e.nombre; }); return n; }
+    /* Quién compró y quién lo vendió: ventas confirmadas del período (cliente, paquete, ATC que lo contactó y quién
+       cobró en caja) y las reportadas por las ATC que todavía no se cobraron. */
+    function ventasDetalle(ctx, d, nom) {
+        var sec = el("section", { class: "pj-sec" }, [el("h3", { class: "pj-h3", text: "Quién compró y quién lo vendió" })]);
+        var hasta = finPeriodo(d.actual);
+        var conf = (ctx.comisiones || []).filter(function (c) { var f = String(c.fecha_venta).slice(0, 10); return f >= d.actual && f <= hasta; })
+            .sort(function (a, b) { return String(b.fecha_venta).localeCompare(String(a.fecha_venta)); });
+        var confCli = {}; conf.forEach(function (c) { confCli[c.key_cliente] = 1; });
+        var pend = (ctx.gestiones || []).filter(function (g) { return g.resultado === "agendado" && !confCli[g.key_cliente]; })
+            .sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); });
+        var quien = function (k, alt) { return nom[k] || alt || "—"; };
+        var filtro = el("select", { class: "pj-sel", "aria-label": "Filtrar por ATC" }, [el("option", { value: "", text: "Todas las ATC" })].concat(
+            (ctx.equipo || []).filter(function (e) { return Number(e.estado == null ? 1 : e.estado) > 0; }).map(function (e) { return el("option", { value: e.key, text: e.nombre }); })));
+        var cuerpo = el("div");
+        function pintar() {
+            var k = filtro.value, c1 = conf.filter(function (c) { return !k || c.key_ejecutiva === k; }), p1 = pend.filter(function (g) { return !k || g.key_ejecutiva === k; });
+            cuerpo.textContent = "";
+            cuerpo.appendChild(el("p", { class: "pj-muted", text: "Confirmadas con el registro de ventas, del " + diaCorto(d.actual) + " al " + diaCorto(hasta) + ": " + c1.filter(function (c) { return !c.anulada; }).length + "." }));
+            cuerpo.appendChild(tablaVentas(["Fecha", "Cliente", "Paquete", "Sucursal", "Monto", "Lo vendió (ATC)", "Cobró en caja"], c1.map(function (c) {
+                return [diaCorto(c.fecha_venta), c.cliente || "—", c.paquete || "—", c.sucursal || "—", c.monto ? bs(c.monto) : "—", quien(c.key_ejecutiva, c.ejecutiva) + (c.canal ? " · " + c.canal : ""), (c.cajero || "—") + (c.anulada ? " · ANULADA" : "")];
+            }), "Todavía no hay ventas confirmadas en este período."));
+            if (p1.length) {
+                cuerpo.appendChild(el("p", { class: "pj-muted", text: "Reportadas por las ATC, esperando el cobro en caja (" + p1.length + "):" }));
+                cuerpo.appendChild(tablaVentas(["Reportada", "Cliente", "Sucursal", "ATC", "Canal"], p1.map(function (g) {
+                    return [diaCorto(g.fecha_on), g.cliente || "—", g.sucursal || "—", quien(g.key_ejecutiva), g.canal || "—"];
+                })));
+            }
+        }
+        filtro.onchange = pintar;
+        sec.appendChild(el("div", { class: "pj-filtro" }, [filtro]));
+        sec.appendChild(cuerpo); pintar();
+        return sec;
+    }
+    function tablaVentas(cols, filas, vacio) {
+        if (!filas.length) return el("p", { class: "pj-muted", text: vacio || "Sin datos." });
+        return el("div", { class: "pj-scroll" }, [el("table", { class: "pj-ventas" }, [el("thead", {}, [el("tr", {}, cols.map(function (c) { return el("th", { text: c }); }))]),
+            el("tbody", {}, filas.map(function (f) { return el("tr", {}, f.map(function (v) { return el("td", { text: String(v) }); })); }))])]);
     }
 
     window.ATC_panel = { montar: montar, _calcular: calcular, sabadoDe: sabadoDe, periodoDe: periodoDe };

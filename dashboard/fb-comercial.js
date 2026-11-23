@@ -124,7 +124,7 @@
                     .sort(function (x, y) { return String(y.fecha_on).localeCompare(String(x.fecha_on)); })[0];
                 if (!g || (keyEj && g.key_ejecutiva !== keyEj)) return;
                 var key = String(v.key_paquete_venta || v.key || fv + g.key_cliente), an = anul[key];
-                out.push({ key_paquete_venta_usuario: key, fecha_venta: fv, key_cliente: g.key_cliente, cliente: g.cliente || null, paquete: v.paquete, sucursal: v.sucursal, monto: monto,
+                out.push({ key_paquete_venta_usuario: key, fecha_venta: fv, key_cliente: g.key_cliente, cliente: g.cliente || null, paquete: v.paquete, sucursal: v.sucursal, monto: monto, cajero: v.cajero || null,
                     key_ejecutiva: g.key_ejecutiva, ejecutiva: nom[g.key_ejecutiva] || g.key_ejecutiva, fecha_contacto: g.fecha_on, canal: g.canal, resultado: g.resultado,
                     anulada: !!an, motivo_anulacion: an ? an.motivo : null, comision: an ? 0 : COMISION_BS });
             });
@@ -136,7 +136,7 @@
     /* ---------- Comisiones confirmadas, guardadas para que cada ATC las vea sin conexión al ERP ----------
        Quien tiene las ventas del ERP (Jefe de ATC o Administración) deja confirmadas en com_comision_conf las
        comisiones que calculó; cada ATC lee solo las suyas desde ahí (aviso «¡Se cerró!» y «Confirmadas»). */
-    var CAMPOS_CONF = ["fecha_venta", "key_cliente", "cliente", "paquete", "sucursal", "monto", "key_ejecutiva", "ejecutiva", "fecha_contacto", "canal", "anulada", "motivo_anulacion", "comision"];
+    var CAMPOS_CONF = ["fecha_venta", "key_cliente", "cliente", "paquete", "sucursal", "monto", "key_ejecutiva", "ejecutiva", "fecha_contacto", "canal", "anulada", "motivo_anulacion", "comision", "cajero"];
     function idConf(k) { return String(k).replace(/\//g, "-").slice(0, 300); }
     function sincronizar(lista, desde) {
         if (!lista.length || !(CMFB.tieneRolPais("jefe_atc") || CMFB.tieneRolPais("administracion"))) return;
@@ -144,7 +144,7 @@
             var previo = {}; ya.forEach(function (d) { previo[d.key] = d; });
             var cambios = lista.filter(function (c) {
                 var p = previo[idConf(c.key_paquete_venta_usuario)];
-                return !p || p.anulada !== c.anulada || p.comision !== c.comision || p.key_ejecutiva !== c.key_ejecutiva;
+                return !p || p.anulada !== c.anulada || p.comision !== c.comision || p.key_ejecutiva !== c.key_ejecutiva || (c.cajero && p.cajero !== c.cajero);
             });
             for (var i = 0; i < cambios.length; i += 400) {
                 var lote = U.db().batch();

@@ -188,3 +188,12 @@
 #co-aviso:empty { display: none; }
 .co-planilla { width: 100%; box-sizing: border-box; font: inherit; font-size: .9em; line-height: 1.5; padding: 10px 12px; background: #0D0E10; color: #FFFFFF; border: 1px solid #2B2E33; border-radius: 0; resize: vertical; margin: 8px 0; }
 .co-planilla:focus { outline: none; border-color: #FFFFFF; }
+
+/* Quién compró y quién lo vendió (Panel de la Jefa) · Mis ventas (lista de la ATC) */
+.pj-filtro { margin: 6px 0 10px; }
+.pj-sel { font: inherit; padding: 6px 10px; background: #18191C; color: #F3F4F5; border: 1px solid #34373C; border-radius: 0; }
+.pj-scroll, .ml-ventas-scroll { overflow-x: auto; margin-bottom: 12px; }
+.pj-ventas, .ml-ventas { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pj-ventas th, .pj-ventas td, .ml-ventas th, .ml-ventas td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #25272B; vertical-align: top; }
+.pj-ventas th, .ml-ventas th { color: #8D9299; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+.ml-ventas-box { display: flex; flex-direction: column; gap: 8px; }
