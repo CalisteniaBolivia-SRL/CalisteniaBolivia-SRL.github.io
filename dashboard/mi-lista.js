@@ -258,10 +258,11 @@
         if (!pend.length) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes al Jefe de ATC: más contactos, más comisión."]));
         else if (pend.length < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + pend.length + " clientes." }), " Avísale al Jefe de ATC para que te cargue más."]));
 
-        var F = [["pendientes", "Pendientes (" + pend.length + ")"], ["hechos", "Hechos (" + hechos.length + ")"], ["buscar", "Buscar"]];
+        var F = [["pendientes", "Pendientes (" + pend.length + ")"], ["hechos", "Hechos (" + hechos.length + ")"], ["ventas", "Mis ventas (" + confirmadas.length + ")"], ["buscar", "Buscar"]];
         cont.appendChild(el("div", { class: "ml-tabs", role: "tablist" }, F.map(function (f) {
             return el("button", { type: "button", role: "tab", class: M.filtro === f[0] ? "is-on" : "", "aria-selected": M.filtro === f[0] ? "true" : "false", text: f[1], onclick: function () { M.filtro = f[0]; pintar(); } });
         })));
+        if (M.filtro === "ventas") { cont.appendChild(misVentas(ctx, per, mias)); window.scrollTo(0, y); return; }
         var lista = M.filtro === "pendientes" ? pend : M.filtro === "hechos" ? hechos : [];
         if (M.filtro === "buscar") {
             var inp = el("input", { type: "search", class: "ml-buscar", placeholder: "Nombre o teléfono", value: M.buscar, "aria-label": "Buscar cliente" });
@@ -275,6 +276,33 @@
         lista.forEach(function (c) { ul.appendChild(tarjeta(c)); });
         cont.appendChild(ul);
         window.scrollTo(0, y);
+    }
+
+    /* Mis ventas: quién compró (cliente y paquete), cuándo y quién lo cobró en caja; y lo reportado que todavía no se cobró. */
+    function misVentas(ctx, per, mias) {
+        var conf = (ctx.comisiones || []).filter(function (x) { var f = String(x.fecha_venta).slice(0, 10); return x.key_ejecutiva === ctx.yo.key && f >= per.desde && f <= per.hasta; })
+            .sort(function (a, b) { return String(b.fecha_venta).localeCompare(String(a.fecha_venta)); });
+        var ya = {}; conf.forEach(function (c) { ya[c.key_cliente] = 1; });
+        var pend = mias.filter(function (g) { var f = String(g.fecha_on).slice(0, 10); return g.resultado === "agendado" && f >= per.desde && !ya[g.key_cliente]; })
+            .sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); });
+        var tabla = function (cols, filas) {
+            return el("div", { class: "ml-ventas-scroll" }, [el("table", { class: "ml-ventas" }, [el("thead", {}, [el("tr", {}, cols.map(function (c) { return el("th", { text: c }); }))]),
+                el("tbody", {}, filas.map(function (f) { return el("tr", {}, f.map(function (v) { return el("td", { text: String(v) }); })); }))])]);
+        };
+        var box = el("div", { class: "ml-ventas-box" });
+        box.appendChild(el("p", { class: "ml-vacio", text: "Ventas confirmadas del " + fechaCorta(per.desde) + " al " + fechaCorta(per.hasta) + ": " + conf.filter(function (c) { return !c.anulada; }).length + "." }));
+        if (conf.length) box.appendChild(tabla(["Fecha", "Cliente", "Paquete", "Sucursal", "Cobró en caja", "Comisión"], conf.map(function (c) {
+            return [fechaCorta(String(c.fecha_venta).slice(0, 10)), c.cliente || "—", c.paquete || "—", c.sucursal || "—", c.cajero || "—", c.anulada ? "Anulada" : bs(c.comision || COMISION)];
+        })));
+        if (pend.length) {
+            box.appendChild(el("p", { class: "ml-vacio", text: "Reportadas por vos, esperando el cobro en caja (" + pend.length + "):" }));
+            /* Los contactos traen solo la clave del cliente: el nombre y la sucursal salen de la lista asignada. */
+            var asig = {}; (ctx.asignaciones || []).forEach(function (a) { asig[a.key_cliente || a.key] = a; });
+            box.appendChild(tabla(["Reportada", "Cliente", "Sucursal", "Canal"], pend.map(function (g) { var a = asig[g.key_cliente] || {};
+                return [fechaCorta(String(g.fecha_on).slice(0, 10)), g.cliente || a.cliente || "—", g.sucursal || a.sucursal || "—", g.canal || "—"]; })));
+        }
+        if (!conf.length && !pend.length) box.appendChild(el("p", { class: "ml-vacio", text: "Todavía no tenés ventas en este período. ¡Cada cliente que compra suma " + bs(COMISION) + "!" }));
+        return box;
     }
 
     window.ATC_milista = {
