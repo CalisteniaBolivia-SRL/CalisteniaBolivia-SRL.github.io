@@ -57,7 +57,7 @@ Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name ScreenSaveActive -Val
 Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name ScreenSaverIsSecure -Value '0'
 
 Write-Host '4) Arrancando el espejo (30 segundos)...'
-Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*espejo.ps1*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*-File*C:\camaras\espejo.ps1*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 Start-Process -FilePath (Join-Path $dir 'iniciar-espejo.bat') -WorkingDirectory $dir -WindowStyle Minimized
 Start-Sleep -Seconds 30
 $log = Join-Path $dir 'espejo.log'
