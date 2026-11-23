@@ -31,8 +31,7 @@
         { id: "direccion", tipo: "tablero", nombre: "Dirección General", quien: { bolivia: "Jose Miguel Parada" }, rol: "Director", que: "Semáforo por área y de fiscalización, proyección del mes", permisos: ["direccion"], href: function (p) { return url("direccion.html", p); } },
         { id: "administracion", tipo: "tablero", nombre: "Administración", quien: { bolivia: "Luis Rodrigo Dorado" }, rol: "Administrador", que: "Cajas, control de ingreso, molinetes, sucursales y comisiones de los ATC", permisos: ["administracion"], href: function (p) { return url("administracion.html", p); } },
         { id: "contabilidad", tipo: "tablero", nombre: "Contabilidad y Fiscalización", quien: { bolivia: "Rodrigo Gomucio" }, rol: "Contabilidad", que: "Caja contra banco, precios, NIT, convenios y prórrogas", permisos: ["contabilidad"], href: function (p) { return url("contabilidad.html", p); } },
-        { id: "supervision", tipo: "tablero", nombre: "Supervisión", quien: { bolivia: "Michell Riobo · Marco Paz" }, rol: "Supervisión de sucursales", que: "Sucursales, molinetes, horas buenas y bajas, clientes en riesgo", permisos: ["supervision"], href: function (p) { return url("supervision.html", p); } },
-        { id: "reemplazos", tipo: "tablero", nombre: "Reemplazo de profesores", quien: { bolivia: "Supervisión", paraguay: "Supervisión" }, rol: "Registro de faltas y reemplazos", que: "Quién faltó, quién cubrió, cuántas clases, motivo y aviso; clases cubiertas para pagar", permisos: ["supervision", "direccion", "rrhh", "administracion"], datosPY: true, href: function (p) { return url("reemplazos.html", p); } },
+        { id: "supervision", alias: "reemplazos", tipo: "tablero", datosPY: true, nombre: "Supervisores", quien: { bolivia: "Michell Riobo · Marco Paz" }, rol: "Sucursales, entrenadores y reemplazos", que: "Sucursales, molinetes, horas buenas y bajas, clientes en riesgo y el registro de reemplazos de profesores", permisos: ["supervision", "direccion", "rrhh", "administracion"], href: function (p) { return url(p === "paraguay" ? "reemplazos.html" : "supervision.html", p); } },
         { id: "marketing", tipo: "tablero", nombre: "Marketing y Ventas", quien: { bolivia: "Michell Riobo · Marco Paz" }, rol: "Marketing", que: "Proyección, paquetes, campañas y horas vacías", permisos: ["marketing"], href: function (p) { return url("marketing.html", p); } },
         { id: "redes", tipo: "tablero", nombre: "Redes sociales", quien: { bolivia: "Marketing · Bolivia", paraguay: "Marketing · Paraguay" }, rol: "Respuestas automáticas a comentarios", que: "Facebook e Instagram responden solos; casos delicados por aprobar; borradores para TikTok", permisos: ["marketing"], datosPY: true, href: function (p) { return "redes.html?pais=" + (p || "bolivia"); } },
         { id: "rrhh", tipo: "tablero", nombre: "Recursos Humanos", quien: { bolivia: "German Gallardo" }, rol: "Recursos Humanos", que: "Productividad de entrenadores y cumplimiento de cajeros", permisos: ["rrhh"], href: function (p) { return url("rrhh.html", p); } },
@@ -51,7 +50,11 @@
     function cfgLocal() { try { return JSON.parse(localStorage.getItem(K_CFG) || "null") || {}; } catch (e) { return {}; } }
     function visible(m, pais, cfg) {
         var c = (cfg || cfgLocal())[pais];
-        if (c && c.visibles && typeof c.visibles[m.id] === "boolean") return c.visibles[m.id];
+        if (c && c.visibles) {
+            /* Módulos fusionados: se ve si estaba marcado con cualquiera de sus nombres (ej. Supervisores = Supervisión + Reemplazos). */
+            var v = c.visibles[m.id], va = m.alias ? c.visibles[m.alias] : undefined;
+            if (typeof v === "boolean" || typeof va === "boolean") return v === true || va === true;
+        }
         return POR_DEFECTO[pais] ? POR_DEFECTO[pais](m) : true;
     }
     /* Lee el checklist de la base (si hay sesión) y lo guarda en el equipo para mostrar el portal al instante. */
