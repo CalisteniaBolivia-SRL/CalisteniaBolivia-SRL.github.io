@@ -538,6 +538,18 @@ dash.calc('c_urgentes', {
   CB.porSuc = (r) => !CB.suc() || String(r.sucursal || '').trim() === CB.suc();
   CB.enc = (s) => encodeURIComponent(String(s));
 
+  /* Dentro del panel del Jefe de ATC: «Abrir lista» de clientes con plan (renovar, no vinieron, en riesgo) abre
+     «Seguimiento de clientes», donde se trabajan con su mensaje y su paquete exclusivo. */
+  if (document.documentElement.classList.contains('embebido')) document.addEventListener('click', (ev) => {
+    const a = ev.target.closest && ev.target.closest('a.cb-act'); if (!a) return;
+    const h = a.getAttribute('href'), t = ((a.parentNode.querySelector('.cb-task-t') || {}).textContent || '').toLowerCase();
+    let lista = null;
+    if (h === '#lista-renovar') lista = /hoy o mañana/.test(t) ? 'renovar_hoy' : 'renovar_semana';
+    else if (h === '#lista-riesgo') lista = /no vinieron|todavía no vinieron/.test(t) ? 'nunca' : 'riesgo';
+    if (!lista) return;
+    ev.preventDefault();
+    try { window.parent.postMessage({ cm: 'fidel', lista }, location.origin); } catch (e) {}
+  }, true);
   const NIV = { alta: 'Urgente', media: 'Hoy', baja: 'Esta semana', ok: 'Al día' };
   const ORD = { alta: 0, media: 1, baja: 2, ok: 3 };
   const mk = (t) => {

@@ -19,7 +19,7 @@
         }
         return c.p.then(function (l) { return Array.isArray(l) ? l.slice() : l; });
     }
-    var LECTURA = /^comercial_(confirmadas|roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos)$/;
+    var LECTURA = /^comercial_(confirmadas|roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos|fid_config|fid_contactos|fid_resultados)$/;
     CMFB.registrar = function (nombre, fn) {
         window.CMFB.registrar(nombre, LECTURA.test(nombre) ? fn : function (a, n) {
             MEMO = {};
@@ -432,6 +432,76 @@
             return ref.set(g).then(function () { return { estado: "exito", data: Object.assign({ key: ref.id }, g) }; });
         });
     });
+    /* ---------- Seguimiento de clientes activos (solo Jefe de ATC) ----------
+       Listas de clientes que todavía tienen plan (renovar, no vinieron, en riesgo): las trabaja la Jefa de ATC, nunca
+       las ATC. Van aparte de com_gestion para no mezclarse con las comisiones de las ATC.
+       com_fid_config/{lista}: mensaje, promo y paquete exclusivo de cada lista.
+       com_fid_contacto/{auto}: cada contacto (resultado, motivo, nota). Las ventas del ERP dicen quién renovó. */
+    var FID_LISTAS = ["renovar_hoy", "renovar_semana", "nunca", "riesgo"];
+    var FID_RES = ["renueva", "lo_piensa", "no_contesta", "no_renueva", "numero_errado"];
+    var FID_MOTIVOS = ["horario", "precio", "salud", "viaje_trabajo", "experiencia", "se_mudo", "otro_gimnasio", "motivacion", "otro"];
+    var FID_VENTANA = 30;   // compra dentro de los 30 días del contacto = renovó gracias al seguimiento
+    CMFB.registrar("comercial_fid_config", function () { return U.docs(col("com_fid_config")).then(function (l) { return { filas: l }; }); });
+    CMFB.registrar("comercial_fid_config_guardar", function (a) {
+        var lista = U.opcion(a, "lista", FID_LISTAS, null, true);
+        var d = { mensaje: U.txt(a, "mensaje", 1200, true), promo: U.txt(a, "promo", 300, false), paquete_key: U.txt(a, "paquete_key", 120, false), paquete_nombre: U.txt(a, "paquete_nombre", 200, false),
+            fecha_edicion: U.ahora(), key_usuario_edicion: CMFB.usuarioKey(), editado_por: (CMFB.nombre() || "").slice(0, 120) || null };
+        return col("com_fid_config").doc(lista).set(d).then(function () { return { estado: "exito", data: Object.assign({ key: lista }, d) }; });
+    });
+    CMFB.registrar("comercial_fid_contactos", function (a) {
+        var desde = U.fecha(a, "desde", false) || menosDias(hoy(), 90);
+        return U.docs(col("com_fid_contacto").where("fecha_on", ">=", desde)).then(function (l) { return { filas: U.vigentes(l).sort(function (x, y) { return String(y.fecha_on).localeCompare(String(x.fecha_on)); }) }; });
+    });
+    CMFB.registrar("comercial_fid_registrar", function (a) {
+        var res = U.opcion(a, "resultado", FID_RES, null, true);
+        var g = { lista: U.opcion(a, "lista", FID_LISTAS, null, true), key_cliente: U.txt(a, "key_cliente", 120, true), cliente: U.txt(a, "cliente", 200, false), telefono: U.txt(a, "telefono", 40, false),
+            sucursal: U.txt(a, "sucursal", 120, false), paquete_actual: U.txt(a, "paquete_actual", 200, false), fecha_fin: U.fecha(a, "fecha_fin", false),
+            canal: U.opcion(a, "canal", CANALES, "whatsapp"), resultado: res, motivo: U.opcion(a, "motivo", FID_MOTIVOS, null), nota: U.txt(a, "nota", 2000, false),
+            paquete_ofrecido: U.txt(a, "paquete_ofrecido", 200, false), estado: 1, fecha_on: U.ahora(), key_usuario_registro: CMFB.usuarioKey(), registrado_por: (CMFB.nombre() || "").slice(0, 120) || null };
+        var ref = col("com_fid_contacto").doc();
+        return ref.set(g).then(function () { return { estado: "exito", data: Object.assign({ key: ref.id }, g) }; });
+    });
+    /* Habilita a los clientes de una lista para el paquete exclusivo (queda en Campañas, con el control de caja). */
+    CMFB.registrar("comercial_fid_habilitar", function (a) {
+        var lista = U.opcion(a, "lista", FID_LISTAS, null, true), pk = U.txt(a, "paquete_key", 120, true), mes = hoy().slice(0, 7);
+        var cl = (Array.isArray(a.clientes) ? a.clientes : []).slice(0, 3000).map(function (c) { return { k: String(c.key_cliente || "").trim().replace(/\//g, "-").slice(0, 120), n: norm(c.cliente) }; }).filter(function (c) { return c.k; });
+        if (!cl.length) return { estado: "exito", data: { habilitados: 0 } };
+        var FV = firebase.firestore.FieldValue, id = mes + "-fid-" + lista + "-" + pk.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+        return col("com_campana").doc(id).set({ grupo: "fid_" + lista, titulo: "Seguimiento Jefa de ATC · " + U.txt(a, "titulo", 120, false), paquete_key: pk, paquete_nombre: U.txt(a, "paquete_nombre", 200, false),
+            promo: U.txt(a, "promo", 300, false), fecha: hoy(), estado: 1, fecha_edicion: U.ahora(), key_usuario_registro: CMFB.usuarioKey(),
+            clientes: FV.arrayUnion.apply(FV, cl.map(function (c) { return c.k; })), nombres: FV.arrayUnion.apply(FV, cl.map(function (c) { return c.n; }).filter(Boolean).concat([""])) }, { merge: true })
+            .then(function () { return { estado: "exito", data: { habilitados: cl.length, campana: id } }; });
+    });
+    /* Cómo nos fue: cada contacto con su compra (si la hubo) dentro de los 30 días siguientes. */
+    CMFB.registrar("comercial_fid_resultados", function (a) {
+        var r = rango(a), hastaV = hoy();
+        return Promise.all([U.docs(col("com_fid_contacto").where("fecha_on", ">=", r.desde)), ventas(r.desde, hastaV), U.docs(col("com_fid_config"))]).then(function (x) {
+            var cont = U.vigentes(x[0]).filter(function (c) { return String(c.fecha_on).slice(0, 10) <= r.hasta; });
+            var paqEx = {}; x[2].forEach(function (c) { if (c.paquete_key) paqEx[c.key] = { key: c.paquete_key, nombre: norm(c.paquete_nombre) }; });
+            var porClave = {}, porNombre = {};
+            x[1].forEach(function (v) {
+                if (!(Number(v.precio != null ? v.precio : v.monto) > 0)) return;
+                var cl = clientesDeVenta(v);
+                cl.claves.forEach(function (k) { (porClave[k] = porClave[k] || []).push(v); });
+                cl.nombres.forEach(function (n) { (porNombre[n] = porNombre[n] || []).push(v); });
+            });
+            /* Por cliente y lista vale el primer contacto del período (el que abrió la conversación). */
+            var primero = {};
+            cont.slice().sort(function (p, q) { return String(p.fecha_on).localeCompare(String(q.fecha_on)); }).forEach(function (c) { var k = c.lista + "|" + c.key_cliente; if (!primero[k]) primero[k] = c; });
+            var filas = cont.map(function (c) {
+                var p = primero[c.lista + "|" + c.key_cliente], desde = String(p.fecha_on).slice(0, 10), tope = menosDias(desde, -FID_VENTANA);
+                var cand = (porClave[c.key_cliente] || []); if (!cand.length && c.cliente) cand = porNombre[norm(c.cliente)] || [];
+                var v = cand.filter(function (y) { var f = String(y.fecha || y.fecha_on || "").slice(0, 10); return f >= desde && f <= tope; })
+                    .sort(function (y, z) { return String(y.fecha).localeCompare(String(z.fecha)); })[0];
+                var ex = paqEx[c.lista];
+                return Object.assign({}, c, { primer_contacto: p.key === c.key, compro: !!v, fecha_compra: v ? String(v.fecha || "").slice(0, 10) : null, paquete_comprado: v ? v.paquete : null,
+                    monto_compra: v ? Number(v.precio != null ? v.precio : v.monto) || 0 : 0, cajero: v ? v.cajero || null : null,
+                    con_exclusivo: !!(v && ex && (v.key_paquete === ex.key || norm(v.paquete) === ex.nombre)) });
+            });
+            return { filas: filas, ventana_dias: FID_VENTANA };
+        });
+    });
+
     CMFB.registrar("comercial_tarea_completar", function (a) {
         var k = U.txt(a, "key", 64, true), hecha = a.hecha !== false;
         return yo().then(function (e) {
