@@ -145,6 +145,7 @@
     });
     var SEG = {}; SEGS.forEach(function (s) { SEG[s.id] = s; });
     var POR_DEFECTO = ["v1", "pases", "v16"];
+    var SIN_REPETIR = 30;   // días: un cliente contactado no vuelve a las listas hasta pasado este plazo
 
     /* ---------- estado ---------- */
     var P = {
@@ -244,11 +245,16 @@
        repartidos en 2 listas alternando para que las dos reciban clientes igual de buenos. */
     function listasPorSucursal() {
         var porSuc = {};
+        /* No se repiten clientes: quien ya fue contactado en los últimos 30 días no vuelve a entrar en las listas ni en la cola. */
+        var lim = sumar(P.fecha || hoy(), -SIN_REPETIR), contactado = {};
+        ((P.ctx && P.ctx.ultimas) || []).forEach(function (g) { if (String(g.fecha_on).slice(0, 10) >= lim) contactado[g.key_cliente] = 1; });
+        P.omitidos = 0;
         SEGS.forEach(function (s) {
             if (!elegido(s.id)) return;
             (GRUPOS[s.id] || []).forEach(function (c) {
                 var x = porSuc[c.sucursal] || (porSuc[c.sucursal] = { sucursal: c.sucursal, todos: [], vistos: {}, porSeg: {} });
                 if (x.vistos[c.key]) return;
+                if (contactado[String(c.key).replace(/\//g, "-").slice(0, 120)] || contactado[c.key]) { x.vistos[c.key] = 1; P.omitidos++; return; }
                 x.vistos[c.key] = 1; x.todos.push(c); x.porSeg[s.id] = (x.porSeg[s.id] || 0) + 1;
             });
         });
@@ -521,19 +527,27 @@
             if (a1 && x.listas[0].length) pedidos.push({ ej: a1, n: 1, clientes: paquete(x.listas[0], 0) });
             if (a2 && x.listas[1].length) pedidos.push({ ej: a2, n: 2, clientes: paquete(x.listas[1], 0) });
         }
+        /* Lo que no entró en las listas queda en la cola de la sucursal, en el mismo orden de prioridad:
+           cuando una ATC termina su lista, se le carga sola la tanda siguiente. */
+        var asignados = {}; pedidos.forEach(function (q) { q.clientes.forEach(function (c) { asignados[c.key_cliente] = 1; }); });
+        var resto = x.todos.filter(function (c) { return !asignados[String(c.key).replace(/\//g, "-").slice(0, 120)]; });
         var hechos = [];
         return pedidos.reduce(function (p, q) {
             return p.then(function () {
                 return P.ctx.llamar("comercial_plan_asignar", { key_ejecutiva: q.ej, sucursal: x.sucursal, lista_n: q.n, clientes: q.clientes, nota: P.prefs.nota || "", reemplazar: P.prefs.reemplazar !== false })
                     .then(function () { hechos.push(nombreAtc(q.ej) + " (" + q.clientes.length + ")"); });
             });
-        }, Promise.resolve()).then(function () { return hechos; });
+        }, Promise.resolve()).then(function () {
+            if (!pedidos.length) return hechos;
+            return P.ctx.llamar("comercial_cola_guardar", { sucursal: x.sucursal, clientes: paquete(resto, 0), tanda: Number(P.prefs.max) || 40, nota: P.prefs.nota || "" })
+                .then(function () { P.enCola = (P.enCola || 0) + resto.length; return hechos; }, function () { return hechos; });
+        });
     }
     function asignarVarias(listas, boton) {
         var conAtc = listas.filter(function (x) { return atcsDe(x).length > 0; });
         var sinAtc = listas.filter(function (x) { return !atcsDe(x).length && x.todos.length; }).map(function (x) { return x.sucursal; });
         if (!conAtc.length) { avisar("Elige al menos una ATC en la tabla." + (sinAtc.length ? " Sin ATC: " + sinAtc.join(", ") + "." : ""), "warn"); return; }
-        var recibieron = {};
+        var recibieron = {}; P.enCola = 0;
         var textoBoton = boton.textContent;
         boton.disabled = true;
         var hechos = [], fallas = [], i = 0, cortar = false;
@@ -556,7 +570,7 @@
                 .map(function (e) { return e.nombre + ((e.sucursales || []).length ? " (" + e.sucursales.join(", ") + ": sin clientes en los grupos elegidos)" : " (no tiene sucursal en Equipo)"); });
             var extra = (sinAtc.length ? " Sucursales sin ATC: " + sinAtc.join(", ") + "." : "") + (sinLista.length ? " ATC sin lista: " + sinLista.join(" · ") + "." : "");
             if (fallas.length) avisar(hechos.length + " listas asignadas. No se pudo asignar → " + fallas.join(" · ") + extra, "bad");
-            else avisar("Listo: " + hechos.length + " listas asignadas: " + hechos.join(", ") + ". Cada ATC ya la ve en «Mi lista»." + extra, extra ? "warn" : "ok", extra ? 60000 : 15000);
+            else avisar("Listo: " + hechos.length + " listas asignadas: " + hechos.join(", ") + ". Cada ATC ya la ve en «Mi lista»." + (P.enCola ? " Quedan " + miles(P.enCola) + " clientes en cola: cuando una ATC termina su lista, se le cargan solos los siguientes." : "") + (P.omitidos ? " Se saltearon " + miles(P.omitidos) + " ya contactados en los últimos " + SIN_REPETIR + " días." : "") + extra, extra ? "warn" : "ok", extra ? 60000 : 15000);
             if (hechos.length) return P.ctx.recargar();
         }).catch(function (e) { boton.textContent = textoBoton; boton.disabled = false; avisar("Se cortó la asignación: " + ((e && e.message) || e) + ". Lo asignado hasta ahí quedó guardado.", "bad"); });
     }

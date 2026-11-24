@@ -252,11 +252,18 @@
             cont.appendChild(el("div", { class: "ml-nota is-tarea" }, [ico("lista"), el("div", {}, [el("b", { text: "Tarea" }), el("span", { text: t.titulo + (t.indicaciones ? " — " + t.indicaciones : "") })]),
                 !ctx.soloVer ? el("button", { type: "button", class: "ml-tarea-ok", text: "Marcar hecha", onclick: function () { ctx.llamar("comercial_tarea_completar", { key: t.key }).then(function () { t.hecha = true; pintar(); ctx.avisar("Tarea hecha."); }, function (e) { ctx.avisar((e && e.message) || "No se pudo", "bad"); }); } }) : null]));
         });
+        /* Cola automática: cuando la ATC termina su lista (o no tiene), se le cargan solos los siguientes clientes de su sucursal. */
+        if (pend.length) { M.cola = null; }
+        else if (!ctx.soloVer && !M.cola) pedirCola();
+        if (!pend.length && M.cola === "buscando") {
+            cont.appendChild(el("div", { class: "co-urgente", role: "status" }, [el("b", { text: todos.length ? "¡Terminaste tu lista!" : "Buscando tu lista…" }), " Cargando tus próximos clientes…"]));
+            if (!todos.length) return;
+        }
         if (!todos.length) {
-            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), " Avísale al Jefe de ATC: cada cliente que compra son " + bs(COMISION) + " para ti."]));
+            cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "No tienes lista para hoy." }), M.cola === "vacia" ? " Ya no quedan clientes en la cola de tu sucursal. Avísale al Jefe de ATC: cada cliente que compra son " + bs(COMISION) + " para ti." : " Avísale al Jefe de ATC: cada cliente que compra son " + bs(COMISION) + " para ti."]));
             return;
         }
-        if (!pend.length) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), " Pídele más clientes al Jefe de ATC: más contactos, más comisión."]));
+        if (!pend.length && M.cola !== "buscando") cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "¡Terminaste tu lista!" }), M.cola === "vacia" ? " Ya no quedan clientes en la cola de tu sucursal: avísale al Jefe de ATC para que cargue más." : " Pídele más clientes al Jefe de ATC: más contactos, más comisión."]));
         else if (pend.length < 5) cont.appendChild(el("div", { class: "co-urgente", role: "alert" }, [el("b", { text: "Te quedan " + pend.length + " clientes." }), " Avísale al Jefe de ATC para que te cargue más."]));
 
         var F = [["pendientes", "Pendientes (" + pend.length + ")"], ["hechos", "Hechos (" + hechos.length + ")"], ["ventas", "Mis ventas (" + confirmadas.length + ")"], ["buscar", "Buscar"]];
@@ -292,6 +299,19 @@
     }
 
     function verMas() { M.ver += DE_A; pintar(); }
+    function pedirCola() {
+        var ctx = M.ctx; if (!ctx || !ctx.llamar) return;
+        M.cola = "buscando";
+        ctx.llamar("comercial_cola_tomar", {}).then(function (r) {
+            var d = (r && r.data) || r || {};
+            if (d.tomados > 0) {
+                M.cola = "cargada"; M.filtro = "pendientes"; M.ver = DE_A;
+                if (ctx.avisar) ctx.avisar("¡Nueva tanda! Se te cargaron " + d.tomados + " clientes más" + (d.sucursal ? " de " + d.sucursal : "") + ".");
+                return ctx.recargar ? ctx.recargar() : null;
+            }
+            M.cola = "vacia"; pintar();
+        }, function () { M.cola = "vacia"; pintar(); });
+    }
 
     /* Mis ventas: quién compró (cliente y paquete), cuándo y quién lo cobró en caja; y lo reportado que todavía no se cobró. */
     function misVentas(ctx, per, mias) {
