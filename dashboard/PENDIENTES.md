@@ -36,6 +36,7 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 
 - ERP: rol **«Atención al Cliente · CM»** con permiso `atencion` en /centro_mando (las 18 ATC) y rol **«Jefe de ATC · CM»** con `jefe_atc` (Eliana, José Miguel Parada, Rodrigo Dorado). Lo hace un administrador del ERP.
 - Redes sociales: crear la app de Meta y cargar sus claves como secretos; publicar las funciones de redes (metaWebhook, rs*). TikTok: falta acceso a la documentación de su API.
+- Servisofts: crear el permiso «mantenimiento» en la página /centro_mando del ERP (Bolivia y Paraguay) para la persona de mantenimiento. Mientras tanto cargan revisiones Supervisión y Administración.
 - Paraguay: separar Atención al Cliente por país (listas de clientes del ERP de Paraguay); páginas /accionistas y /centro_mando en el ERP de Paraguay (Servisofts).
 - Servisofts: clientes vencidos de más de 180 días en el MCP; bloquear en caja el paquete exclusivo de campaña.
 - Comisiones 100 % en el servidor (sin depender del Panel abierto): necesita un usuario del ERP solo lectura de ventas, con su clave como secreto.

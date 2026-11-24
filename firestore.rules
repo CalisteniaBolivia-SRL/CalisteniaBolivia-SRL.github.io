@@ -158,6 +158,44 @@ service cloud.firestore {
       allow update: if central() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
       allow delete: if false;
     }
+    // ---------- Mantenimiento: checklist de cada sucursal (carga Mantenimiento, Supervisión o Administración; reciben Administración y Dirección) ----------
+    match /mant_config/{id} {
+      allow read: if permiso('mantenimiento') || permiso('administracion') || permiso('supervision') || permiso('direccion');
+      allow write: if (permiso('administracion') || permiso('direccion')) && id in ['checklist', 'aviso'];
+    }
+    match /mant_revision/{id} {
+      allow read: if permiso('mantenimiento') || permiso('administracion') || permiso('supervision') || permiso('direccion');
+      allow create: if (permiso('mantenimiento') || permiso('administracion') || permiso('supervision'))
+        && request.resource.data.registrado_por == yo() && request.resource.data.estado == 1
+        && request.resource.data.sucursal is string && request.resource.data.sucursal.size() > 0 && request.resource.data.sucursal.size() <= 120
+        && request.resource.data.fecha is string && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.items is list && request.resource.data.items.size() <= 300 && texto('observaciones', 2000);
+      allow update: if (permiso('administracion') || permiso('direccion')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'anulado_por', 'fecha_anulacion']);
+      allow delete: if false;
+    }
+    match /mant_falla/{id} {
+      allow read: if permiso('mantenimiento') || permiso('administracion') || permiso('supervision') || permiso('direccion');
+      allow create: if (permiso('mantenimiento') || permiso('administracion') || permiso('supervision'))
+        && request.resource.data.registrado_por == yo() && request.resource.data.estado == 'abierta'
+        && request.resource.data.urgencia in ['urgente', 'pronto', 'puede_esperar']
+        && texto('sucursal', 120) && texto('area', 60) && texto('item', 120) && texto('nota', 500);
+      allow update: if (permiso('mantenimiento') || permiso('administracion') || permiso('supervision') || permiso('direccion'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'nota_resolucion', 'resuelta_por', 'resuelta_nombre', 'fecha_resuelta'])
+        && request.resource.data.estado == 'resuelta' && request.resource.data.resuelta_por == yo() && texto('nota_resolucion', 500);
+      allow delete: if false;
+    }
+    // ---------- Calificación de entrenadores: la cargan los supervisores; consultan Dirección, RRHH y Administración ----------
+    match /sup_calificacion/{id} {
+      allow read: if permiso('supervision') || permiso('direccion') || permiso('rrhh') || permiso('administracion');
+      allow create: if permiso('supervision') && request.resource.data.registrado_por == yo() && request.resource.data.estado == 1
+        && request.resource.data.entrenador is string && request.resource.data.entrenador.size() > 0 && request.resource.data.entrenador.size() <= 120
+        && request.resource.data.sucursal is string && request.resource.data.sucursal.size() > 0 && request.resource.data.sucursal.size() <= 120
+        && request.resource.data.fecha is string && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.notas is map && request.resource.data.promedio is number && request.resource.data.promedio >= 1 && request.resource.data.promedio <= 5
+        && texto('fortalezas', 1000) && texto('mejorar', 1000) && texto('acuerdo', 1000);
+      allow update: if permiso('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
+      allow delete: if false;
+    }
     match /com_gestion/{id} {
       allow read: if veComercial();
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
@@ -443,6 +481,44 @@ service cloud.firestore {
         && texto('paquete_ofrecido', 200) && texto('registrado_por', 120) && texto('fecha_fin', 10)
         && request.resource.data.fecha_on is string && request.resource.data.estado == 1 && request.resource.data.key_usuario_registro == yo();
       allow update: if centralPY() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+      allow delete: if false;
+    }
+    // ---------- Mantenimiento: checklist de cada sucursal (carga Mantenimiento, Supervisión o Administración; reciben Administración y Dirección) ----------
+    match /py_mant_config/{id} {
+      allow read: if permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision') || permisoPY('direccion');
+      allow write: if (permisoPY('administracion') || permisoPY('direccion')) && id in ['checklist', 'aviso'];
+    }
+    match /py_mant_revision/{id} {
+      allow read: if permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision') || permisoPY('direccion');
+      allow create: if (permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision'))
+        && request.resource.data.registrado_por == yo() && request.resource.data.estado == 1
+        && request.resource.data.sucursal is string && request.resource.data.sucursal.size() > 0 && request.resource.data.sucursal.size() <= 120
+        && request.resource.data.fecha is string && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.items is list && request.resource.data.items.size() <= 300 && texto('observaciones', 2000);
+      allow update: if (permisoPY('administracion') || permisoPY('direccion')) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'anulado_por', 'fecha_anulacion']);
+      allow delete: if false;
+    }
+    match /py_mant_falla/{id} {
+      allow read: if permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision') || permisoPY('direccion');
+      allow create: if (permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision'))
+        && request.resource.data.registrado_por == yo() && request.resource.data.estado == 'abierta'
+        && request.resource.data.urgencia in ['urgente', 'pronto', 'puede_esperar']
+        && texto('sucursal', 120) && texto('area', 60) && texto('item', 120) && texto('nota', 500);
+      allow update: if (permisoPY('mantenimiento') || permisoPY('administracion') || permisoPY('supervision') || permisoPY('direccion'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'nota_resolucion', 'resuelta_por', 'resuelta_nombre', 'fecha_resuelta'])
+        && request.resource.data.estado == 'resuelta' && request.resource.data.resuelta_por == yo() && texto('nota_resolucion', 500);
+      allow delete: if false;
+    }
+    // ---------- Calificación de entrenadores: la cargan los supervisores; consultan Dirección, RRHH y Administración ----------
+    match /py_sup_calificacion/{id} {
+      allow read: if permisoPY('supervision') || permisoPY('direccion') || permisoPY('rrhh') || permisoPY('administracion');
+      allow create: if permisoPY('supervision') && request.resource.data.registrado_por == yo() && request.resource.data.estado == 1
+        && request.resource.data.entrenador is string && request.resource.data.entrenador.size() > 0 && request.resource.data.entrenador.size() <= 120
+        && request.resource.data.sucursal is string && request.resource.data.sucursal.size() > 0 && request.resource.data.sucursal.size() <= 120
+        && request.resource.data.fecha is string && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.notas is map && request.resource.data.promedio is number && request.resource.data.promedio >= 1 && request.resource.data.promedio <= 5
+        && texto('fortalezas', 1000) && texto('mejorar', 1000) && texto('acuerdo', 1000);
+      allow update: if permisoPY('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
       allow delete: if false;
     }
     match /py_com_gestion/{id} {

@@ -1,4 +1,4 @@
-/* Supervisores: un solo módulo con dos pestañas (Sucursales y entrenadores · Reemplazo de profesores).
+/* Supervisores: un solo módulo con tres pestañas (Sucursales y entrenadores · Calificación de entrenadores · Reemplazo de profesores).
    Se inserta debajo de la barra superior en supervision.html y reemplazos.html; cada pestaña respeta los permisos del ERP. */
 (function () {
     "use strict";
@@ -8,9 +8,10 @@
     var q = location.search;
     var tabs = [
         { href: "supervision.html", txt: "Sucursales y entrenadores", ve: t.indexOf("supervision") >= 0 },
+        { href: "calificaciones.html", txt: "Calificación de entrenadores", ve: ["supervision", "direccion", "rrhh", "administracion"].some(function (x) { return t.indexOf(x) >= 0; }) || py },
         { href: "reemplazos.html", txt: "Reemplazo de profesores", ve: ["supervision", "direccion", "rrhh", "administracion"].some(function (x) { return t.indexOf(x) >= 0; }) || py }
     ].filter(function (x) { return x.ve; });
-    if (tabs.length < 2) return;
+    if (tabs.length < 2 && pag !== "calificaciones.html") return;
     var css = document.createElement("style");
     css.textContent = ".sv-nav{display:flex;gap:0;flex-wrap:wrap;align-items:stretch;border-bottom:1px solid #25272B;background:#09090A;padding:0 16px}" +
         ".sv-nav b{color:#8D9299;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;align-self:center;margin-right:18px}" +
