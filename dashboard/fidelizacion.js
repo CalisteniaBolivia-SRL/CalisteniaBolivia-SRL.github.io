@@ -86,7 +86,7 @@
     /* ---------- estado ---------- */
     var F = { cont: null, ctx: null, vista: "listas", lista: null, suc: null, filtro: "pendientes", ver: POR_TANDA, cargando: false, cargado: false, errores: {}, sinDatos: {},
         datos: { porVencer: [], sinAsistir: [] }, paquetes: [], config: {}, contactos: [], abierto: {}, borrador: {}, guardando: {}, canal: {},
-        msgLista: {}, vivas: [], periodo: 30, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
+        msgLista: {}, vivas: [], periodo: "mes", mes: { res: null, cargando: false, error: null }, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
 
     function llamar(tool, args) {
         return (F.ctx && F.ctx.llamar ? F.ctx.llamar(tool, args || {}) : window.CM.llamar(tool, args || {})).then(function (r) {
@@ -190,6 +190,7 @@
         if (F.errores.firestore) c.appendChild(el("div", { class: "co-aviso is-bad" }, [el("strong", { text: "No se pudo leer el seguimiento guardado" }), el("p", { text: F.errores.firestore })]));
         if (F.vista === "resultados") { c.appendChild(vistaResultados()); window.scrollTo(0, y); return; }
         if (!F.cargado) { c.appendChild(el("p", { class: "fd-cargando", text: F.cargando ? "Leyendo los clientes del sistema…" : "" })); return; }
+        c.appendChild(contador());
         if (F.lista) { c.appendChild(vistaLista(LISTA[F.lista])); window.scrollTo(0, y); return; }
         c.appendChild(vistaListas());
         window.scrollTo(0, y);
@@ -213,6 +214,7 @@
                 !sin && cl.length ? el("div", { class: "fd-sucs", "aria-label": "Por sucursal" }, porSucursal(cl).slice(0, 8).map(function (x) {
                     return el("button", { type: "button", class: "fd-suc-chip", title: "Abrir solo " + x[0], onclick: function () { abrir(l.id, x[0]); } }, [x[0] + " ", el("b", { text: String(x[1]) })]);
                 })) : null,
+                F.mes.res ? (function () { var x = agregar(F.mes.res).porLista[l.id]; return el("p", { class: "fd-card-r", text: x ? "Este mes: " + x.n + (x.n === 1 ? " atendido · " : " atendidos · ") + x.compro + (x.compro === 1 ? " renovó" : " renovaron") : "Este mes: nadie atendido todavía" }); })() : null,
                 el("p", { class: "fd-card-p", text: cf.paquete_nombre ? "Paquete exclusivo: " + bonito(cf.paquete_nombre) : cf.promo ? "Promo: " + cf.promo : "Sin promo cargada" }),
                 el("button", { type: "button", class: "fd-btn", disabled: sin || !cl.length ? true : null, text: "Abrir lista", onclick: function () { abrir(l.id); } })
             ]));
@@ -378,33 +380,72 @@
             F.contactos.unshift((r && r.data) || { lista: l.id, key_cliente: k, resultado: b.resultado, motivo: b.motivo, nota: b.nota, fecha_on: new Date().toISOString() });
             F.abierto[k] = false; delete F.borrador[k];
             avisar(c.cliente + ": " + textoRes(b.resultado, l.id).toLowerCase() + ".");
-        }, function (e) { avisar("No se pudo guardar: " + ((e && e.message) || e), "bad"); }).then(function () { F.guardando[k] = false; F.res = null; pintar(); });
+        }, function (e) { avisar("No se pudo guardar: " + ((e && e.message) || e), "bad"); }).then(function () { F.guardando[k] = false; F.res = null; pintar(); refrescarContador(); });
     }
 
     /* ---------- Cómo nos fue ---------- */
+    var PERIODOS = [["mes", "Este mes"], ["mesAnt", "Mes anterior"], [7, "7 días"], [30, "30 días"], [90, "90 días"]];
+    function rangoDe(p) {
+        var h = hoy();
+        if (p === "mes") return { desde: h.slice(0, 8) + "01", hasta: h };
+        if (p === "mesAnt") { var d = new Date(h.slice(0, 8) + "01T00:00:00"); d.setDate(0); var fin = iso(d); return { desde: fin.slice(0, 8) + "01", hasta: fin }; }
+        return { desde: sumar(h, -Number(p)), hasta: h };
+    }
+    function nombreMes(f) { return MESES[Number(String(f).slice(5, 7)) - 1]; }
+    /* Por cliente y lista: el primer contacto del período y si compró dentro de los 30 días. */
+    function agregar(res) {
+        var porCliente = {};
+        (res || []).forEach(function (g) { var kk = g.lista + "|" + g.key_cliente, p = porCliente[kk]; if (!p) p = porCliente[kk] = { lista: g.lista, key: g.key_cliente, cliente: g.cliente, sucursal: g.sucursal, compro: false, monto: 0, exclusivo: false, respondio: false, compra: null, ultimo: g };
+            if (g.compro) { p.compro = true; if ((g.monto_compra || 0) >= p.monto) { p.monto = g.monto_compra || 0; p.compra = g; } if (g.con_exclusivo) p.exclusivo = true; }
+            if (g.resultado !== "no_contesta" && g.resultado !== "numero_errado") p.respondio = true;
+            if (String(g.fecha_on) > String(p.ultimo.fecha_on)) p.ultimo = g; });
+        var cl = Object.keys(porCliente).map(function (k) { return porCliente[k]; });
+        var tot = { n: cl.length, resp: 0, compro: 0, monto: 0, excl: 0 }, porLista = {};
+        cl.forEach(function (p) { if (p.respondio) tot.resp++; if (p.compro) { tot.compro++; tot.monto += p.monto; } if (p.exclusivo) tot.excl++;
+            var x = porLista[p.lista] || (porLista[p.lista] = { n: 0, compro: 0, monto: 0 }); x.n++; if (p.compro) { x.compro++; x.monto += p.monto; } });
+        return { cl: cl, tot: tot, porLista: porLista };
+    }
+    /* Contador del mes (arriba de todo): se recalcula al abrir y después de cada contacto. */
+    function cargarContador() {
+        var r = rangoDe("mes"); F.mes.cargando = true;
+        llamar("comercial_fid_resultados", r).then(function (x) { F.mes.res = filas(x); F.mes.error = null; }, function (e) { F.mes.error = (e && e.message) || String(e); })
+            .then(function () { F.mes.cargando = false; F.mes.fecha = new Date(); pintar(); });
+    }
+    function refrescarContador() { clearTimeout(F.tCont); F.tCont = setTimeout(cargarContador, 1500); }
+    function contador() {
+        var h = hoy(), hoyN = {}; F.contactos.forEach(function (g) { if (String(g.fecha_on).slice(0, 10) === h) hoyN[g.lista + "|" + g.key_cliente] = 1; });
+        var nHoy = Object.keys(hoyN).length, a = F.mes.res ? agregar(F.mes.res) : null, t = a ? a.tot : null;
+        var dato = function (v, txt, fuerte) { return el("div", { class: "fd-cont-d" + (fuerte ? " is-fuerte" : "") }, [el("b", { text: v }), el("span", { text: txt })]); };
+        return el("section", { class: "fd-contador", "aria-label": "Resultados del mes" }, [
+            el("div", { class: "fd-cont-top" }, [el("b", { text: "Resultados de " + nombreMes(h) }),
+                el("button", { type: "button", class: "fd-link", text: "Ver reporte completo", onclick: function () { F.vista = "resultados"; F.periodo = "mes"; cargarResultados(); pintar(); } })]),
+            el("div", { class: "fd-cont-fila" }, [
+                dato(String(nHoy), "atendidos hoy"),
+                dato(t ? miles(t.n) : "…", "atendidos en el mes"),
+                dato(t ? miles(t.resp) : "…", "respondieron"),
+                dato(t ? miles(t.compro) + (t.n ? " · " + pct(t.compro, t.n) : "") : "…", "renovaron", true),
+                dato(t ? plata(t.monto) : "…", "en renovaciones"),
+                dato(t ? miles(t.excl) : "…", "con paquete exclusivo")
+            ]),
+            F.mes.error ? el("p", { class: "fd-nota", text: "No se pudo calcular: " + F.mes.error }) : el("p", { class: "fd-nota", text: "«Renovaron»: compraron en el ERP dentro de los 30 días del contacto." + (F.mes.cargando ? " Actualizando…" : "") })
+        ]);
+    }
+
     function cargarResultados() {
         F.resCargando = true; F.resError = null; F.verRes = POR_TANDA;
-        llamar("comercial_fid_resultados", { desde: sumar(hoy(), -F.periodo), hasta: hoy() }).then(function (r) { F.res = filas(r); }, function (e) { F.resError = (e && e.message) || String(e); F.res = null; })
+        llamar("comercial_fid_resultados", rangoDe(F.periodo)).then(function (r) { F.res = filas(r); }, function (e) { F.resError = (e && e.message) || String(e); F.res = null; })
             .then(function () { F.resCargando = false; pintar(); });
     }
     function vistaResultados() {
         var box = el("section", { class: "fd-resultados" });
-        box.appendChild(el("div", { class: "fd-periodo" }, [el("span", { text: "Contactos de los últimos" })].concat([7, 30, 90].map(function (d) {
-            return el("button", { type: "button", class: F.periodo === d ? "is-on" : "", text: d + " días", onclick: function () { F.periodo = d; cargarResultados(); pintar(); } });
-        }))));
+        box.appendChild(el("div", { class: "fd-periodo" }, [el("span", { text: "Contactos de" })].concat(PERIODOS.map(function (d) {
+            return el("button", { type: "button", class: F.periodo === d[0] ? "is-on" : "", text: d[1], onclick: function () { F.periodo = d[0]; cargarResultados(); pintar(); } });
+        }), [F.res && F.res.length ? el("button", { type: "button", class: "fd-descargar", text: "Descargar reporte", onclick: descargar }) : null])));
         if (F.resCargando || (!F.res && !F.resError)) { box.appendChild(el("p", { class: "fd-cargando", text: "Cruzando los contactos con las ventas del sistema…" })); return box; }
         if (F.resError) { box.appendChild(el("div", { class: "co-aviso is-bad" }, [el("strong", { text: "No se pudo calcular" }), el("p", { text: F.resError })])); return box; }
         var res = F.res;
         if (!res.length) { box.appendChild(el("p", { class: "fd-vacio", text: "Todavía no hay contactos registrados en este período." })); return box; }
-        /* Por cliente y lista: el primer contacto del período y si compró dentro de los 30 días. */
-        var porCliente = {};
-        res.forEach(function (g) { var kk = g.lista + "|" + g.key_cliente, p = porCliente[kk]; if (!p) p = porCliente[kk] = { lista: g.lista, compro: false, monto: 0, exclusivo: false, respondio: false, ultimo: g };
-            if (g.compro) { p.compro = true; p.monto = Math.max(p.monto, g.monto_compra || 0); if (g.con_exclusivo) p.exclusivo = true; }
-            if (g.resultado !== "no_contesta" && g.resultado !== "numero_errado") p.respondio = true;
-            if (String(g.fecha_on) > String(p.ultimo.fecha_on)) p.ultimo = g; });
-        var cl = Object.keys(porCliente).map(function (k) { return porCliente[k]; });
-        var tot = { n: cl.length, resp: 0, compro: 0, monto: 0, excl: 0 };
-        cl.forEach(function (p) { if (p.respondio) tot.resp++; if (p.compro) { tot.compro++; tot.monto += p.monto; } if (p.exclusivo) tot.excl++; });
+        var ag = agregar(res), cl = ag.cl, tot = ag.tot;
         box.appendChild(el("div", { class: "fd-kpis" }, [
             kpi(miles(tot.n), "clientes atendidos"), kpi(pct(tot.resp, tot.n), "respondieron (" + tot.resp + ")"),
             kpi(pct(tot.compro, tot.n), "renovaron o volvieron a comprar (" + tot.compro + ")", true), kpi(plata(tot.monto), "en ventas de esos clientes"),
@@ -420,6 +461,13 @@
         });
         box.appendChild(el("h3", { class: "fd-h3", text: "Por lista" }));
         box.appendChild(el("div", { class: "fd-tablewrap" }, [el("table", { class: "fd-tabla" }, [el("thead", {}, [el("tr", {}, ["Lista", "Atendidos", "Respondieron", "Compraron", "Ventas"].map(function (t, i) { return el("th", { class: i ? "co-num" : null, text: t }); }))]), tb])]));
+        /* Quiénes renovaron */
+        var ren = cl.filter(function (p) { return p.compro; }).sort(function (a, b) { return String(b.compra.fecha_compra).localeCompare(String(a.compra.fecha_compra)); });
+        box.appendChild(el("h3", { class: "fd-h3", text: "Quiénes renovaron (" + ren.length + ")" }));
+        if (!ren.length) box.appendChild(el("p", { class: "fd-vacio", text: "Todavía nadie de los atendidos compró en este período." }));
+        else box.appendChild(el("div", { class: "fd-tablewrap" }, [el("table", { class: "fd-tabla" }, [el("thead", {}, [el("tr", {}, ["Cliente", "Sucursal", "Lista", "Compró", "Fecha", "Monto"].map(function (t, i) { return el("th", { class: i === 5 ? "co-num" : null, text: t }); }))]),
+            el("tbody", {}, ren.map(function (p) { var g = p.compra; return el("tr", { class: "is-ok" }, [el("td", { text: p.cliente || "—" }), el("td", { text: p.sucursal || "—" }), el("td", { text: LISTA[p.lista] ? LISTA[p.lista].titulo : p.lista }),
+                el("td", { text: bonito(g.paquete_comprado) + (g.con_exclusivo ? " (exclusivo)" : "") }), el("td", { text: corta(g.fecha_compra) }), el("td", { class: "co-num", text: plata(g.monto_compra) })]); }))])]));
         /* Por qué no renuevan / no vienen */
         var mot = {}, nMot = 0;
         res.forEach(function (g) { if (g.motivo) { mot[g.motivo] = (mot[g.motivo] || 0) + 1; nMot++; } });
@@ -449,13 +497,23 @@
         box.appendChild(el("p", { class: "fd-nota", text: "«Compraron»: el cliente compró un paquete en el ERP dentro de los 30 días después del primer contacto. Las ventas son las del sistema de " + (PY ? "Paraguay" : "Bolivia") + "." }));
         return box;
     }
+    /* Reporte en Excel (CSV): cada contacto con su resultado y, si compró, qué, cuándo y cuánto. */
+    function descargar() {
+        var r = rangoDe(F.periodo), esc = function (v) { v = v == null ? "" : String(v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+        var filasCsv = [["Fecha contacto", "Cliente", "Teléfono", "Sucursal", "Lista", "Canal", "Resultado", "Motivo", "Lo que contó", "Compró", "Paquete comprado", "Fecha compra", "Monto (" + MONEDA + ")", "Paquete exclusivo", "Atendió"]]
+            .concat(F.res.map(function (g) { return [String(g.fecha_on).slice(0, 10), g.cliente, g.telefono, g.sucursal, LISTA[g.lista] ? LISTA[g.lista].titulo : g.lista, g.canal, textoRes(g.resultado, g.lista), g.motivo ? MOTIVO[g.motivo] : "", g.nota,
+                g.compro ? "Sí" : "No", g.compro ? bonito(g.paquete_comprado) : "", g.fecha_compra || "", g.compro ? Math.round(g.monto_compra || 0) : "", g.con_exclusivo ? "Sí" : "", g.registrado_por]; }));
+        var blob = new Blob(["﻿" + filasCsv.map(function (f) { return f.map(esc).join(";"); }).join("\r\n")], { type: "text/csv;charset=utf-8" });
+        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "seguimiento-clientes-" + (PY ? "paraguay-" : "bolivia-") + r.desde + "-al-" + r.hasta + ".csv";
+        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
     function kpi(v, t, fuerte) { return el("div", { class: "fd-kpi" + (fuerte ? " is-fuerte" : "") }, [el("b", { text: v }), el("span", { text: t })]); }
 
     window.ATC_fidel = {
         montar: function (cont, ctx) {
             F.cont = cont; F.ctx = ctx || {};
             if (ctx && ctx.lista && LISTA[ctx.lista]) { F.suc = ctx.sucursal || null; ctx.sucursal = null; F.lista = ctx.lista; F.vista = "listas"; F.filtro = "pendientes"; F.ver = POR_TANDA; ctx.lista = null; }
-            if (!F.cargado && !F.cargando) cargar(); else pintar();
+            if (!F.cargado && !F.cargando) { cargar(); cargarContador(); } else pintar();
             if (F.lista && F.cargado) habilitarSiCorresponde(LISTA[F.lista]);
         },
         _interno: { F: F, LISTAS: LISTAS, clientesDe: clientesDe }
