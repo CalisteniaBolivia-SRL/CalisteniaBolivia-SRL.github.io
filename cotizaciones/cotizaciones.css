@@ -46,6 +46,7 @@
 
 .status { display: inline-block; padding: .2em .7em; font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; background: var(--line); color: var(--white); }
 .status--pendiente { background: var(--warn-bg); color: var(--warn); }
+.status--parcial { background: var(--warn-bg); color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
 .status--aprobada { background: var(--ok-bg); color: var(--ok); }
 .status--borrador { background: var(--line); color: var(--muted); }
 
