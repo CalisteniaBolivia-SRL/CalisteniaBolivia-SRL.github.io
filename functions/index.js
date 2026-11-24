@@ -149,3 +149,6 @@ exports.rsVincular = redes.rsVincular;
 
 /* Asistente «Capital Corp» de la pantalla central del muro (asistente.js). */
 exports.asistente = require("./asistente").asistente;
+
+/* Asistente de voz en tiempo real (Gemini Live): entrega el token temporal. */
+exports.liveToken = require("./live").liveToken;
