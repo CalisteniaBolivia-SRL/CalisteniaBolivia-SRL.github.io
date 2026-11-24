@@ -437,3 +437,8 @@
 #co-contenido .fd-filtro-suc { display: flex; flex-direction: row; justify-content: flex-start; gap: 10px; align-items: center; margin: 0 0 10px; text-align: left; }
 .fd-filtro-suc span { font-size: .78em; letter-spacing: .1em; text-transform: uppercase; color: var(--fd-muted); font-weight: 600; }
 #co-contenido .fd-filtro-suc select { font: inherit; font-size: .95em; background: #0D0E10; color: #F2F3F5; border: 1px solid var(--fd-line2); border-radius: 0; padding: 8px 10px; }
+.fd-mensaje { background: var(--fd-card); border: 1px solid var(--fd-line); border-left: 3px solid var(--fd-red); padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+.fd-mensaje-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.fd-msj-estado { color: var(--fd-muted); font-size: .85em; }
+.fd-previa-c { margin: 2px 0 0; padding: 8px 12px; background: #0D0E10; border-left: 2px solid var(--fd-ok); font-size: .92em; line-height: 1.45; white-space: pre-wrap; }
+.fd-previa-c.is-vacio { border-left-color: var(--fd-line2); color: var(--fd-muted); }

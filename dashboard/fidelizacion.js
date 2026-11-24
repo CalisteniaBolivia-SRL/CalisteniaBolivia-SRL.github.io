@@ -3,7 +3,8 @@
    Son clientes que todavía tienen plan: no se reparten a las ATC. La idea es que se sientan atendidos:
    que renueven, contar su experiencia y saber por qué dejaron de venir.
    - 4 listas: vencen hoy o mañana · vencen en 2 a 7 días · pagaron y no vinieron · 14+ días sin venir.
-   - Sin mensaje armado: en cada cliente la Jefa escribe o pega el mensaje que quiere y lo envía por WhatsApp.
+   - Sin mensaje armado: la Jefa escribe UN mensaje para cada lista y el sistema saluda a cada cliente con su nombre
+     («Hola, ¿cómo estás?» → «Hola Ana, ¿cómo estás?»). Se envía por WhatsApp cliente por cliente.
    - Cada lista tiene su promo y un paquete exclusivo
      (los clientes quedan habilitados en «Campañas», con el control de caja).
    - Cada contacto se registra con su resultado y, si no renueva, el motivo y lo que contó.
@@ -85,7 +86,7 @@
     /* ---------- estado ---------- */
     var F = { cont: null, ctx: null, vista: "listas", lista: null, suc: null, filtro: "pendientes", ver: POR_TANDA, cargando: false, cargado: false, errores: {}, sinDatos: {},
         datos: { porVencer: [], sinAsistir: [] }, paquetes: [], config: {}, contactos: [], abierto: {}, borrador: {}, guardando: {}, canal: {},
-        msj: {}, periodo: 30, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
+        msgLista: {}, vivas: [], periodo: 30, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
 
     function llamar(tool, args) {
         return (F.ctx && F.ctx.llamar ? F.ctx.llamar(tool, args || {}) : window.CM.llamar(tool, args || {})).then(function (r) {
@@ -150,7 +151,28 @@
         return u;
     }
     function estadoDe(c) { var u = ultimoDe(c.lista, c.key); return !u ? "pendiente" : CIERRA[u.resultado] ? "hecho" : "seguir"; }
-    function config(l) { var c = F.config[l.id] || {}; return { promo: c.promo || "", paquete_key: c.paquete_key || "", paquete_nombre: c.paquete_nombre || "", editado_por: c.editado_por || null, fecha_edicion: c.fecha_edicion || null, guardado: !!F.config[l.id] }; }
+    function config(l) { var c = F.config[l.id] || {}; return { mensaje: c.mensaje || "", promo: c.promo || "", paquete_key: c.paquete_key || "", paquete_nombre: c.paquete_nombre || "", editado_por: c.editado_por || null, fecha_edicion: c.fecha_edicion || null, guardado: !!F.config[l.id] }; }
+    /* El nombre del cliente va siempre en el saludo, se escriba como se escriba el mensaje:
+       «Hola, ¿cómo estás?» → «Hola Ana, ¿cómo estás?» · «¡Buenas tardes! …» → «¡Buenas tardes Ana! …»
+       · sin saludo → «Hola Ana, …» · {nombre} en cualquier lugar también funciona. */
+    var SALUDO = /^(\s*[¡!]?\s*)(hola+|holi+s?|buen(?:os|as)?\s+(?:d[ií]as?|tardes?|noches?)|buen\s+d[ií]a|qu[eé]\s+tal)(?![a-záéíóúñ])/i;
+    function personalizar(t, c) {
+        t = String(t || "").trim(); if (!t) return "";
+        var n = primerNombre(c.cliente);
+        if (!n) return t.replace(/\{nombre\}\s*/gi, "");
+        if (/\{nombre\}/i.test(t)) return t.replace(/\{nombre\}/gi, n);
+        var m = t.match(SALUDO);
+        if (m) {
+            var resto = t.slice(m[0].length);
+            if (norm(resto.replace(/^[\s,]+/, "")).indexOf(norm(n)) === 0) return t;   // ya trae el nombre
+            if (/^\s+[A-Za-zÁÉÍÓÚÑáéíóúñ¿]/.test(resto)) resto = "," + resto;           // «Hola te escribo…» → «Hola Ana, te escribo…»
+            return m[0] + " " + n + resto;
+        }
+        var primera = t.replace(/^([¿¡]?)([A-ZÁÉÍÓÚÑ])(?=[a-záéíóúñ])/, function (x, signo, letra) { return signo + letra.toLowerCase(); });
+        return "Hola " + n + ", " + primera;
+    }
+    function mensajeLista(l) { var b = F.msgLista[l.id]; return b != null ? b : config(l).mensaje; }
+
     /* ---------- pintar ---------- */
     function pintar() {
         var c = F.cont; if (!c) return;
@@ -214,6 +236,8 @@
         var box = el("section", { class: "fd-lista" });
         box.appendChild(el("button", { type: "button", class: "fd-volver", onclick: function () { F.lista = null; F.suc = null; pintar(); } }, ["← Todas las listas"]));
         box.appendChild(el("h3", { class: "fd-h3", text: l.titulo + (F.suc ? " · " + bonito(F.suc) : "") }));
+        F.vivas = [];
+        box.appendChild(formMensaje(l));
         box.appendChild(formConfig(l));
         var todos = clientesDe(l), pend = [], hechos = [];
         var sucs = porSucursal(todos);
@@ -251,8 +275,8 @@
         var guardar = el("button", { type: "button", class: "fd-btn", text: "Guardar promo y paquete", onclick: function () {
             var pk = sel.value, pn = pk ? (F.paquetes.filter(function (p) { return p.key === pk; })[0] || {}).nombre : null;
             guardar.disabled = true;
-            llamar("comercial_fid_config_guardar", { lista: l.id, mensaje: "", promo: promo.value.trim(), paquete_key: pk || null, paquete_nombre: pn || null }).then(function (r) {
-                F.config[l.id] = (r && r.data) || { promo: promo.value.trim(), paquete_key: pk, paquete_nombre: pn };
+            llamar("comercial_fid_config_guardar", { lista: l.id, mensaje: mensajeLista(l).trim(), promo: promo.value.trim(), paquete_key: pk || null, paquete_nombre: pn || null }).then(function (r) {
+                F.config[l.id] = (r && r.data) || { mensaje: mensajeLista(l).trim(), promo: promo.value.trim(), paquete_key: pk, paquete_nombre: pn };
                 return habilitarSiCorresponde(l, true);
             }).then(function () {
                 avisar(pk ? "Guardado. Los clientes de esta lista quedaron habilitados para el paquete exclusivo (se ve en Campañas)." : "Promo guardada.");
@@ -270,27 +294,56 @@
         ]);
     }
 
+    function formMensaje(l) {
+        var cf = config(l), msj = mensajeLista(l);
+        var area = el("textarea", { class: "fd-msj", rows: "4", maxlength: "1200", placeholder: "Escribí acá el mensaje para los clientes de esta lista. No pongas el nombre: el sistema saluda a cada uno con el suyo.", "aria-label": "Mensaje de esta lista" });
+        area.value = msj;
+        var ej = clientesDe(l)[0] || { cliente: "María Pérez" };
+        var previa = el("p", { class: "fd-ejemplo" });
+        var pintarPrevia = function () { previa.textContent = area.value.trim() ? personalizar(area.value, ej) : "Todavía no escribiste el mensaje."; };
+        pintarPrevia();
+        var estado = el("span", { class: "fd-msj-estado", text: cf.mensaje ? "Guardado" + (cf.editado_por ? " por " + cf.editado_por : "") + (cf.fecha_edicion ? " el " + corta(cf.fecha_edicion) : "") : "Sin guardar" });
+        area.addEventListener("input", function () {
+            F.msgLista[l.id] = area.value; pintarPrevia(); estado.textContent = area.value.trim() === (cf.mensaje || "") ? estado.textContent : "Cambios sin guardar";
+            F.vivas.forEach(function (v) { if (v.lista === l.id) v.actualizar(); });
+        });
+        var guardar = el("button", { type: "button", class: "fd-btn", text: "Guardar mensaje", onclick: function () {
+            guardar.disabled = true;
+            llamar("comercial_fid_config_guardar", { lista: l.id, mensaje: area.value.trim(), promo: cf.promo || null, paquete_key: cf.paquete_key || null, paquete_nombre: cf.paquete_nombre || null }).then(function (r) {
+                F.config[l.id] = (r && r.data) || Object.assign({}, F.config[l.id], { mensaje: area.value.trim() }); delete F.msgLista[l.id];
+                avisar("Mensaje guardado: le llega a cada cliente con su nombre."); pintar();
+            }, function (e) { avisar("No se pudo guardar: " + ((e && e.message) || e), "bad"); guardar.disabled = false; });
+        } });
+        return el("section", { class: "fd-mensaje" }, [
+            el("div", { class: "fd-mensaje-top" }, [el("b", { text: "Mensaje para esta lista" }), estado]),
+            area,
+            el("div", { class: "fd-previa" }, [el("span", { text: "Así le llega a " + primerNombre(ej.cliente) + ":" }), previa]),
+            guardar
+        ]);
+    }
+
     function fila(c, l) {
         var u = ultimoDe(l.id, c.key), k = c.key, abierto = !!F.abierto[k], guardando = !!F.guardando[k], b = F.borrador[k] || {};
         var wa = telWa(c.telefono);
-        var cf = config(l), txt = F.msj[k] || "";
-        var hrefWa = function (t) { return "https://wa.me/" + wa + (t.trim() ? "?text=" + encodeURIComponent(t.trim()) : ""); };
-        var area = el("textarea", { class: "fd-msj", rows: "3", maxlength: "2000", placeholder: "Escribí o pegá acá el mensaje para " + primerNombre(c.cliente) + " y tocá WhatsApp", "aria-label": "Mensaje para " + c.cliente });
-        area.value = txt;
+        var cf = config(l);
+        var texto = function () { return personalizar(mensajeLista(l), c); };
+        var hrefWa = function () { var t = texto(); return "https://wa.me/" + wa + (t ? "?text=" + encodeURIComponent(t) : ""); };
+        var previa = el("p", { class: "fd-previa-c" });
         var hist = u ? el("p", { class: "fd-hist" + (u.resultado === "renueva" ? " is-ok" : "") }, [ico("reloj"), " " + textoRes(u.resultado, l.id) + " · " + corta(u.fecha_on) + (u.motivo ? " · " + MOTIVO[u.motivo] : "") + (u.nota ? " · «" + u.nota.slice(0, 120) + "»" : "")]) : null;
         var acciones = el("div", { class: "fd-acc" }, [
-            wa ? el("a", { class: "fd-wa", href: hrefWa(txt), target: "_blank", rel: "noopener", onclick: function (e) { e.currentTarget.href = hrefWa(area.value); F.canal[k] = "whatsapp"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("whatsapp"), " WhatsApp"]) : el("span", { class: "fd-sintel", text: "Sin teléfono válido" }),
+            wa ? el("a", { class: "fd-wa", href: hrefWa(), target: "_blank", rel: "noopener", onclick: function (e) { e.currentTarget.href = hrefWa(); F.canal[k] = "whatsapp"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("whatsapp"), " WhatsApp"]) : el("span", { class: "fd-sintel", text: "Sin teléfono válido" }),
             c.telefono ? el("a", { class: "fd-tel", href: "tel:" + String(c.telefono).replace(/[^\d+]/g, ""), onclick: function () { F.canal[k] = "llamada"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("telefono"), " Llamar"]) : null,
             !abierto ? el("button", { type: "button", class: "fd-link", text: u ? "Registrar otro contacto" : "Registrar cómo fue", onclick: function () { F.abierto[k] = true; pintar(); } }) : null
         ]);
-        area.addEventListener("input", function () { F.msj[k] = area.value; var a = art.querySelector(".fd-wa"); if (a) a.href = hrefWa(area.value); });
         var art = el("article", { class: "fd-fila" + (u && u.resultado === "renueva" ? " is-ok" : "") }, [
             el("div", { class: "fd-fila-top" }, [el("b", { class: "fd-nombre", text: c.cliente }), el("span", { class: "fd-suc", text: c.sucursal })]),
             el("p", { class: "fd-dato", text: c.dato }),
             hist,
             cf.promo || cf.paquete_nombre ? el("p", { class: "fd-promo", text: "Para ofrecer: " + [cf.promo, cf.paquete_nombre && ("paquete exclusivo " + bonito(cf.paquete_nombre))].filter(Boolean).join(" · ") }) : null,
-            wa ? area : null, acciones
+            wa ? previa : null, acciones
         ]);
+        var actualizar = function () { var t = texto(); previa.textContent = t || "Escribí arriba el mensaje de la lista: acá vas a ver cómo le llega a " + primerNombre(c.cliente) + "."; previa.classList.toggle("is-vacio", !t); var a = art.querySelector(".fd-wa"); if (a) a.href = hrefWa(); };
+        actualizar(); F.vivas.push({ lista: l.id, actualizar: actualizar });
         if (abierto) art.appendChild(registro(c, l, b, guardando));
         return art;
     }
