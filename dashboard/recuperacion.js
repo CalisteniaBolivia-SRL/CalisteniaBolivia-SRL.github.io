@@ -130,6 +130,10 @@
         };
         SEGS.forEach(function (x) { if (PROMO_PY[x.id] != null) x.promo = PROMO_PY[x.id]; x.porque = String(x.porque).replace(/ Ojo:.*$/, ""); });
     }
+    /* Los clientes que todavía tienen plan (vencen en 7 días, pagaron y no vinieron, en riesgo) NO se reparten a las ATC:
+       los atiende la Jefa de ATC en «Mi atención directa · Seguimiento de clientes» (fidelizacion.js). */
+    var SOLO_JEFA = ["vencen", "nunca", "riesgo"];
+    SEGS = SEGS.filter(function (s) { return SOLO_JEFA.indexOf(s.id) < 0; });
     /* Grupos de vencidos: mismo filtro, fecha y orden. */
     SEGS.forEach(function (s, i) {
         s.n = i + 1;
@@ -140,7 +144,7 @@
         s.orden = function (c, h) { return ("00000" + dif(h, c.fecha_fin)).slice(-5); };   // los que vencieron hace menos, primero
     });
     var SEG = {}; SEGS.forEach(function (s) { SEG[s.id] = s; });
-    var POR_DEFECTO = ["vencen", "nunca", "v1", "pases"];
+    var POR_DEFECTO = ["v1", "pases", "v16"];
 
     /* ---------- estado ---------- */
     var P = {
@@ -149,6 +153,8 @@
         editando: null, viendo: null, cont: null
     };
     if (!Array.isArray(P.prefs.sel)) P.prefs.sel = POR_DEFECTO.slice();
+    P.prefs.sel = P.prefs.sel.filter(function (id) { return !!SEG[id]; });
+    if (!P.prefs.sel.length) P.prefs.sel = POR_DEFECTO.slice();
     if (!P.prefs.textos) P.prefs.textos = {};
     if (!P.prefs.bajadas) P.prefs.bajadas = {};
     if (P.prefs.max == null) P.prefs.max = 40;
@@ -364,19 +370,22 @@
     function chipPrioridad(s) { var p = PRIORIDAD[s.prioridad]; return el("span", { class: "pl-prio " + p[1], text: p[0] }); }
 
     function emergencias() {
-        var h = P.fecha, pv = GRUPOS.vencen || [], nunca = GRUPOS.nunca || [], cumple = (P.datos.cumple || []);
-        var vencenYa = pv.filter(function (c) { return dif(c.fecha, h) <= 1; }).length;
+        var h = P.fecha, cumple = (P.datos.cumple || []);
+        /* Vencen y no vinieron: clientes con plan, los atiende la Jefa en «Seguimiento de clientes» (no van a las ATC). */
+        var vencenYa = (P.datos.porVencer || []).filter(function (c) { return dif(c.fecha_fin, h) <= 1; }).length;
+        var nunca = (P.datos.sinAsistir || []).filter(function (c) { return c.no_vino_con_este_paquete === true && c.fecha_inicio && dif(h, c.fecha_inicio) >= 2; });
+        var aJefa = function () { if (P.ctx && P.ctx.irA) P.ctx.irA("fidel"); };
         var ayer = (P.datos.vencidos || []).filter(function (c) { return dif(h, c.fecha_fin) === 1 && !esPase(c.paquete); }).length;
         var cumpleHoy = cumple.filter(function (c) { return String(c.fecha_nacimiento || "").slice(5, 10) === h.slice(5, 10); }).length;
         var item = function (n, titulo, sub, tono, seg) {
-            return el("button", { type: "button", class: "pl-emerg" + (tono ? " is-" + tono : ""), onclick: seg ? function () { var t = P.cont.querySelector("#pl-seg-" + seg); if (t) { t.scrollIntoView({ behavior: "smooth", block: "center" }); t.classList.add("is-flash"); setTimeout(function () { t.classList.remove("is-flash"); }, 1600); } } : null },
+            return el("button", { type: "button", class: "pl-emerg" + (tono ? " is-" + tono : ""), onclick: typeof seg === "function" ? seg : seg ? function () { var t = P.cont.querySelector("#pl-seg-" + seg); if (t) { t.scrollIntoView({ behavior: "smooth", block: "center" }); t.classList.add("is-flash"); setTimeout(function () { t.classList.remove("is-flash"); }, 1600); } } : null },
                 [el("span", { class: "pl-emerg-v", text: miles(n) }), el("span", { class: "pl-emerg-t", text: titulo }), el("span", { class: "pl-emerg-s", text: sub })]);
         };
         return el("section", { class: "pl-bloque", "aria-labelledby": "pl-h-urg" }, [
             el("h2", { class: "co-h2", id: "pl-h-urg", text: "Lo urgente de hoy" }),
             el("div", { class: "pl-emergs" }, [
-                item(vencenYa, "Vencen hoy o mañana", "Llamarlos hoy para que renueven", vencenYa ? "rojo" : null, "vencen"),
-                item(nunca.length, "Pagaron y no vinieron", "Agendarles su primera clase", nunca.length ? "rojo" : null, "nunca"),
+                item(vencenYa, "Vencen hoy o mañana", "Los atiende la Jefa de ATC · Seguimiento", vencenYa ? "rojo" : null, aJefa),
+                item(nunca.length, "Pagaron y no vinieron", "Los atiende la Jefa de ATC · Seguimiento", nunca.length ? "rojo" : null, aJefa),
                 item(ayer, "Vencieron ayer", "Todavía tienen el hábito", ayer ? "ambar" : null, "v1"),
                 item(cumpleHoy, "Cumplen años hoy", "Clientes y exclientes: saludarlos", cumpleHoy ? "ambar" : null, "cumple")
             ])

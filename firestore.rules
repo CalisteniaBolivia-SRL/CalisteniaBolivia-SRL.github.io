@@ -133,6 +133,31 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hecha', 'fecha_hecha', 'comentario_cierre'])
             && request.resource.data.hecha is bool && texto('comentario_cierre', 2000));
     }
+    // Seguimiento de clientes activos: lo trabaja solo la Jefa de ATC (Dirección también lo ve y carga mensajes).
+    match /com_fid_config/{lista} {
+      allow read: if central() || permiso('direccion');
+      allow write: if (central() || permiso('direccion'))
+        && lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
+        && soloCampos(['mensaje', 'promo', 'paquete_key', 'paquete_nombre', 'fecha_edicion', 'key_usuario_edicion', 'editado_por'])
+        && request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 1200
+        && texto('promo', 300) && texto('paquete_key', 120) && texto('paquete_nombre', 200) && texto('editado_por', 120)
+        && request.resource.data.key_usuario_edicion == yo();
+    }
+    match /com_fid_contacto/{id} {
+      allow read: if central() || permiso('direccion');
+      allow create: if (central() || permiso('direccion'))
+        && soloCampos(['lista', 'key_cliente', 'cliente', 'telefono', 'sucursal', 'paquete_actual', 'fecha_fin', 'canal', 'resultado', 'motivo', 'nota', 'paquete_ofrecido', 'estado', 'fecha_on', 'key_usuario_registro', 'registrado_por'])
+        && request.resource.data.lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
+        && request.resource.data.resultado in ['renueva', 'lo_piensa', 'no_contesta', 'no_renueva', 'numero_errado']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && (request.resource.data.motivo == null || request.resource.data.motivo in ['horario', 'precio', 'salud', 'viaje_trabajo', 'experiencia', 'se_mudo', 'otro_gimnasio', 'motivacion', 'otro'])
+        && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() > 0 && request.resource.data.key_cliente.size() <= 120
+        && texto('cliente', 200) && texto('telefono', 40) && texto('sucursal', 120) && texto('paquete_actual', 200) && texto('nota', 2000)
+        && texto('paquete_ofrecido', 200) && texto('registrado_por', 120) && texto('fecha_fin', 10)
+        && request.resource.data.fecha_on is string && request.resource.data.estado == 1 && request.resource.data.key_usuario_registro == yo();
+      allow update: if central() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+      allow delete: if false;
+    }
     match /com_gestion/{id} {
       allow read: if veComercial();
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
@@ -394,6 +419,31 @@ service cloud.firestore {
             && (resource.data.key_ejecutiva == null || resource.data.key_ejecutiva == yo())
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hecha', 'fecha_hecha', 'comentario_cierre'])
             && request.resource.data.hecha is bool && texto('comentario_cierre', 2000));
+    }
+    // Seguimiento de clientes activos: lo trabaja solo la Jefa de ATC (Dirección también lo ve y carga mensajes).
+    match /py_com_fid_config/{lista} {
+      allow read: if centralPY() || permisoPY('direccion');
+      allow write: if (centralPY() || permisoPY('direccion'))
+        && lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
+        && soloCampos(['mensaje', 'promo', 'paquete_key', 'paquete_nombre', 'fecha_edicion', 'key_usuario_edicion', 'editado_por'])
+        && request.resource.data.mensaje is string && request.resource.data.mensaje.size() <= 1200
+        && texto('promo', 300) && texto('paquete_key', 120) && texto('paquete_nombre', 200) && texto('editado_por', 120)
+        && request.resource.data.key_usuario_edicion == yo();
+    }
+    match /py_com_fid_contacto/{id} {
+      allow read: if centralPY() || permisoPY('direccion');
+      allow create: if (centralPY() || permisoPY('direccion'))
+        && soloCampos(['lista', 'key_cliente', 'cliente', 'telefono', 'sucursal', 'paquete_actual', 'fecha_fin', 'canal', 'resultado', 'motivo', 'nota', 'paquete_ofrecido', 'estado', 'fecha_on', 'key_usuario_registro', 'registrado_por'])
+        && request.resource.data.lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
+        && request.resource.data.resultado in ['renueva', 'lo_piensa', 'no_contesta', 'no_renueva', 'numero_errado']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && (request.resource.data.motivo == null || request.resource.data.motivo in ['horario', 'precio', 'salud', 'viaje_trabajo', 'experiencia', 'se_mudo', 'otro_gimnasio', 'motivacion', 'otro'])
+        && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() > 0 && request.resource.data.key_cliente.size() <= 120
+        && texto('cliente', 200) && texto('telefono', 40) && texto('sucursal', 120) && texto('paquete_actual', 200) && texto('nota', 2000)
+        && texto('paquete_ofrecido', 200) && texto('registrado_por', 120) && texto('fecha_fin', 10)
+        && request.resource.data.fecha_on is string && request.resource.data.estado == 1 && request.resource.data.key_usuario_registro == yo();
+      allow update: if centralPY() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']);
+      allow delete: if false;
     }
     match /py_com_gestion/{id} {
       allow read: if veComercialPY();

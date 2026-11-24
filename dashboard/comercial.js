@@ -33,6 +33,8 @@
     var TAB_ATENCION = ["atencion", "Clientes para atender"];
     /* Pestaña «Plan de hoy» (recuperacion.js): grupos propuestos y 2 listas por sucursal para los ATC. */
     var TAB_PLAN = ["plan", "Plan de hoy"];
+    /* «Seguimiento de clientes» (fidelizacion.js): clientes con plan que atiende solo el Jefe de ATC. */
+    var TAB_FIDEL = ["fidel", "Seguimiento de clientes"];
     var SOLO_ATENCION = false;   // Jefe de ATC sin sesión de datos todavía: ve el Plan de hoy y Atención y retención
     function veAtencion() { return MASTER; }
 
@@ -253,7 +255,7 @@
         ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes antiguos"], ["tareas", "Tareas para las ATC"], ["guiones", "Guiones"], ["actividad", "Actividad"]];
     /* El Jefe de ATC tiene dos trabajos separados: dirigir al equipo (CRM de las ATC) y atender él mismo a los clientes
        (renovaciones, en riesgo y recuperación). Cada uno con sus pestañas. */
-    var MI_TRABAJO = ["atencion"];
+    var MI_TRABAJO = ["fidel", "atencion"];
     function grupoDe(t) { return MI_TRABAJO.indexOf(t) >= 0 ? "mio" : "crm"; }
     var ULTIMA = { crm: null, mio: null };
     var PRINCIPALES = 5;   // Panel, Plan de hoy, Ver una lista, Campañas, Comisiones
@@ -266,6 +268,7 @@
         var tabs = TABS_MASTER.slice();
         tabs.splice(1, 0, plan[0] || null);                  // Panel, Plan de hoy, …
         tabs = tabs.filter(Boolean);
+        if (veAtencion() && window.ATC_fidel) tabs.push(TAB_FIDEL);
         if (veAtencion()) tabs.push(TAB_ATENCION);
         return tabs;
     }
@@ -305,7 +308,7 @@
         var nav = $("#co-tabs"); nav.textContent = "";
         nav.hidden = !MASTER;
         /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
-        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0], TAB_ATENCION[0]].indexOf(S.tab) >= 0;
+        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0], TAB_ATENCION[0], TAB_FIDEL[0]].indexOf(S.tab) >= 0;
         var ir = function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); };
         /* Dos áreas: «Equipo de ATC (CRM)» y «Mi atención directa»; arriba se elige el área y abajo sus pestañas. */
         var conAreas = MASTER && !SOLO_ATENCION && tabs.some(function (t) { return grupoDe(t[0]) === "mio"; });
@@ -321,7 +324,7 @@
             };
             nav.appendChild(el("div", { class: "co-areas", role: "group", "aria-label": "Área de trabajo" }, [
                 area("crm", "Equipo de ATC · CRM", "Listas, avance, campañas y comisiones de las chicas"),
-                area("mio", "Mi atención directa", "Clientes que atiendo yo: renovar, en riesgo, recuperar")
+                area("mio", "Mi atención directa", "Clientes con plan que atiendo yo: renovar, no vinieron, en riesgo")
             ]));
             tabs = tabs.filter(function (t) { return grupoDe(t[0]) === g; });
             if (tabs.length === 1) tabs = [];   // un área con una sola sección no necesita pestaña
@@ -359,6 +362,7 @@
             return;
         }
         if (S.tab === "verlista" && !S.sinHerramientas) { vistaVerLista(c); return; }
+        if (S.tab === TAB_FIDEL[0] && window.ATC_fidel) { window.ATC_fidel.montar(c, { llamar: llamar, avisar: avisar, lista: S.fidLista || null }); S.fidLista = null; return; }
         ponerBanner();
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
@@ -1032,6 +1036,15 @@
         var h = location.hash.slice(1), tabs = pestanas();
         if (h && tabs.some(function (t) { return t[0] === h; }) && h !== S.tab) { S.tab = h; pintar(); }
         else if (!h && tabs[0] && S.tab !== tabs[0][0]) { S.tab = tabs[0][0]; pintar(); }
+    });
+    /* «Abrir lista» del tablero «Clientes para atender» (atencion.html embebido): las listas de clientes con plan
+       se abren en «Seguimiento de clientes», con su mensaje y su paquete. */
+    window.addEventListener("message", function (e) {
+        if (e.origin !== location.origin || !e.data || e.data.cm !== "fidel" || !MASTER) return;
+        if (!pestanas().some(function (t) { return t[0] === TAB_FIDEL[0]; })) return;
+        S.fidLista = e.data.lista || null; S.tab = TAB_FIDEL[0];
+        try { history.pushState(null, "", location.search + "#" + TAB_FIDEL[0]); } catch (x) {}
+        pintar(); window.scrollTo(0, 0);
     });
     function arrancar() {
     /* La ATC ve sus comisiones del período de pago (del 26 al 25), no del mes calendario. */
