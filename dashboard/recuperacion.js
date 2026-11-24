@@ -512,7 +512,8 @@
         base.forEach(function (k) { if (k && out.indexOf(k) < 0) out.push(k); });
         return out;
     }
-    function asignarSucursal(x) {
+    /* soloEj: asigna solo la lista de esa ATC (botón individual); las partes de las demás no van a la cola. */
+    function asignarSucursal(x, soloEj) {
         var a1 = elegidaPara(x.sucursal, 1), a2 = elegidaPara(x.sucursal, 2), pedidos = [];
         var atcs = atcsDe(x);
         if (repartir() && atcs.length) {
@@ -530,6 +531,7 @@
         /* Lo que no entró en las listas queda en la cola de la sucursal, en el mismo orden de prioridad:
            cuando una ATC termina su lista, se le carga sola la tanda siguiente. */
         var asignados = {}; pedidos.forEach(function (q) { q.clientes.forEach(function (c) { asignados[c.key_cliente] = 1; }); });
+        if (soloEj) pedidos = pedidos.filter(function (q) { return q.ej === soloEj; });
         var resto = x.todos.filter(function (c) { return !asignados[String(c.key).replace(/\//g, "-").slice(0, 120)]; });
         var hechos = [];
         return pedidos.reduce(function (p, q) {
@@ -538,6 +540,7 @@
                     .then(function () { hechos.push(nombreAtc(q.ej) + " (" + q.clientes.length + ")"); });
             });
         }, Promise.resolve()).then(function () {
+            P.enCola = soloEj ? 0 : P.enCola;
             if (!pedidos.length) return hechos;
             return P.ctx.llamar("comercial_cola_guardar", { sucursal: x.sucursal, clientes: paquete(resto, 0), tanda: Number(P.prefs.max) || 40, nota: P.prefs.nota || "" })
                 .then(function () { P.enCola = (P.enCola || 0) + resto.length; return hechos; }, function () { return hechos; });
@@ -638,15 +641,24 @@
                 return el("span", { class: "pl-bajar" }, [el("button", { type: "button", class: "co-btn", disabled: !l.length, text: asignar ? "Excel " + n : "Descargar " + l.length, title: "Lista " + n + " de " + x.sucursal + " en Excel",
                     onclick: function (e) { descargarLista(x, n, e.currentTarget); } }), bajada && !asignar ? el("span", { class: "co-chip co-ok", text: "bajada " + bajada }) : null]);
             };
-            var acciones = el("div", { class: "co-acciones" }, [
-                asignar ? el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Asignar", disabled: !atcsDe(x).length || !x.todos.length, onclick: function (e) {
+            /* Un botón por ATC: a cada una se le da su lista con su propio clic. */
+            var individuales = asignar ? atcsDe(x).map(function (k) {
+                var nom = String(nombreAtc(k) || "").split(" ")[0];
+                return el("button", { type: "button", class: "co-btn co-btn-fuerte", text: "Dar lista a " + nom, disabled: !x.todos.length, title: "Asignar solo la lista de " + nombreAtc(k) + " en " + x.sucursal, onclick: function (e) {
+                    var b = e.currentTarget; b.disabled = true; b.textContent = "Asignando…";
+                    asignarSucursal(x, k).then(function (h) { avisar(x.sucursal + ": " + (h.length ? "lista asignada a " + h.join(", ") + "." : "no hay clientes para " + nombreAtc(k) + ".") + (P.enCola ? " Quedan " + miles(P.enCola) + " en cola." : "")); b.textContent = "✓ " + nom; return P.ctx.recargar(); })
+                        .catch(function (err) { avisar(x.sucursal + ": no se pudo asignar. " + ((err && err.message) || err), "bad"); b.disabled = false; b.textContent = "Dar lista a " + nom; });
+                } });
+            }) : [];
+            var acciones = el("div", { class: "co-acciones" }, individuales.concat([
+                asignar && individuales.length > 1 ? el("button", { type: "button", class: "co-btn", text: "Asignar a todas", disabled: !x.todos.length, onclick: function (e) {
                     var b = e.currentTarget; b.disabled = true; b.textContent = "Asignando…";
                     asignarSucursal(x).then(function (h) { avisar(x.sucursal + ": " + (h.length ? "lista asignada a " + h.join(" y ") + "." : "elige las ATC.")); return P.ctx.recargar(); })
-                        .catch(function (err) { avisar(x.sucursal + ": no se pudo asignar. " + ((err && err.message) || err), "bad"); b.disabled = false; b.textContent = "Asignar"; });
+                        .catch(function (err) { avisar(x.sucursal + ": no se pudo asignar. " + ((err && err.message) || err), "bad"); b.disabled = false; b.textContent = "Asignar a todas"; });
                 } }) : null,
                 asignar ? excel(1) : null, asignar ? excel(2) : null,
                 el("button", { type: "button", class: "co-btn", text: P.viendo === x.sucursal ? "Ocultar" : "Ver", "aria-expanded": P.viendo === x.sucursal ? "true" : "false", onclick: function () { P.viendo = P.viendo === x.sucursal ? null : x.sucursal; pintar(); } })
-            ]);
+            ]));
             var celdas = [el("td", { class: "pl-suc" }, [el("b", { text: x.sucursal })])].concat(
                 elegidos.map(function (s) { return el("td", { class: "co-num", text: x.porSeg[s.id] ? miles(x.porSeg[s.id]) : "·" }); }),
                 [el("td", { class: "co-num" }, [el("b", { text: miles(x.todos.length) })])]);
@@ -674,7 +686,7 @@
         return el("section", { class: "pl-bloque", "aria-labelledby": "pl-h-2" }, [
             el("h2", { class: "co-h2", id: "pl-h-2" }, [el("span", { class: "pl-paso", text: "2" }), asignar ? "Asigna las 2 listas de cada sucursal a sus ATC" : "Descarga las 2 listas de cada sucursal"]),
             el("p", { class: "co-muted", text: asignar
-                ? "Elige qué ATC atiende cada lista y presiona Asignar. Cada ATC la ve en su pestaña «Mi lista», con botones para llamar, mandar el WhatsApp ya escrito y anotar cómo le fue. Los clientes se reparten alternando, así las dos listas son igual de buenas; un cliente aparece una sola vez, en su grupo más urgente."
+                ? "Elige qué ATC atiende cada lista y tocá «Dar lista a …» en cada una (o «Asignar a todas»). Cada ATC la ve en su pestaña «Mi lista», con botones para llamar, mandar el WhatsApp ya escrito y anotar cómo le fue. Los clientes se reparten alternando, así las dos listas son igual de buenas; un cliente aparece una sola vez, en su grupo más urgente."
                 : "Cada sucursal tiene 2 listas, una para cada ATC. Los clientes se reparten alternando, así las dos reciben clientes igual de prioritarios. Un cliente aparece una sola vez, en su grupo más urgente. Las columnas con número son los grupos de arriba." })
         ].concat(partes));
     }
