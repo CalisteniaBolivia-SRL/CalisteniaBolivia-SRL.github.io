@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Tareas de Administración · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="operaciones.css?v=2">
+<script src="pais.js?v=7"></script>
+<script src="cm-mcp.js?v=3"></script>
+<script src="py-datos.js?v=3"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=2"></script>
+<script src="cm-firebase.js?v=13"></script>
+<script>
+/* Tareas de Administración: las cargan y siguen Administración y Dirección. Siempre con el usuario del ERP, de Bolivia o de Paraguay. */
+(function () {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    var t = s.tableros.concat(s.tableros_py || []);
+    if (!["administracion", "direccion"].some(function (x) { return t.indexOf(x) >= 0; })) { location.replace("./?sin=administracion"); return; }
+    window.CM_USUARIO = s;
+})();
+</script>
+<link rel="stylesheet" href="sobrio.css?v=6">
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><a href="manual.html#tareas">Manual</a><span class="cm-quien" id="cm-quien"></span><button type="button" id="cm-salir">Salir</button></div>
+
+<main class="op" lang="es">
+  <header class="op-top">
+    <div>
+      <span class="op-eyebrow" id="op-eyebrow">Calistenia Company · Administración y Dirección</span>
+      <h1 class="op-titulo">Tareas de Administración</h1>
+      <p class="op-muted">Lo que hay por hacer, ordenado por prioridad. El administrador carga y marca lo que se hizo; Dirección lo ve, comenta y decide. Así coordinan en un solo lugar.</p>
+    </div>
+    <div class="op-herr"><button type="button" class="op-btn is-fuerte" id="tk-nueva">+ Nueva tarea</button></div>
+  </header>
+  <p class="op-msg" id="op-estado" role="status" aria-live="polite">Cargando…</p>
+  <section class="op-card is-rojo" id="tk-form" hidden></section>
+  <section class="op-kpis" id="tk-kpis"></section>
+  <div class="op-acc" id="tk-filtros"></div>
+  <div class="tk-tablero" id="tk-tablero"></div>
+</main>
+<script src="tareas.js?v=1"></script>
+</body>
+</html>
