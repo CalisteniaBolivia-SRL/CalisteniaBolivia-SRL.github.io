@@ -151,6 +151,7 @@
         sec.appendChild(tabla);
         p.appendChild(sec);
         p.appendChild(ventasDetalle(ctx, d, nom2(ctx)));
+        p.appendChild(analisisComisiones(ctx, nom2(ctx)));
 
         /* Resultados de la semana */
         var tot = d.contactosSemana;
@@ -197,6 +198,46 @@
         filtro.onchange = pintar;
         sec.appendChild(el("div", { class: "pj-filtro" }, [filtro]));
         sec.appendChild(cuerpo); pintar();
+        return sec;
+    }
+    /* ¿Qué estamos pagando? Medición de las comisiones confirmadas (últimos 70 días) para decidir con datos:
+       cuántas fueron de otro paquete que el de la campaña, cuántas venían de clientes que probablemente renovaban
+       solos («Vencen en los próximos 7 días»), cuántas con un contacto sin conversación y cuánto tardó la compra. */
+    function analisisComisiones(ctx, nom) {
+        var sec = el("section", { class: "pj-sec" }, [el("h3", { class: "pj-h3", text: "¿Qué estamos pagando? · últimos 70 días" })]);
+        var conf = (ctx.comisiones || []).filter(function (c) { return !c.anulada; });
+        if (!conf.length) { sec.appendChild(el("p", { class: "pj-muted", text: "Todavía no hay ventas confirmadas para analizar." })); return sec; }
+        var asig = {}; (ctx.asignaciones || []).forEach(function (a) { asig[a.key_cliente || a.key] = a; });
+        var norm = function (s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); };
+        var dias = function (c) { var a = Date.parse(String(c.fecha_contacto || "").slice(0, 10)), b = Date.parse(String(c.fecha_venta || "").slice(0, 10)); return isNaN(a) || isNaN(b) ? null : Math.round((b - a) / 864e5); };
+        var SIN_CHARLA = ["no_contesta", "numero_errado", "no_contactar"];
+        var t = { n: 0, conPaq: 0, otroPaq: 0, vencen: 0, sinCharla: 0, chicos: 0, d03: 0, d47: 0, d815: 0, sinLista: 0 }, por = {};
+        conf.forEach(function (c) {
+            var a = asig[c.key_cliente], x = por[c.key_ejecutiva] || (por[c.key_ejecutiva] = { n: 0, vencen: 0, sinCharla: 0, tarde: 0, otroPaq: 0 });
+            t.n++; x.n++;
+            if (!a) t.sinLista++;
+            if (a && a.paquete_nombre) { t.conPaq++; if (norm(a.paquete_nombre) !== norm(c.paquete)) { t.otroPaq++; x.otroPaq++; } }
+            if (a && (a.grupo === "vencen" || /^vencen/i.test(a.grupo_titulo || ""))) { t.vencen++; x.vencen++; }
+            if (SIN_CHARLA.indexOf(c.resultado) >= 0) { t.sinCharla++; x.sinCharla++; }
+            if (/diario|semanal/i.test(c.paquete || "") || (Number(c.monto) > 0 && Number(c.monto) <= 100)) t.chicos++;
+            var dd = dias(c);
+            if (dd != null) { if (dd <= 3) t.d03++; else if (dd <= 7) t.d47++; else { t.d815++; x.tarde++; } }
+        });
+        var pc = function (a, b) { return b ? Math.round(a / b * 100) + "%" : "—"; };
+        var fila = function (txt, n, base, nota) { return el("div", { class: "pj-fila" }, [el("span", { text: txt }), el("b", { class: "pj-n", text: n + " (" + pc(n, base) + ") · " + bs(n * COMISION) }), nota ? el("span", { class: "pj-muted pj-nota", text: nota }) : null]); };
+        sec.appendChild(el("p", { class: "pj-muted", text: t.n + " ventas confirmadas pagan " + bs(t.n * COMISION) + " (" + bs(COMISION) + " cada una). Así se reparten:" }));
+        sec.appendChild(el("div", { class: "pj-tabla pj-analisis" }, [
+            fila("Compraron otro paquete que el de la campaña", t.otroPaq, t.conPaq, "Sobre " + t.conPaq + " ventas de listas con paquete de campaña. Suele ser bueno: compran igual."),
+            fila("Venían de «Vencen en los próximos 7 días»", t.vencen, t.n, "Muchos renuevan solos: es donde más se paga por ventas que igual iban a pasar."),
+            fila("Contacto sin conversación (no contestó o número errado)", t.sinCharla, t.n, "Se pagó aunque la ATC no habló con el cliente."),
+            fila("Compraron a los 8 a 15 días del contacto", t.d815, t.n, "Cuanto más tarde, menos seguro es que la compra sea por el contacto."),
+            fila("Paquetes chicos (diario, semanal o hasta " + bs(100) + ")", t.chicos, t.n, null),
+            t.sinLista ? fila("Sin datos de la lista (lista ya reemplazada)", t.sinLista, t.n, "No se puede saber el grupo ni el paquete de campaña.") : null
+        ]));
+        var filas = Object.keys(por).map(function (k) { return { k: k, x: por[k] }; }).sort(function (a, b) { return b.x.n - a.x.n; });
+        sec.appendChild(tablaVentas(["ATC", "Ventas", "De «Vencen»", "Sin conversación", "A los 8–15 días", "Otro paquete"], filas.map(function (f) {
+            var x = f.x; return [nom[f.k] || "—", String(x.n), x.vencen + " (" + pc(x.vencen, x.n) + ")", x.sinCharla + " (" + pc(x.sinCharla, x.n) + ")", x.tarde + " (" + pc(x.tarde, x.n) + ")", String(x.otroPaq)];
+        })));
         return sec;
     }
     function tablaVentas(cols, filas, vacio) {

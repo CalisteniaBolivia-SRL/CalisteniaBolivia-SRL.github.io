@@ -197,3 +197,6 @@
 .pj-ventas th, .pj-ventas td, .ml-ventas th, .ml-ventas td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #25272B; vertical-align: top; }
 .pj-ventas th, .ml-ventas th { color: #8D9299; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
 .ml-ventas-box { display: flex; flex-direction: column; gap: 8px; }
+/* ¿Qué estamos pagando? */
+.pj-analisis .pj-fila { flex-wrap: wrap; }
+.pj-nota { flex-basis: 100%; font-size: 12px; }
