@@ -113,6 +113,9 @@ async function ingresar(usuario, passwordMd5) {
     /* cm: sesión del centro de mando (solo con permisos en /centro_mando). ref: cualquier usuario del ERP, para su
        panel de «Mis referidos» (las reglas de Firestore no le dan nada más). */
     const cm = tableros.length || tableros_py.length ? 1 : 0;
+    /* Crea el usuario de Firebase del lado del servidor (así se puede cerrar el registro libre de cuentas).
+       Si falla, no corta el ingreso: solo lo deja anotado. */
+    await admin.auth().getUser(uid).catch((e) => e.code === "auth/user-not-found" ? admin.auth().createUser({ uid }) : null).catch((e) => console.warn("erpLogin crear usuario", e.code || e.message));
     const token = await admin.auth().createCustomToken(uid, { cm, ref: 1, tableros, tableros_py, nombre, usuario: usuario.slice(0, 80), vence });
     return { token, uid, nombre, tableros, tableros_py, vence };
 }
