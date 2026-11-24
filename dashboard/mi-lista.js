@@ -60,7 +60,8 @@
     var LISTA_CRM = { vencen: "por_vencer", nunca: "en_riesgo", riesgo: "en_riesgo", v1: "vencidos", v16: "vencidos", v46: "vencidos", v91: "vencidos", pases: "vencidos", cumple: "otro" };
     var INTENTO = ["Primer contacto", "Segundo contacto", "Tercer contacto", "Cuarto contacto"];
 
-    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {} };
+    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {}, ver: 10 };
+    var DE_A = 10; /* tarjetas por tanda: se ven 10 y se cargan 10 más al bajar (o con «Ver más») */
 
     function misClientes() {
         var ctx = M.ctx, yo = ctx.yo && ctx.yo.key, ult = {};
@@ -260,23 +261,37 @@
 
         var F = [["pendientes", "Pendientes (" + pend.length + ")"], ["hechos", "Hechos (" + hechos.length + ")"], ["ventas", "Mis ventas (" + confirmadas.length + ")"], ["buscar", "Buscar"]];
         cont.appendChild(el("div", { class: "ml-tabs", role: "tablist" }, F.map(function (f) {
-            return el("button", { type: "button", role: "tab", class: M.filtro === f[0] ? "is-on" : "", "aria-selected": M.filtro === f[0] ? "true" : "false", text: f[1], onclick: function () { M.filtro = f[0]; pintar(); } });
+            return el("button", { type: "button", role: "tab", class: M.filtro === f[0] ? "is-on" : "", "aria-selected": M.filtro === f[0] ? "true" : "false", text: f[1], onclick: function () { M.filtro = f[0]; M.ver = DE_A; pintar(); } });
         })));
         if (M.filtro === "ventas") { cont.appendChild(misVentas(ctx, per, mias)); window.scrollTo(0, y); return; }
         var lista = M.filtro === "pendientes" ? pend : M.filtro === "hechos" ? hechos : [];
         if (M.filtro === "buscar") {
             var inp = el("input", { type: "search", class: "ml-buscar", placeholder: "Nombre o teléfono", value: M.buscar, "aria-label": "Buscar cliente" });
-            inp.addEventListener("input", function () { M.buscar = inp.value; clearTimeout(M.t); M.t = setTimeout(function () { pintar(); var b = M.cont.querySelector(".ml-buscar"); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }, 250); });
+            inp.addEventListener("input", function () { M.buscar = inp.value; M.ver = DE_A; clearTimeout(M.t); M.t = setTimeout(function () { pintar(); var b = M.cont.querySelector(".ml-buscar"); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }, 250); });
             cont.appendChild(inp);
             var q = norm(M.buscar).trim();
             lista = q ? todos.filter(function (c) { return norm(c.cliente + " " + c.telefono).indexOf(q) >= 0; }) : [];
         }
         if (!lista.length) cont.appendChild(el("p", { class: "ml-vacio", text: M.filtro === "pendientes" ? "No te quedan clientes pendientes." : M.filtro === "hechos" ? "Todavía no contactaste a nadie de esta lista." : (M.buscar ? "No hay clientes con ese nombre o teléfono." : "Escribe un nombre o un teléfono.") }));
         var ul = el("div", { class: "ml-lista" });
-        lista.forEach(function (c) { ul.appendChild(tarjeta(c)); });
+        var visibles = lista.slice(0, M.ver);
+        visibles.forEach(function (c) { ul.appendChild(tarjeta(c)); });
         cont.appendChild(ul);
+        if (lista.length > visibles.length) {
+            var faltan = lista.length - visibles.length;
+            var mas = el("button", { type: "button", class: "ml-mas", onclick: verMas }, ["Ver " + Math.min(DE_A, faltan) + " más ", el("span", { text: "(" + visibles.length + " de " + lista.length + ")" })]);
+            cont.appendChild(mas);
+            /* Al llegar al final de la lista se cargan solas las 10 siguientes. */
+            if (window.IntersectionObserver) {
+                if (M.obs) M.obs.disconnect();
+                M.obs = new IntersectionObserver(function (e) { if (e[0].isIntersecting) { M.obs.disconnect(); verMas(); } }, { rootMargin: "200px" });
+                M.obs.observe(mas);
+            }
+        } else if (lista.length > DE_A) cont.appendChild(el("p", { class: "ml-fin", text: "Son todos: " + lista.length + " clientes." }));
         window.scrollTo(0, y);
     }
+
+    function verMas() { M.ver += DE_A; pintar(); }
 
     /* Mis ventas: quién compró (cliente y paquete), cuándo y quién lo cobró en caja; y lo reportado que todavía no se cobró. */
     function misVentas(ctx, per, mias) {
@@ -306,7 +321,7 @@
     }
 
     window.ATC_milista = {
-        montar: function (cont, ctx) { M.cont = cont; M.ctx = ctx; pintar(); },
+        montar: function (cont, ctx) { if (!M.ctx || !ctx || (M.ctx.yo || {}).key !== (ctx.yo || {}).key) M.ver = DE_A; M.cont = cont; M.ctx = ctx; pintar(); },
         RES: RES,
         periodoPago: periodoPago,
         _interno: { M: M, misClientes: misClientes, registrar: registrar }

@@ -211,6 +211,10 @@
 #co-contenido .ml-buscar:focus { outline: none; border-color: #FFFFFF; }
 
 #co-contenido .ml-lista { gap: 14px; }
+#co-contenido .ml-mas { display: block; width: 100%; margin-top: 14px; font: inherit; font-weight: 600; font-size: .92em; letter-spacing: .04em; color: #FFFFFF; background: var(--ml-card); border: 1px solid var(--ml-line2); padding: 14px; cursor: pointer; border-radius: 0; }
+#co-contenido .ml-mas span { color: var(--ml-muted); font-weight: 400; }
+#co-contenido .ml-mas:hover, #co-contenido .ml-mas:focus-visible { border-color: #FFFFFF; outline: none; }
+#co-contenido .ml-fin { color: var(--ml-muted); text-align: center; font-size: .85em; margin: 14px 0 0; }
 #co-contenido .ml-cli { border-radius: 0; background: var(--ml-card); border: 1px solid var(--ml-line); border-left: 1px solid var(--ml-line); padding: 18px 18px 16px; gap: 10px; }
 #co-contenido .ml-cli.is-repite { box-shadow: inset 2px 0 0 #D9AE5B; }
 #co-contenido .ml-cli.is-hecho { opacity: 1; background: transparent; }
