@@ -196,6 +196,18 @@ service cloud.firestore {
       allow update: if permiso('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
       allow delete: if false;
     }
+    // ---------- Tareas de Administración: las cargan y siguen Administración y Dirección ----------
+    match /adm_tarea/{id} {
+      allow read: if permiso('administracion') || permiso('direccion');
+      allow create: if (permiso('administracion') || permiso('direccion')) && request.resource.data.creado_por == yo()
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0 && request.resource.data.titulo.size() <= 160
+        && request.resource.data.prioridad in ['urgente', 'alta', 'media', 'baja'] && request.resource.data.estado == 'pendiente'
+        && texto('detalle', 2000) && texto('sucursal', 120) && texto('responsable', 120);
+      allow update: if (permiso('administracion') || permiso('direccion'))
+        && request.resource.data.prioridad in ['urgente', 'alta', 'media', 'baja'] && request.resource.data.estado in ['pendiente', 'hecha']
+        && request.resource.data.creado_por == resource.data.creado_por && request.resource.data.titulo.size() <= 160;
+      allow delete: if false;
+    }
     match /com_gestion/{id} {
       allow read: if veComercial();
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
@@ -519,6 +531,18 @@ service cloud.firestore {
         && request.resource.data.notas is map && request.resource.data.promedio is number && request.resource.data.promedio >= 1 && request.resource.data.promedio <= 5
         && texto('fortalezas', 1000) && texto('mejorar', 1000) && texto('acuerdo', 1000);
       allow update: if permisoPY('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
+      allow delete: if false;
+    }
+    // ---------- Tareas de Administración: las cargan y siguen Administración y Dirección ----------
+    match /py_adm_tarea/{id} {
+      allow read: if permisoPY('administracion') || permisoPY('direccion');
+      allow create: if (permisoPY('administracion') || permisoPY('direccion')) && request.resource.data.creado_por == yo()
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0 && request.resource.data.titulo.size() <= 160
+        && request.resource.data.prioridad in ['urgente', 'alta', 'media', 'baja'] && request.resource.data.estado == 'pendiente'
+        && texto('detalle', 2000) && texto('sucursal', 120) && texto('responsable', 120);
+      allow update: if (permisoPY('administracion') || permisoPY('direccion'))
+        && request.resource.data.prioridad in ['urgente', 'alta', 'media', 'baja'] && request.resource.data.estado in ['pendiente', 'hecha']
+        && request.resource.data.creado_por == resource.data.creado_por && request.resource.data.titulo.size() <= 160;
       allow delete: if false;
     }
     match /py_com_gestion/{id} {
