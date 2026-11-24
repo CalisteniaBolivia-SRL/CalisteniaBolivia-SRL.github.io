@@ -30,7 +30,7 @@
     var MASTER = window.CM_VISTA === "jefe";
     var ES_ATC = window.CM_VISTA === "atc";
     /* Pestaña de Atención y retención (tablero de Atención al Cliente embebido). */
-    var TAB_ATENCION = ["atencion", "Atención y retención"];
+    var TAB_ATENCION = ["atencion", "Clientes para atender"];
     /* Pestaña «Plan de hoy» (recuperacion.js): grupos propuestos y 2 listas por sucursal para los ATC. */
     var TAB_PLAN = ["plan", "Plan de hoy"];
     var SOLO_ATENCION = false;   // Jefe de ATC sin sesión de datos todavía: ve el Plan de hoy y Atención y retención
@@ -250,7 +250,12 @@
     /* ================= Pintar ================= */
     /* Jefe de ATC: lo principal en pestañas; lo demás en «Más». */
     var TABS_MASTER = [["panel", "Panel"], ["verlista", "Ver una lista"], ["campanas", "Campañas"], ["comisiones", "Comisiones"], ["equipo", "Equipo"],
-        ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["actividad", "Actividad"]];
+        ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes antiguos"], ["tareas", "Tareas para las ATC"], ["guiones", "Guiones"], ["actividad", "Actividad"]];
+    /* El Jefe de ATC tiene dos trabajos separados: dirigir al equipo (CRM de las ATC) y atender él mismo a los clientes
+       (renovaciones, en riesgo y recuperación). Cada uno con sus pestañas. */
+    var MI_TRABAJO = ["atencion"];
+    function grupoDe(t) { return MI_TRABAJO.indexOf(t) >= 0 ? "mio" : "crm"; }
+    var ULTIMA = { crm: null, mio: null };
     var PRINCIPALES = 5;   // Panel, Plan de hoy, Ver una lista, Campañas, Comisiones
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
     if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
@@ -300,8 +305,27 @@
         var nav = $("#co-tabs"); nav.textContent = "";
         nav.hidden = !MASTER;
         /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
-        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0]].indexOf(S.tab) >= 0;
+        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0], TAB_ATENCION[0]].indexOf(S.tab) >= 0;
         var ir = function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); };
+        /* Dos áreas: «Equipo de ATC (CRM)» y «Mi atención directa»; arriba se elige el área y abajo sus pestañas. */
+        var conAreas = MASTER && !SOLO_ATENCION && tabs.some(function (t) { return grupoDe(t[0]) === "mio"; });
+        if (conAreas) {
+            var g = grupoDe(S.tab), todas = tabs.slice(); ULTIMA[g] = S.tab;
+            var area = function (id, titulo, sub) {
+                var on = g === id;
+                return el("button", { type: "button", class: "co-area" + (on ? " is-on" : ""), "aria-pressed": on ? "true" : "false", onclick: function () {
+                    if (on) return;
+                    var destino = ULTIMA[id] && todas.some(function (t) { return t[0] === ULTIMA[id]; }) ? ULTIMA[id] : todas.filter(function (t) { return grupoDe(t[0]) === id; })[0][0];
+                    ir(destino);
+                } }, [el("b", { text: titulo }), el("span", { text: sub })]);
+            };
+            nav.appendChild(el("div", { class: "co-areas", role: "group", "aria-label": "Área de trabajo" }, [
+                area("crm", "Equipo de ATC · CRM", "Listas, avance, campañas y comisiones de las chicas"),
+                area("mio", "Mi atención directa", "Clientes que atiendo yo: renovar, en riesgo, recuperar")
+            ]));
+            tabs = tabs.filter(function (t) { return grupoDe(t[0]) === g; });
+            if (tabs.length === 1) tabs = [];   // un área con una sola sección no necesita pestaña
+        }
         var principales = SOLO_ATENCION ? tabs : tabs.slice(0, PRINCIPALES), resto = SOLO_ATENCION ? [] : tabs.slice(PRINCIPALES);
         principales.forEach(function (t) {
             nav.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === t[0] ? " is-on" : ""), "aria-selected": S.tab === t[0] ? "true" : "false", text: t[1], onclick: function () { ir(t[0]); } }));
