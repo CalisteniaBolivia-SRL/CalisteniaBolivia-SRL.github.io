@@ -95,7 +95,7 @@ exports.liveToken = onRequest({ region: "southamerica-east1", cors: ORIGENES, se
     const b = req.body || {};
     const pais = b.pais === "paraguay" ? "paraguay" : "bolivia";
     const hoy = new Date().toLocaleDateString("es-BO", { timeZone: pais === "paraguay" ? "America/Asuncion" : "America/La_Paz", weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const o = { modelo: MODELO.value(), voz: VOZ.value(), pais, hoy, nombre: String(t.nombre || "").slice(0, 80) };
+    const o = { modelo: MODELO.value() || "gemini-3.8-live", voz: VOZ.value() || "Charon", pais, hoy, nombre: String(t.nombre || "").slice(0, 80) };
     try {
         const token = await crearToken(o, GEMINI_API_KEY.value());
         return res.json({ token, modelo: o.modelo, setup: setupDe(o) });
