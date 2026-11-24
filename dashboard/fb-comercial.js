@@ -19,7 +19,7 @@
         }
         return c.p.then(function (l) { return Array.isArray(l) ? l.slice() : l; });
     }
-    var LECTURA = /^comercial_(confirmadas|roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos|fid_config|fid_contactos|fid_resultados)$/;
+    var LECTURA = /^comercial_(cola_resumen|confirmadas|roster|equipo|sucursales|asignaciones|ultimas_gestiones|gestiones|tareas|guiones|comisiones|resumen|mi_trabajo|campanas|pagos|fid_config|fid_contactos|fid_resultados)$/;
     CMFB.registrar = function (nombre, fn) {
         window.CMFB.registrar(nombre, LECTURA.test(nombre) ? fn : function (a, n) {
             MEMO = {};
@@ -324,6 +324,80 @@
                     clientes: FV.arrayUnion.apply(FV, c.claves), nombres: c.nombres.length ? FV.arrayUnion.apply(FV, c.nombres) : FV.arrayUnion("") }, { merge: true }); });
             }, Promise.resolve());
             return tanda().then(function () { return pc; }).then(function () { return { estado: "exito", data: { asignados: docs.length, dados_de_baja: viejos.length, lote: lote } }; });
+        });
+    });
+    /* ---------- Cola automática por sucursal ----------
+       Al asignar el Plan de hoy, los clientes de los grupos tildados que no entraron en las listas quedan en
+       com_cola, en el mismo orden de prioridad. Cuando una ATC termina su lista, su pantalla toma sola la tanda
+       siguiente de su sucursal (comercial_cola_tomar). Cada cliente lo toma una sola ATC: las reglas exigen que
+       el cliente siga libre en la cola en el mismo momento en que se lo asigna. */
+    var COLA_MAX = 3000;
+    CMFB.registrar("comercial_cola_guardar", function (a) {
+        var suc = U.txt(a, "sucursal", 120, true), tanda = Math.min(200, Math.max(5, parseInt(a.tanda, 10) || 40)), lote = U.ahora();
+        var clientes = (Array.isArray(a.clientes) ? a.clientes : []).slice(0, COLA_MAX);
+        function rec(c, campo, max) { var v = c[campo]; if (v == null) return null; var t = String(v).trim(); return t ? t.slice(0, max) : null; }
+        var vistos = {}, docs = [];
+        clientes.forEach(function (c, i) {
+            var k = String(c.key_cliente == null ? "" : c.key_cliente).trim().replace(/\//g, "-").slice(0, 120);
+            if (!k || k === "." || k === ".." || /^__.*__$/.test(k) || vistos[k]) return; vistos[k] = 1;
+            docs.push({ id: k, d: { sucursal: suc, orden: i, tanda: tanda, estado: 1, tomado_por: null, lote: lote, nota_jefa: U.txt(a, "nota", 600, false),
+                cliente: rec(c, "cliente", 200), telefono: rec(c, "telefono", 40), grupo: rec(c, "grupo", 20), grupo_n: Number(c.grupo_n) || null, grupo_titulo: rec(c, "grupo_titulo", 120),
+                dato: rec(c, "dato", 200), promo: rec(c, "promo", 300), mensaje: rec(c, "mensaje", 1000), campana_id: rec(c, "campana_id", 80), paquete_key: rec(c, "paquete_key", 120), paquete_nombre: rec(c, "paquete_nombre", 200),
+                key_usuario_registro: CMFB.usuarioKey() } });
+        });
+        var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
+        /* La cola anterior de la sucursal se reemplaza: lo que no se tomó y no está en la nueva se da de baja. */
+        return col("com_cola").where("sucursal", "==", suc).get().then(function (q) {
+            var viejos = q.docs.filter(function (d) { return Number(d.data().estado) > 0 && !nuevos[d.id]; }).map(function (d) { return d.id; });
+            var ops = viejos.map(function (id) { return { id: id, baja: true }; }).concat(docs), i = 0;
+            function tanda400() {
+                if (i >= ops.length) return Promise.resolve();
+                var b = U.db().batch(); ops.slice(i, i + 400).forEach(function (o) { var r = col("com_cola").doc(o.id); if (o.baja) b.set(r, { estado: 0, fecha_baja: lote }, { merge: true }); else b.set(r, o.d); });
+                i += 400; return b.commit().then(tanda400);
+            }
+            return tanda400().then(function () { return { estado: "exito", data: { en_cola: docs.length, dados_de_baja: viejos.length } }; });
+        });
+    });
+    CMFB.registrar("comercial_cola_resumen", function () {
+        return U.docs(col("com_cola").where("estado", "==", 1)).then(function (l) {
+            var por = {}; l.forEach(function (c) { por[c.sucursal] = (por[c.sucursal] || 0) + 1; });
+            return { filas: Object.keys(por).map(function (k) { return { sucursal: k, en_cola: por[k] }; }) };
+        });
+    });
+    CMFB.registrar("comercial_cola_tomar", function () {
+        return yo().then(function (e) {
+            var sucs = (e.sucursales || []).filter(Boolean);
+            if (!sucs.length) return { estado: "exito", data: { tomados: 0, sin_sucursal: true } };
+            var ahora = U.ahora(), tomados = 0, sucTomada = null;
+            /* Primera sucursal de la ATC que tenga clientes en cola. */
+            var porSuc = sucs.reduce(function (p, suc) {
+                return p.then(function (lista) {
+                    if (lista && lista.length) return lista;
+                    return col("com_cola").where("sucursal", "==", suc).get().then(function (q) {
+                        var l = q.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (c) { return Number(c.estado) === 1 && !c.tomado_por; })
+                            .sort(function (x, y) { return (x.orden || 0) - (y.orden || 0); });
+                        if (l.length) sucTomada = suc;
+                        return l;
+                    });
+                });
+            }, Promise.resolve(null));
+            return porSuc.then(function (lista) {
+                lista = lista || [];
+                var tanda = lista.length ? (Number(lista[0].tanda) || 40) : 0, cand = lista.slice(0, tanda + 20), j = 0, reservados = 0;
+                /* De a uno: si otra ATC lo tomó un instante antes, las reglas lo rechazan y se pasa al siguiente. */
+                function sig() {
+                    if (reservados >= tanda || j >= cand.length) return Promise.resolve();
+                    reservados++;
+                    var c = cand[j++], b = U.db().batch();
+                    b.set(col("com_asignacion").doc(c.id), { key_ejecutiva: e.key, motivo: "Cola automática · " + (c.grupo_titulo || ""), estado: 1, fecha_on: ahora, key_usuario_registro: e.key,
+                        lote: ahora, lista_n: 1, sucursal: c.sucursal, orden: c.orden || 0, nota_jefa: c.nota_jefa || null, cliente: c.cliente || null, telefono: c.telefono || null,
+                        grupo: c.grupo || null, grupo_n: c.grupo_n || null, grupo_titulo: c.grupo_titulo || null, dato: c.dato || null, promo: c.promo || null, mensaje: c.mensaje || null,
+                        campana_id: c.campana_id || null, paquete_key: c.paquete_key || null, paquete_nombre: c.paquete_nombre || null, auto: true });
+                    b.update(col("com_cola").doc(c.id), { estado: 0, tomado_por: e.key, fecha_tomado: ahora });
+                    return b.commit().then(function () { tomados++; }, function () { reservados--; }).then(sig);
+                }
+                return Promise.all([sig(), sig(), sig(), sig()]).then(function () { return { estado: "exito", data: { tomados: tomados, sucursal: sucTomada, quedan: Math.max(0, lista.length - tomados) } }; });
+            });
         });
     });
     /* Plan de hoy: quita a una ATC su lista de una sucursal. */

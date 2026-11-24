@@ -471,7 +471,7 @@
         return { yo: ej, asignaciones: S.asignaciones, ultimas: S.ultimas, gestiones: S.ultimas, guiones: S.guiones,
             tareas: soloVer ? [] : S.tareas.filter(function (t) { return !t.key_ejecutiva || t.key_ejecutiva === ej.key; }),
             comisiones: soloVer ? (S.comRecientes || []).filter(function (x) { return x.key_ejecutiva === ej.key; }) : S.comisiones,
-            llamar: llamar, avisar: avisar, soloVer: soloVer, gestionar: soloVer ? gestionLista() : null };
+            llamar: llamar, avisar: avisar, soloVer: soloVer, gestionar: soloVer ? gestionLista() : null, recargar: function () { return cargar({ ligero: true }); } };
     }
     /* Quitar o pasar clientes de una lista ya asignada (Jefe de ATC, en «Ver una lista»). */
     function gestionLista() {

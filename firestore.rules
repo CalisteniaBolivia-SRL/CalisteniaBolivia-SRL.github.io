@@ -101,7 +101,20 @@ service cloud.firestore {
     }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
-      allow write: if central();
+      allow delete: if central();
+      // Jefe de ATC asigna; una ATC solo puede tomarse a sí misma un cliente que en ese mismo momento sale libre de la cola.
+      allow create, update: if central() || (soyATC() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
+        && exists(/databases/$(database)/documents/com_cola/$(cliente))
+        && get(/databases/$(database)/documents/com_cola/$(cliente)).data.tomado_por == null
+        && getAfter(/databases/$(database)/documents/com_cola/$(cliente)).data.tomado_por == yo());
+    }
+    // Cola automática por sucursal: la arma el Jefe de ATC; cada ATC toma de a un cliente libre.
+    match /com_cola/{cliente} {
+      allow read: if veComercial();
+      allow create, delete: if central();
+      allow update: if central() || (soyATC() && resource.data.estado == 1 && resource.data.tomado_por == null
+        && request.resource.data.tomado_por == yo() && request.resource.data.estado == 0
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'tomado_por', 'fecha_tomado']));
     }
     // Campañas con paquete exclusivo: quiénes quedan habilitados para comprarlo (lo arma ATC Central al asignar listas).
     match /com_campana/{id} {
@@ -440,7 +453,20 @@ service cloud.firestore {
     }
     match /py_com_asignacion/{cliente} {
       allow read: if veComercialPY();
-      allow write: if centralPY();
+      allow delete: if centralPY();
+      // Jefe de ATC asigna; una ATC solo puede tomarse a sí misma un cliente que en ese mismo momento sale libre de la cola.
+      allow create, update: if centralPY() || (soyATCPY() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
+        && exists(/databases/$(database)/documents/py_com_cola/$(cliente))
+        && get(/databases/$(database)/documents/py_com_cola/$(cliente)).data.tomado_por == null
+        && getAfter(/databases/$(database)/documents/py_com_cola/$(cliente)).data.tomado_por == yo());
+    }
+    // Cola automática por sucursal: la arma el Jefe de ATC; cada ATC toma de a un cliente libre.
+    match /py_com_cola/{cliente} {
+      allow read: if veComercialPY();
+      allow create, delete: if centralPY();
+      allow update: if centralPY() || (soyATCPY() && resource.data.estado == 1 && resource.data.tomado_por == null
+        && request.resource.data.tomado_por == yo() && request.resource.data.estado == 0
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'tomado_por', 'fecha_tomado']));
     }
     match /py_com_campana/{id} {
       allow read: if veComercialPY();
