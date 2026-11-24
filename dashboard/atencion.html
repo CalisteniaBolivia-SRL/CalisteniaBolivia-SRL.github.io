@@ -548,7 +548,7 @@ dash.calc('c_urgentes', {
     else if (h === '#lista-riesgo') lista = /no vinieron|todavía no vinieron/.test(t) ? 'nunca' : 'riesgo';
     if (!lista) return;
     ev.preventDefault();
-    try { window.parent.postMessage({ cm: 'fidel', lista }, location.origin); } catch (e) {}
+    try { window.parent.postMessage({ cm: 'fidel', lista, sucursal: a.dataset.suc || null }, location.origin); } catch (e) {}
   }, true);
   const NIV = { alta: 'Urgente', media: 'Hoy', baja: 'Esta semana', ok: 'Al día' };
   const ORD = { alta: 0, media: 1, baja: 2, ok: 3 };
@@ -559,7 +559,7 @@ dash.calc('c_urgentes', {
     const s = document.createElement('span'); s.className = 'cb-task-t'; s.textContent = t.texto;
     if (t.src) { s.dataset.source = t.src; if (t.field) s.dataset.field = t.field; if (t.where) s.dataset.where = t.where; if (t.row != null) s.dataset.row = String(t.row); }
     e.append(c, s);
-    if (t.href) { const a = document.createElement('a'); a.href = t.href; a.className = 'cb-act'; a.textContent = t.accion || 'Ver'; e.append(a); }
+    if (t.href) { const a = document.createElement('a'); a.href = t.href; a.className = 'cb-act'; a.textContent = t.accion || 'Ver'; if (t.suc) a.dataset.suc = t.suc; e.append(a); }
     return e;
   };
   CB.tareas = (ul, ids, build) => {
@@ -861,9 +861,7 @@ dash.draw('tareas_comercial', (ul) => CB.tareas(ul, ['por_vencer', 'vencidos', '
   CB.rows('c_suc').filter((r) => r.var_pct != null && r.var_pct <= -20).forEach((r) => out.push({ nivel: 'alta', texto: r.sucursal + ' vende ' + Math.abs(r.var_pct) + '% menos que los mismos días del mes anterior. Revisar hoy con su encargado.', src: 'c_suc', field: 'var_pct', where: 'sucursal=' + CB.enc(r.sucursal) }));
   const sem = pv.length - urg;
   if (sem > 0) out.push({ nivel: 'media', texto: 'Contactar a ' + CB.num(sem) + ' clientes más que vencen esta semana.', src: 'por_vencer', href: '#lista-renovar', accion: 'Abrir lista' });
-  const rec = vc.filter((r) => CB.diasEntre(r.fecha_fin, hoy) <= 7).length;
-  if (rec) out.push({ nivel: 'media', texto: 'Recuperar a ' + CB.num(rec) + ' clientes que vencieron en los últimos 7 días: es cuando más fácil vuelven.', src: 'vencidos', href: '#lista-recuperar', accion: 'Abrir lista' });
-  if (vc.length - rec > 0) out.push({ nivel: 'baja', texto: 'Campaña de reactivación para ' + CB.num(vc.length - rec) + ' clientes vencidos hace más de una semana.', src: 'vencidos', href: '#lista-recuperar', accion: 'Abrir lista' });
+  /* Los vencidos (exclientes) no son trabajo de la Jefa: se asignan a las ATC en «Plan de hoy». */
   return out;
 }));
 
@@ -923,10 +921,9 @@ dash.draw('tareas_retencion', (ul) => CB.tareas(ul, ['por_vencer', 'sin_asistir'
   if (recientes) out.push({ nivel: 'alta', texto: CB.num(recientes) + ' clientes con plan vigente dejaron de venir hace 2 a 4 semanas. Escribirles hoy, antes de que se pierdan.', src: 'sin_asistir', href: '#lista-riesgo', accion: 'Abrir lista' });
   const nunca = sa.filter((r) => r.no_vino_con_este_paquete).length;
   if (nunca) out.push({ nivel: 'media', texto: CB.num(nunca) + ' clientes pagaron su plan y todavía no vinieron con él. Llamarlos para agendar su primera clase.', src: 'sin_asistir', href: '#lista-riesgo', accion: 'Abrir lista' });
-  const rec = vc.filter((r) => CB.diasEntre(r.fecha_fin, hoy) <= 7).length;
-  if (rec) out.push({ nivel: 'media', texto: 'Recuperar a ' + CB.num(rec) + ' clientes que vencieron en los últimos 7 días.', src: 'vencidos', href: '#lista-recuperar', accion: 'Abrir lista' });
+  /* Los vencidos (exclientes) no son trabajo de la Jefa: se asignan a las ATC en «Plan de hoy». */
   if (pv.length - urg > 0) out.push({ nivel: 'baja', texto: 'Recordar la renovación a ' + CB.num(pv.length - urg) + ' clientes que vencen en el resto de la semana.', src: 'por_vencer', href: '#lista-renovar', accion: 'Abrir lista' });
-  CB.rows('c_ret_suc').filter((r) => r.pct_riesgo >= 10).forEach((r) => out.push({ nivel: 'media', texto: r.sucursal + ' tiene el ' + CB.pct(r.pct_riesgo) + ' de sus clientes activos sin venir. Coordinar con su encargado.', src: 'c_ret_suc', field: 'pct_riesgo', where: 'sucursal=' + CB.enc(r.sucursal) }));
+  CB.rows('c_ret_suc').filter((r) => r.pct_riesgo >= 10).forEach((r) => out.push({ nivel: 'media', texto: r.sucursal + ' tiene el ' + CB.pct(r.pct_riesgo) + ' de sus clientes activos sin venir. Escribirles para saber por qué no volvieron.', src: 'c_ret_suc', field: 'pct_riesgo', where: 'sucursal=' + CB.enc(r.sucursal), href: '#lista-riesgo', accion: 'Abrir lista', suc: r.sucursal }));
   return out;
 }));
 

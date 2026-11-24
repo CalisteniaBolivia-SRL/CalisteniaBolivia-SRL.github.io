@@ -435,7 +435,7 @@
     /* ---------- Seguimiento de clientes activos (solo Jefe de ATC) ----------
        Listas de clientes que todavía tienen plan (renovar, no vinieron, en riesgo): las trabaja la Jefa de ATC, nunca
        las ATC. Van aparte de com_gestion para no mezclarse con las comisiones de las ATC.
-       com_fid_config/{lista}: mensaje, promo y paquete exclusivo de cada lista.
+       com_fid_config/{lista}: promo y paquete exclusivo de cada lista (el mensaje lo escribe la Jefa en cada cliente).
        com_fid_contacto/{auto}: cada contacto (resultado, motivo, nota). Las ventas del ERP dicen quién renovó. */
     var FID_LISTAS = ["renovar_hoy", "renovar_semana", "nunca", "riesgo"];
     var FID_RES = ["renueva", "lo_piensa", "no_contesta", "no_renueva", "numero_errado"];
@@ -444,7 +444,7 @@
     CMFB.registrar("comercial_fid_config", function () { return U.docs(col("com_fid_config")).then(function (l) { return { filas: l }; }); });
     CMFB.registrar("comercial_fid_config_guardar", function (a) {
         var lista = U.opcion(a, "lista", FID_LISTAS, null, true);
-        var d = { mensaje: U.txt(a, "mensaje", 1200, true), promo: U.txt(a, "promo", 300, false), paquete_key: U.txt(a, "paquete_key", 120, false), paquete_nombre: U.txt(a, "paquete_nombre", 200, false),
+        var d = { mensaje: U.txt(a, "mensaje", 1200, false) || "", promo: U.txt(a, "promo", 300, false), paquete_key: U.txt(a, "paquete_key", 120, false), paquete_nombre: U.txt(a, "paquete_nombre", 200, false),
             fecha_edicion: U.ahora(), key_usuario_edicion: CMFB.usuarioKey(), editado_por: (CMFB.nombre() || "").slice(0, 120) || null };
         return col("com_fid_config").doc(lista).set(d).then(function () { return { estado: "exito", data: Object.assign({ key: lista }, d) }; });
     });

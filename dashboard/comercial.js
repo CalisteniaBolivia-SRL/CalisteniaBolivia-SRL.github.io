@@ -362,7 +362,7 @@
             return;
         }
         if (S.tab === "verlista" && !S.sinHerramientas) { vistaVerLista(c); return; }
-        if (S.tab === TAB_FIDEL[0] && window.ATC_fidel) { window.ATC_fidel.montar(c, { llamar: llamar, avisar: avisar, lista: S.fidLista || null }); S.fidLista = null; return; }
+        if (S.tab === TAB_FIDEL[0] && window.ATC_fidel) { window.ATC_fidel.montar(c, { llamar: llamar, avisar: avisar, lista: S.fidLista || null, sucursal: S.fidSuc || null }); S.fidLista = null; S.fidSuc = null; return; }
         ponerBanner();
         if (S.errorVencidos) c.appendChild(aviso("bad", "No se pudieron leer los clientes antiguos", textoError(S.errorVencidos)));
         if (S.sinKeys) c.appendChild(aviso("warn", "Faltan datos de los clientes", "La lista de clientes vencidos no trae el identificador de cada cliente (key_usuario). Sin él no se pueden asignar ni registrar gestiones: hay que pedirlo en el MCP."));
@@ -1042,7 +1042,7 @@
     window.addEventListener("message", function (e) {
         if (e.origin !== location.origin || !e.data || e.data.cm !== "fidel" || !MASTER) return;
         if (!pestanas().some(function (t) { return t[0] === TAB_FIDEL[0]; })) return;
-        S.fidLista = e.data.lista || null; S.tab = TAB_FIDEL[0];
+        S.fidLista = e.data.lista || null; S.fidSuc = e.data.sucursal || null; S.tab = TAB_FIDEL[0];
         try { history.pushState(null, "", location.search + "#" + TAB_FIDEL[0]); } catch (x) {}
         pintar(); window.scrollTo(0, 0);
     });
