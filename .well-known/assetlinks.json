@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.capitalcorp.centrodemando",
+      "sha256_cert_fingerprints": [
+        "4A:3B:8B:18:15:28:81:65:F5:71:10:02:46:56:D2:0B:C3:61:F0:51:AD:93:7A:27:0D:2A:01:90:11:4C:18:37"
+      ]
+    }
+  }
+]

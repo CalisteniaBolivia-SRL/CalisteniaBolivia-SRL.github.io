@@ -1,0 +1,20 @@
+steps:
+- name: ghcr.io/cirruslabs/android-sdk:35
+  entrypoint: bash
+  env: ["FIRMA_JKS=/workspace/capital.jks"]
+  args:
+  - -c
+  - |
+    set -e
+    export FIRMA_CLAVE="$(cat /workspace/pw.txt)"
+    chmod +x gradlew
+    yes | sdkmanager --licenses >/dev/null 2>&1 || true
+    ./gradlew --no-daemon -q assembleRelease
+    cp app/build/outputs/apk/release/app-release.apk /workspace/capital-corp.apk
+    rm -f /workspace/capital.jks /workspace/pw.txt
+    ls -la /workspace/capital-corp.apk
+artifacts:
+  objects:
+    location: gs://centro-de-comando-a57cf_cloudbuild/apk/
+    paths: ["capital-corp.apk"]
+timeout: 1800s

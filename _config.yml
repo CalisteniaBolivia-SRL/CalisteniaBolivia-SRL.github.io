@@ -1,0 +1,3 @@
+# GitHub Pages (Jekyll): publicar .well-known (vínculo de la app Android con el sitio).
+include: [".well-known"]
+exclude: ["android", "functions", "pruebas"]

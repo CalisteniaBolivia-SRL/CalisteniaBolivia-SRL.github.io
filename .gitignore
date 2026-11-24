@@ -1,3 +1,8 @@
 functions/node_modules/
 dashboard/kiosco/camaras/espejo.config.json
 dashboard/kiosco/camaras/espejo.log*
+
+# Clave de firma de la app Android: nunca al repositorio
+android/capital.jks
+android/pw.txt
+*.jks
