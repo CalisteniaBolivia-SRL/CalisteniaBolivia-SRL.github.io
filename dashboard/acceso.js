@@ -403,7 +403,9 @@
             var md5Clave = md5(password);
             form.reset();
             var hayAlgo = (tableros && tableros.length) || tablerosPy.length;
-            var pDatos = (tableros && tableros.length && window.CMFB && window.CMFB.estado.configurado)
+            /* La sesión de datos se abre con permisos en cualquiera de los dos países (antes solo con permisos de Bolivia,
+               y quien trabaja solo en Paraguay quedaba sin poder usar los módulos). */
+            var pDatos = (hayAlgo && window.CMFB && window.CMFB.estado.configurado)
                 ? (boton.textContent = "Abriendo la sesión de datos…", window.CMFB.entrarConERP(usuario, md5Clave).catch(function (e) { console.warn("Sesión de datos:", e.message); }))
                 : Promise.resolve();
             return pDatos.then(function () {
