@@ -48,3 +48,7 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 - Crear en el ERP de Bolivia el paquete con descuento para referidos (ej. «PROMO REFERIDO»): la comisión se calcula sobre lo cobrado.
 - Paraguay: el módulo y las colecciones py_ref_* están listos; falta que el ERP de Paraguay permita buscar clientes por cédula y ver el recibo de cada venta (hoy el cruce muestra el aviso).
 - A futuro: % por nivel del trabajador (hoy: global y por paquete).
+
+## Buzón de sugerencias
+- Publicar `firestore.rules` para que la app pueda enviar y RRHH leer.
+- App de clientes de Paraguay: cuando exista en el repositorio, sumar la misma pantalla enviando a `py_rh_sugerencia` (el buzón de Paraguay ya está listo).

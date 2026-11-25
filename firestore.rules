@@ -418,6 +418,43 @@ service cloud.firestore {
         && request.resource.data.img is string && request.resource.data.img.size() < 1000000;
     }
 
+    // ---------- Buzón de sugerencias de la app de clientes (Recursos Humanos) ----------
+    // El cliente envía desde la app, sin sesión: solo puede CREAR su sugerencia (no puede leer nada).
+    // Si la manda anónima, no puede llevar nombre, teléfono, correo ni key de usuario.
+    // RRHH y Dirección la leen y solo cambian su estado y la nota interna. No se borra.
+    // Bolivia: rh_sugerencia · Paraguay: py_rh_sugerencia (mismas reglas, permisos del ERP de cada país).
+    function sugerenciaValida(pais) {
+      let d = request.resource.data;
+      return soloCampos(['pais', 'categoria', 'mensaje', 'sucursal', 'anonimo', 'nombre', 'telefono', 'correo', 'key_usuario', 'fecha_on', 'estado', 'origen', 'version_app'])
+        && d.pais == pais && d.estado == 'nueva' && d.origen == 'app'
+        && d.categoria in ['atencion', 'entrenadores', 'clases', 'instalaciones', 'limpieza', 'app', 'precios', 'felicitacion', 'otro']
+        && d.mensaje is string && d.mensaje.size() >= 5 && d.mensaje.size() <= 2000
+        && d.anonimo is bool && d.fecha_on is string && d.fecha_on.size() <= 30
+        && texto('sucursal', 80) && texto('nombre', 120) && texto('telefono', 30) && texto('correo', 120)
+        && texto('key_usuario', 64) && texto('version_app', 20)
+        && (d.anonimo == false || (
+              (!('nombre' in d) || d.nombre == '') && (!('telefono' in d) || d.telefono == '')
+              && (!('correo' in d) || d.correo == '') && (!('key_usuario' in d) || d.key_usuario == '')));
+    }
+    function sugerenciaGestion() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys().hasOnly(['estado', 'nota', 'atendido_por', 'atendido_nombre', 'fecha_atencion'])
+        && d.estado in ['nueva', 'revision', 'resuelta', 'archivada'] && d.atendido_por == yo()
+        && texto('nota', 2000) && texto('atendido_nombre', 120);
+    }
+    match /rh_sugerencia/{id} {
+      allow create: if sugerenciaValida('bolivia');
+      allow read: if permiso('rrhh') || permiso('direccion');
+      allow update: if (permiso('rrhh') || permiso('direccion')) && sugerenciaGestion();
+      allow delete: if false;
+    }
+    match /py_rh_sugerencia/{id} {
+      allow create: if sugerenciaValida('paraguay');
+      allow read: if permisoPY('rrhh') || permisoPY('direccion');
+      allow update: if (permisoPY('rrhh') || permisoPY('direccion')) && sugerenciaGestion();
+      allow delete: if false;
+    }
+
     // Todo lo demás (incluida la antigua colección "roles"), cerrado.
     match /{documento=**} { allow read, write: if false; }
 
