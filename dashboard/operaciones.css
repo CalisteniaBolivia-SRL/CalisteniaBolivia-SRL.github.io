@@ -208,3 +208,4 @@ a.op-btn { text-decoration: none; display: inline-block; }
 .cr-out audio { width: min(100%, 420px); }
 .cr-imgs.is-chicas img, .cr-imgs.is-chicas video { max-width: 170px; max-height: 300px; }
 .cr-img figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #A4A8AF; }
+.cr-marcas { display: flex; flex-direction: column; gap: 8px; border: 1px solid #D9AE5B; padding: 10px 12px; } .cr-marcas b { font-size: 13px; color: #D9AE5B; }

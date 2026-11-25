@@ -230,16 +230,24 @@
         var btn = el("button", { type: "button", class: "op-btn is-rojo", text: "Producir" });
         [cImg.i, cVoz.i, cMus.i].forEach(function (i) { i.addEventListener("change", recalcular); }); vids.addEventListener("change", recalcular);
         var estado = el("div", { class: "cr-estado" });
+        /* Datos que quedaron como [MARCADOR]: se completan acá para que no aparezcan corchetes en las imágenes ni en el reel. */
+        var marcas = [], vistos = {};
+        (JSON.stringify(p).match(/\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]/g) || []).forEach(function (m) { if (!vistos[m]) { vistos[m] = 1; marcas.push(m); } });
+        var campos = marcas.slice(0, 20).map(function (m) { var i = el("input", { type: "text", maxlength: "160", placeholder: "Ej.: " + ejemplo(m) }); return { m: m, i: i, l: el("label", { class: "op-campo" }, [m.replace(/[\[\]]/g, ""), i]) }; });
         btn.addEventListener("click", function () {
-            var o = op(), e = estimar(p, o);
+            var o = op(), e = estimar(p, o), reemplazos = {}, vacios = [];
+            campos.forEach(function (c) { var v = c.i.value.trim(); if (v) reemplazos[c.m] = v; else vacios.push(c.m); });
+            if (vacios.length && !confirm("Faltan completar: " + vacios.join(", ") + ".\nSi seguís, se quitan del contenido y alguna frase puede quedar incompleta. ¿Seguimos igual?")) { (campos.filter(function (c) { return !c.i.value.trim(); })[0] || {}).i.focus(); return; }
+            o.reemplazos = reemplazos;
             if (!confirm("Se va a crear: " + e.items.join(", ") + ".\nCosto aproximado: US$ " + e.usd.toFixed(2) + ".\nTarda de 2 a 15 minutos según lo elegido (el video IA es lo más lento). ¿Seguimos?")) return;
             btn.disabled = true; msg("Arrancando la producción…");
             firebase.auth().currentUser.getIdToken().then(function (tk) {
-                return fetch(URL_FN, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify({ pais: PY ? "paraguay" : "bolivia", accion: "producir", id: a.id, opciones: o }) });
+                return fetch(URL_FN, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify({ pais: PY ? "paraguay" : "bolivia", accion: "producir", id: a.id, opciones: o, reemplazos: o.reemplazos }) });
             }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || !d.produccion_id) throw new Error(d.error || "No se pudo arrancar (" + r.status + ")."); return d; }); })
                 .then(function (d) { msg("Produciendo. Podés quedarte acá o volver más tarde: queda guardado.", "ok"); seguir(d.produccion_id, estado); }, function (err) { msg(err.message, "bad"); btn.disabled = false; });
         });
         cont.appendChild(el("p", { class: "op-muted", text: "Lo fabrica acá mismo, con las herramientas de Google: las imágenes finales con su texto, la voz, la música y el reel armado con texto en pantalla, listo para subir." }));
+        if (campos.length) cont.appendChild(el("div", { class: "cr-marcas" }, [el("b", { text: "Completá estos datos antes de producir (van tal cual en las imágenes y en el reel):" }), el("div", { class: "cr-grid" }, campos.map(function (c) { return c.l; }))]));
         [cImg.l, cVoz.l, cMus.l].forEach(function (x) { cont.appendChild(x); });
         cont.appendChild(vids); cont.appendChild(costo); cont.appendChild(el("div", { class: "op-acc" }, [btn])); cont.appendChild(estado);
         recalcular();
@@ -248,6 +256,17 @@
             if (l.length) seguir(l[0].id, estado);
         }, function () {});
         return cont;
+    }
+    function ejemplo(m) {
+        var x = m.toLowerCase();
+        if (/precio|monto|costo/.test(x)) return PY ? "250.000 Gs" : "210 Bs";
+        if (/fecha|d[ií]a|hasta/.test(x)) return "30/11";
+        if (/hora/.test(x)) return "18:00";
+        if (/whats|n[uú]mero|tel/.test(x)) return PY ? "0981 000 000" : "7000 0000";
+        if (/sede|sucursal/.test(x)) return PY ? "Multiplaza" : "Equipetrol";
+        if (/link|enlace/.test(x)) return "wa.me/591…";
+        if (/incluye/.test(x)) return "12 clases + evaluación";
+        return "el dato real";
     }
     var escucha = null;
     function seguir(id, caja) {

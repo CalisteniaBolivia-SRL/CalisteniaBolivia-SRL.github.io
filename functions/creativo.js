@@ -134,6 +134,20 @@ async function imagen(prompt, aspecto) {
     return { mime: img.inlineData.mimeType || "image/png", datos: img.inlineData.data };
 }
 
+/* Datos que el paquete dejó como [MARCADOR] (precio, fecha, WhatsApp…): se reemplazan por lo que cargó Marketing;
+   los que quedan vacíos se quitan, para que nunca aparezcan corchetes en una imagen o en el reel. */
+const MARCADOR = /\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]/g;
+function completar(paquete, reemplazos) {
+    let j = JSON.stringify(paquete || {});
+    const r = reemplazos && typeof reemplazos === "object" ? reemplazos : {};
+    Object.keys(r).slice(0, 30).forEach((k) => {
+        if (!/^\[[^\]]{2,42}\]$/.test(k)) return;
+        const v = JSON.stringify(txt(r[k], 160)).slice(1, -1);
+        j = j.split(k).join(v);
+    });
+    j = j.replace(/\s*\(?\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]\)?/g, "").replace(/ · (?= · |")/g, "").replace(/ ·(?=")/g, "").replace(/\. \./g, ".");
+    try { return JSON.parse(j); } catch (e) { return paquete; }
+}
 async function verificar(req, pais) {
     const m = /^Bearer\s+(.+)$/.exec(String(req.get("authorization") || ""));
     if (!m) return null;
@@ -172,7 +186,7 @@ exports.creativo = onRequest({ region: "southamerica-east1", cors: ORIGENES, sec
             if (!s.exists) return res.status(404).json({ error: "No encontré ese paquete." });
             const o = c.opciones || {};
             const op = { imagenes: o.imagenes !== false, voz: o.voz !== false, musica: o.musica !== false, video: ["ia", "imagenes", "no"].indexOf(o.video) >= 0 ? o.video : "imagenes" };
-            const paquete = s.data().paquete;
+            const paquete = completar(s.data().paquete, c.reemplazos);
             const pasos = produccion._internos.planificar(paquete, op);
             if (!pasos.length) return res.status(400).json({ error: "No hay nada para producir con esas opciones." });
             const ref = await admin.firestore().collection("mkt_produccion").add({
@@ -199,4 +213,4 @@ exports.creativo = onRequest({ region: "southamerica-east1", cors: ORIGENES, sec
     }
 });
 
-exports._internos = { ESQUEMA, sistema, marca, armarPedido };
+exports._internos = { ESQUEMA, sistema, marca, armarPedido, completar };

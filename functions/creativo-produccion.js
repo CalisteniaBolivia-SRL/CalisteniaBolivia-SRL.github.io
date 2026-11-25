@@ -160,7 +160,7 @@ const PASOS = {
     async escena(d, paso, id) {
         const p = d.paquete, g = (p.guion || [])[paso.i] || {}, pv = promptsDe(p, "video");
         const pr = pv.length === (p.guion || []).length ? pv[paso.i].prompt : [g.plano, g.accion].filter(Boolean).join(". ");
-        const img = await generarImagen("Vertical 9:16 photorealistic still frame for a short video. Scene: " + pr + "\n\n" + estilo(p) + "\n\nNo text, no letters, no subtitles, no logos in the image.", "9:16");
+        const img = await generarImagen("ONE single vertical 9:16 photorealistic photograph (a single frame from a short video, NOT a collage, NOT a grid, NOT split screen, no panels). Scene: " + pr + "\n\n" + estilo(p) + "\n\nNo text, no letters, no subtitles, no logos in the image.", "9:16");
         const f = await subir(carpeta(d, id) + "escena-" + (paso.i + 1) + "." + ext(img.mime), img.buffer, img.mime);
         return { ["resultados.escenas." + paso.i]: f };
     },
