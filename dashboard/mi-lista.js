@@ -23,7 +23,17 @@
     var hoy = function () { return iso(new Date()); };
     function corta(s) { var p = String(s || "").slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : "—"; }
     function hora(s) { var d = new Date(String(s || "")); return isNaN(d) ? "" : pad(d.getHours()) + ":" + pad(d.getMinutes()); }
-    function digitos(t) { var d = String(t || "").replace(/\D/g, ""); if (d.length === 8) d = "591" + d; return d.length >= 10 ? d : ""; }
+    /* Teléfono para llamar y WhatsApp, con el código de cada país: Bolivia 591 (8 dígitos), Paraguay 595 (09xx xxx xxx). */
+    function digitos(t) {
+        var d = String(t || "").replace(/\D/g, "");
+        if (!d) return "";
+        if (window.CM_PAIS === "paraguay") {
+            if (d.indexOf("595") !== 0) { d = d.replace(/^0+/, ""); if (d.length === 9) d = "595" + d; }
+            return d.length >= 11 && d.length <= 15 ? d : "";
+        }
+        if (d.length === 8) d = "591" + d;
+        return d.length >= 10 ? d : "";
+    }
     function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
     function fechaLarga() { var t = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" }); return t.charAt(0).toUpperCase() + t.slice(1); }
     /* Ícono (iconos.js); si no cargó, nada. */

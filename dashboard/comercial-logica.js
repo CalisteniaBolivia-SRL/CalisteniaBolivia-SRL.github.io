@@ -108,7 +108,8 @@
     function linkWhatsApp(tel, mensaje) {
         var d = texto(tel).replace(/\D/g, "");
         if (d.length < 8) return null;
-        if (d.length === 8) d = "591" + d;
+        if (typeof window !== "undefined" && window.CM_PAIS === "paraguay") { if (d.indexOf("595") !== 0) { d = d.replace(/^0+/, ""); if (d.length === 9) d = "595" + d; } }
+        else if (d.length === 8) d = "591" + d;
         return "https://wa.me/" + d + "?text=" + encodeURIComponent(mensaje || "");
     }
 
