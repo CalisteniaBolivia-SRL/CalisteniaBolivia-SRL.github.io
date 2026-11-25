@@ -142,6 +142,7 @@
             el("button", { type: "button", class: "op-btn", text: "Descargar todo (.txt)", onclick: function () { descargar(a); } }),
             btnCopiar(aTexto(a), "Copiar todo")
         ]));
+        wrap.appendChild(produccion(a));
         if (p.supuestos && p.supuestos.length) wrap.appendChild(seccion("Lo que asumí", [lista(p.supuestos)], "is-aviso"));
         wrap.appendChild(seccion("1. Concepto creativo y ángulo", [el("p", { class: "cr-idea", text: c.idea || "" }), dato("Ángulo", c.angulo), dato("Emoción / tensión", c.emocion), dato("Por qué funciona", c.por_que_funciona)]));
         var paleta = el("div", { class: "cr-paleta" }, (d.paleta || []).map(function (x) { var m = /#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/i.exec(x); return el("span", {}, [m ? el("i", { style: "background:" + m[0] }) : null, x]); }));
@@ -199,6 +200,96 @@
         wrap.appendChild(seccion("¿Querés cambios?", [fc]));
         if (a.modelo || a.autor_nombre) wrap.appendChild(el("p", { class: "op-muted cr-pie", text: [a.autor_nombre ? "Pedido por " + a.autor_nombre : "", a.fecha ? fecha(a.fecha) : ""].filter(Boolean).join(" · ") }));
         return wrap;
+    }
+
+    /* ---------- producción: el contenido se fabrica acá (imágenes, voz, música, escenas o video IA y el reel) ---------- */
+    var PRECIO = { imagen: 0.04, musica: 0.06, veo_seg: 0.10 };
+    function durGuion(p) { return (p.guion || []).map(function (g) { var n = String(g.tiempo || "").replace(/,/g, ".").match(/\d+(?:\.\d+)?/g) || []; var d = n.length >= 2 ? Number(n[1]) - Number(n[0]) : 3; return Math.min(10, Math.max(1.5, d > 0 ? d : 3)); }); }
+    function estimar(p, op) {
+        var g = (p.guion || []).slice(0, 8), usd = 0, items = [];
+        var nImg = op.imagenes ? ((p.piezas_graficas || []).length ? Math.min(4, p.piezas_graficas.length) : Math.min(3, (p.prompts || []).filter(function (x) { return x.tipo === "imagen"; }).length)) : 0;
+        if (nImg) { usd += nImg * PRECIO.imagen; items.push(nImg + (nImg === 1 ? " imagen terminada" : " imágenes terminadas")); }
+        if (op.voz && g.some(function (x) { return String(x.voz || "").trim().length > 1; })) items.push("voz en off");
+        if (op.musica && g.length) { usd += PRECIO.musica; items.push("música"); }
+        if (g.length && op.video === "imagenes") { usd += g.length * PRECIO.imagen; items.push(g.length + " escenas + reel armado"); }
+        if (g.length && op.video === "ia") { var seg = durGuion(p).slice(0, 8).reduce(function (a, d) { return a + (d <= 4 ? 4 : d <= 6 ? 6 : 8); }, 0); usd += seg * PRECIO.veo_seg; items.push(g.length + " videos IA (" + seg + " s) + reel armado"); }
+        return { usd: usd, items: items };
+    }
+    function produccion(a) {
+        var p = a.paquete || {}, cont = el("section", { class: "op-card cr-sec cr-prod is-rojo" }, [el("h2", { text: "Producir el contenido acá" })]);
+        if (!a.id) { cont.appendChild(el("p", { class: "op-muted", text: "Este paquete no quedó guardado; volvé a crearlo para poder producirlo." })); return cont; }
+        var hayGuion = (p.guion || []).length > 0, hayVoz = (p.guion || []).some(function (g) { return String(g.voz || "").trim().length > 1; });
+        var chk = function (txt, on, dis) { var i = el("input", { type: "checkbox", checked: on && !dis, disabled: dis }); return { i: i, l: el("label", { class: "cr-op" + (dis ? " is-off" : "") }, [i, " " + txt]) }; };
+        var cImg = chk("Imágenes terminadas de las piezas (con titular y CTA)", true, !((p.piezas_graficas || []).length || (p.prompts || []).some(function (x) { return x.tipo === "imagen"; })));
+        var cVoz = chk("Voz en off del guion", true, !hayVoz), cMus = chk("Música instrumental", true, !hayGuion);
+        var radio = function (v, txt, on) { var i = el("input", { type: "radio", name: "cr-video-" + a.id, value: v, checked: on, disabled: !hayGuion && v !== "no" }); return el("label", { class: "cr-op" + (!hayGuion && v !== "no" ? " is-off" : "") }, [i, " " + txt]); };
+        var vids = el("fieldset", { class: "cr-video" }, [el("legend", { text: "Video" }), radio("imagenes", "Reel armado con escenas generadas y animadas (económico)", hayGuion), radio("ia", "Reel con video generado por IA (Veo: más real, más caro)", false), radio("no", "Sin video", !hayGuion)]);
+        var costo = el("p", { class: "op-muted cr-costo" });
+        var op = function () { var r = vids.querySelector("input:checked"); return { imagenes: cImg.i.checked, voz: cVoz.i.checked, musica: cMus.i.checked, video: r ? r.value : "no" }; };
+        var recalcular = function () { var e = estimar(p, op()); costo.textContent = e.items.length ? "Se va a crear: " + e.items.join(", ") + ". Costo aproximado: US$ " + e.usd.toFixed(2) + " (se cobra al proyecto de Google Cloud)." : "Elegí qué producir."; btn.disabled = !e.items.length; };
+        var btn = el("button", { type: "button", class: "op-btn is-rojo", text: "Producir" });
+        [cImg.i, cVoz.i, cMus.i].forEach(function (i) { i.addEventListener("change", recalcular); }); vids.addEventListener("change", recalcular);
+        var estado = el("div", { class: "cr-estado" });
+        /* Datos que quedaron como [MARCADOR]: se completan acá para que no aparezcan corchetes en las imágenes ni en el reel. */
+        var marcas = [], vistos = {};
+        (JSON.stringify(p).match(/\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]/g) || []).forEach(function (m) { if (!vistos[m]) { vistos[m] = 1; marcas.push(m); } });
+        var campos = marcas.slice(0, 20).map(function (m) { var i = el("input", { type: "text", maxlength: "160", placeholder: "Ej.: " + ejemplo(m) }); return { m: m, i: i, l: el("label", { class: "op-campo" }, [m.replace(/[\[\]]/g, ""), i]) }; });
+        btn.addEventListener("click", function () {
+            var o = op(), e = estimar(p, o), reemplazos = {}, vacios = [];
+            campos.forEach(function (c) { var v = c.i.value.trim(); if (v) reemplazos[c.m] = v; else vacios.push(c.m); });
+            if (vacios.length && !confirm("Faltan completar: " + vacios.join(", ") + ".\nSi seguís, se quitan del contenido y alguna frase puede quedar incompleta. ¿Seguimos igual?")) { (campos.filter(function (c) { return !c.i.value.trim(); })[0] || {}).i.focus(); return; }
+            o.reemplazos = reemplazos;
+            if (!confirm("Se va a crear: " + e.items.join(", ") + ".\nCosto aproximado: US$ " + e.usd.toFixed(2) + ".\nTarda de 2 a 15 minutos según lo elegido (el video IA es lo más lento). ¿Seguimos?")) return;
+            btn.disabled = true; msg("Arrancando la producción…");
+            firebase.auth().currentUser.getIdToken().then(function (tk) {
+                return fetch(URL_FN, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify({ pais: PY ? "paraguay" : "bolivia", accion: "producir", id: a.id, opciones: o, reemplazos: o.reemplazos }) });
+            }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || !d.produccion_id) throw new Error(d.error || "No se pudo arrancar (" + r.status + ")."); return d; }); })
+                .then(function (d) { msg("Produciendo. Podés quedarte acá o volver más tarde: queda guardado.", "ok"); seguir(d.produccion_id, estado); }, function (err) { msg(err.message, "bad"); btn.disabled = false; });
+        });
+        cont.appendChild(el("p", { class: "op-muted", text: "Lo fabrica acá mismo, con las herramientas de Google: las imágenes finales con su texto, la voz, la música y el reel armado con texto en pantalla, listo para subir." }));
+        if (campos.length) cont.appendChild(el("div", { class: "cr-marcas" }, [el("b", { text: "Completá estos datos antes de producir (van tal cual en las imágenes y en el reel):" }), el("div", { class: "cr-grid" }, campos.map(function (c) { return c.l; }))]));
+        [cImg.l, cVoz.l, cMus.l].forEach(function (x) { cont.appendChild(x); });
+        cont.appendChild(vids); cont.appendChild(costo); cont.appendChild(el("div", { class: "op-acc" }, [btn])); cont.appendChild(estado);
+        recalcular();
+        firebase.firestore().collection("mkt_produccion").where("pais", "==", PY ? "paraguay" : "bolivia").where("creativo_id", "==", a.id).get().then(function (q) {
+            var l = q.docs.map(function (x) { return { id: x.id, f: (x.data().fecha && x.data().fecha.toMillis && x.data().fecha.toMillis()) || 0 }; }).sort(function (x, y) { return y.f - x.f; });
+            if (l.length) seguir(l[0].id, estado);
+        }, function () {});
+        return cont;
+    }
+    function ejemplo(m) {
+        var x = m.toLowerCase();
+        if (/precio|monto|costo/.test(x)) return PY ? "250.000 Gs" : "210 Bs";
+        if (/fecha|d[ií]a|hasta/.test(x)) return "30/11";
+        if (/hora/.test(x)) return "18:00";
+        if (/whats|n[uú]mero|tel/.test(x)) return PY ? "0981 000 000" : "7000 0000";
+        if (/sede|sucursal/.test(x)) return PY ? "Multiplaza" : "Equipetrol";
+        if (/link|enlace/.test(x)) return "wa.me/591…";
+        if (/incluye/.test(x)) return "12 clases + evaluación";
+        return "el dato real";
+    }
+    var escucha = null;
+    function seguir(id, caja) {
+        if (escucha) { escucha(); escucha = null; }
+        escucha = firebase.firestore().collection("mkt_produccion").doc(id).onSnapshot(function (s) { if (s.exists) pintarProduccion(s.data(), caja); }, function (e) { caja.textContent = ""; caja.appendChild(el("p", { class: "op-msg is-bad", text: String(e.message || e) })); });
+    }
+    function bajarBtn(f, nombre) { return el("a", { class: "op-btn cr-copiar", href: f.url, download: nombre || "", target: "_blank", rel: "noopener", text: "Descargar" }); }
+    function pintarProduccion(d, caja) {
+        caja.textContent = "";
+        var total = (d.pasos || []).length, hechos = Math.min(d.paso_i || 0, total), R = d.resultados || {};
+        var listo = d.estado === "listo";
+        caja.appendChild(el("div", { class: "cr-prog" }, [el("i", { style: "width:" + (total ? Math.round(hechos / total * 100) : 0) + "%" })]));
+        caja.appendChild(el("p", { class: "op-msg" + (listo ? " is-ok" : ""), text: listo ? "¡Listo! Todo el contenido está abajo para ver y descargar." : "Produciendo (" + hechos + " de " + total + "): " + (d.avance || "…") }));
+        (d.errores || []).forEach(function (e) { caja.appendChild(el("p", { class: "op-msg is-warn", text: "No salió: " + e })); });
+        if (R.reel) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Reel final (" + (R.reel.segundos || "") + " s)" }), el("video", { src: R.reel.url, controls: true, playsinline: true, preload: "metadata", class: "cr-video-out" }), el("div", { class: "op-acc" }, [bajarBtn(R.reel, "reel.mp4")])]));
+        var imgs = (R.imagenes || []).slice().sort(function (x, y) { return x.i - y.i; });
+        if (imgs.length) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Imágenes terminadas" }), el("div", { class: "cr-imgs" }, imgs.map(function (f) { return el("figure", { class: "cr-img" }, [el("img", { src: f.url, alt: f.nombre || "Imagen", loading: "lazy" }), el("figcaption", {}, [el("span", { text: (f.nombre || "") + " · " + (f.aspecto || "") }), " ", bajarBtn(f)])]); }))]));
+        if (R.voz) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Voz en off" }), el("audio", { src: R.voz.url, controls: true, preload: "none" }), el("div", { class: "op-acc" }, [bajarBtn(R.voz, "voz.mp3")])]));
+        if (R.musica) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Música" }), el("audio", { src: R.musica.url, controls: true, preload: "none" }), el("div", { class: "op-acc" }, [bajarBtn(R.musica)])]));
+        var esc = Object.keys(R.escenas || {}).sort(function (x, y) { return x - y; }).map(function (k) { return R.escenas[k]; });
+        if (esc.length) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Escenas" }), el("div", { class: "cr-imgs is-chicas" }, esc.map(function (f, i) { return el("figure", { class: "cr-img" }, [el("img", { src: f.url, alt: "Escena " + (i + 1), loading: "lazy" }), el("figcaption", {}, [bajarBtn(f)])]); }))]));
+        var clips = Object.keys(R.clips || {}).sort(function (x, y) { return x - y; }).map(function (k) { return R.clips[k]; });
+        if (clips.length) caja.appendChild(el("div", { class: "cr-out" }, [el("h3", { text: "Videos de cada escena" }), el("div", { class: "cr-imgs is-chicas" }, clips.map(function (f) { return el("figure", { class: "cr-img" }, [el("video", { src: f.url, controls: true, playsinline: true, preload: "metadata" }), el("figcaption", {}, [bajarBtn(f)])]); }))]));
     }
 
     /* ---------- texto plano (copiar / descargar) ---------- */

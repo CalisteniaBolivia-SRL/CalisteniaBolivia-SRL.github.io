@@ -198,3 +198,14 @@ a.op-btn { text-decoration: none; display: inline-block; }
 .cr-cambios { display: flex; flex-direction: column; gap: 8px; }
 .cr-pie { font-size: 12px; }
 @media (max-width: 760px) { .cr-grid, .cr-dos { grid-template-columns: 1fr; } }
+.cr-prod .cr-op { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; } .cr-op.is-off { opacity: .45; cursor: default; } .cr-op input { margin-top: 3px; }
+.cr-video { border: 1px solid #2B2E33; margin: 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; } .cr-video legend { font-size: 12px; color: #A4A8AF; padding: 0 4px; }
+.cr-costo { font-size: 13px; }
+.cr-estado { display: flex; flex-direction: column; gap: 12px; } .cr-estado:empty { display: none; }
+.cr-prog { height: 6px; background: #22252A; } .cr-prog i { display: block; height: 100%; background: #E30613; transition: width .4s; }
+.cr-out { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #2B2E33; padding-top: 10px; } .cr-out h3 { margin: 0; }
+.cr-video-out { width: min(100%, 360px); aspect-ratio: 9 / 16; background: #000; border: 1px solid #2B2E33; }
+.cr-out audio { width: min(100%, 420px); }
+.cr-imgs.is-chicas img, .cr-imgs.is-chicas video { max-width: 170px; max-height: 300px; }
+.cr-img figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #A4A8AF; }
+.cr-marcas { display: flex; flex-direction: column; gap: 8px; border: 1px solid #D9AE5B; padding: 10px 12px; } .cr-marcas b { font-size: 13px; color: #D9AE5B; }

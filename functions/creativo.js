@@ -7,8 +7,10 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const { FieldValue } = require("firebase-admin/firestore");
 const AnthropicSDK = require("@anthropic-ai/sdk");
 const Anthropic = AnthropicSDK.default || AnthropicSDK;
+const produccion = require("./creativo-produccion");
 
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
@@ -132,6 +134,20 @@ async function imagen(prompt, aspecto) {
     return { mime: img.inlineData.mimeType || "image/png", datos: img.inlineData.data };
 }
 
+/* Datos que el paquete dejó como [MARCADOR] (precio, fecha, WhatsApp…): se reemplazan por lo que cargó Marketing;
+   los que quedan vacíos se quitan, para que nunca aparezcan corchetes en una imagen o en el reel. */
+const MARCADOR = /\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]/g;
+function completar(paquete, reemplazos) {
+    let j = JSON.stringify(paquete || {});
+    const r = reemplazos && typeof reemplazos === "object" ? reemplazos : {};
+    Object.keys(r).slice(0, 30).forEach((k) => {
+        if (!/^\[[^\]]{2,42}\]$/.test(k)) return;
+        const v = JSON.stringify(txt(r[k], 160)).slice(1, -1);
+        j = j.split(k).join(v);
+    });
+    j = j.replace(/\s*\(?\[[A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 _\/\-.,:$]{1,40}\]\)?/g, "").replace(/ · (?= · |")/g, "").replace(/ ·(?=")/g, "").replace(/\. \./g, ".");
+    try { return JSON.parse(j); } catch (e) { return paquete; }
+}
 async function verificar(req, pais) {
     const m = /^Bearer\s+(.+)$/.exec(String(req.get("authorization") || ""));
     if (!m) return null;
@@ -162,6 +178,24 @@ exports.creativo = onRequest({ region: "southamerica-east1", cors: ORIGENES, sec
             if (frenado(t.uid, 1)) return res.status(429).json({ error: "Muchos pedidos seguidos. Esperá unos minutos." });
             return res.json(await imagen(c.prompt, c.aspecto));
         }
+        if (c.accion === "producir") {
+            if (frenado(t.uid, 5)) return res.status(429).json({ error: "Muchos pedidos seguidos. Esperá unos minutos." });
+            const id = String(c.id || "");
+            if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return res.status(400).json({ error: "Falta el paquete a producir." });
+            const s = await admin.firestore().collection((pais === "paraguay" ? "py_" : "") + "mkt_creativo").doc(id).get();
+            if (!s.exists) return res.status(404).json({ error: "No encontré ese paquete." });
+            const o = c.opciones || {};
+            const op = { imagenes: o.imagenes !== false, voz: o.voz !== false, musica: o.musica !== false, video: ["ia", "imagenes", "no"].indexOf(o.video) >= 0 ? o.video : "imagenes" };
+            const paquete = completar(s.data().paquete, c.reemplazos);
+            const pasos = produccion._internos.planificar(paquete, op);
+            if (!pasos.length) return res.status(400).json({ error: "No hay nada para producir con esas opciones." });
+            const ref = await admin.firestore().collection("mkt_produccion").add({
+                pais, creativo_id: id, titulo: String((paquete && paquete.titulo) || "").slice(0, 200), opciones: op, paquete, pasos, paso_i: 0, estado: "pendiente",
+                avance: pasos[0].nombre, resultados: {}, errores: [], autor: t.uid, autor_nombre: String(t.nombre || "").slice(0, 120),
+                fecha: FieldValue.serverTimestamp(), actualizado: FieldValue.serverTimestamp()
+            });
+            return res.json({ produccion_id: ref.id, pasos: pasos.length });
+        }
         if (txt(c.pedido, 3000).length < 5) return res.status(400).json({ error: "Escribí qué necesitás." });
         if (frenado(t.uid, 3)) return res.status(429).json({ error: "Muchos pedidos seguidos. Esperá unos minutos." });
         const r = await crearPaquete(c, pais);
@@ -169,7 +203,7 @@ exports.creativo = onRequest({ region: "southamerica-east1", cors: ORIGENES, sec
             pais, pedido: txt(c.pedido, 3000), formato: FORMATOS.indexOf(c.formato) >= 0 ? c.formato : null, plataforma: PLATAFORMAS.indexOf(c.plataforma) >= 0 ? c.plataforma : null,
             duracion: txt(c.duracion, 40) || null, objetivo: txt(c.objetivo, 300) || null, oferta: txt(c.oferta, 500) || null, publico: txt(c.publico, 300) || null, extra: txt(c.extra, 1500) || null,
             cambios: c.anterior ? txt(c.cambios, 2000) || null : null, base: typeof c.base === "string" ? c.base.slice(0, 60) : null,
-            paquete: r.paquete, modelo: r.modelo, autor: t.uid, autor_nombre: String(t.nombre || "").slice(0, 120), fecha: admin.firestore.FieldValue.serverTimestamp()
+            paquete: r.paquete, modelo: r.modelo, autor: t.uid, autor_nombre: String(t.nombre || "").slice(0, 120), fecha: FieldValue.serverTimestamp()
         };
         const ref = await admin.firestore().collection((pais === "paraguay" ? "py_" : "") + "mkt_creativo").add(doc).catch((e) => { console.warn("creativo guardar", e.message); return null; });
         return res.json({ id: ref ? ref.id : null, paquete: r.paquete, modelo: r.modelo });
@@ -179,4 +213,4 @@ exports.creativo = onRequest({ region: "southamerica-east1", cors: ORIGENES, sec
     }
 });
 
-exports._internos = { ESQUEMA, sistema, marca, armarPedido };
+exports._internos = { ESQUEMA, sistema, marca, armarPedido, completar };
