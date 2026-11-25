@@ -68,6 +68,16 @@
           fecha: function (c) { return c.fecha_fin; },
           dato: function (c) { return "Pagó el plan del " + corta(c.fecha_inicio) + " y no vino"; },
           orden: function (c) { return c.fecha_inicio || ""; } },
+        { id: "sin_compra", fuente: "vencidos", propio: true, prioridad: "alta", titulo: "Clientes que no adquirieron paquetes o no respondieron",
+          porque: "Una ATC ya los contactó hace más de 15 días (el plazo de la comisión) y no compraron: no les interesó, lo iban a pensar o no respondieron. Vale la pena volver a escribirles con otra propuesta.",
+          rango: function (h) { return "Contactados entre el " + corta(sumar(h, -120)) + " y el " + corta(sumar(h, -15)) + ", y siguen sin plan"; },
+          promo: "PROMO DE LOCURA 2 MESES a Bs 380 (sale Bs 190 por mes).",
+          mensaje: "¡Hola {nombre}! 👋 Te escribe {atc} de Calistenia {sucursal}. Hace unos días te escribimos y quizás no era el momento 😊 Queremos que vuelvas a entrenar con nosotros, así que te preparamos la {promo} ¿Te la reservo?",
+          filtro: function (c, h) { var g = CONTACTADOS[String(c.key_usuario || "").replace(/\//g, "-")]; if (!g) return false; var d = dif(h, g.fecha_on); return d >= 15 && d <= 120 && g.resultado !== "ya_activo"; },
+          fecha: function (c) { return c.fecha_fin; },
+          dato: function (c, h) { var g = CONTACTADOS[String(c.key_usuario || "").replace(/\//g, "-")] || {};
+              return "Lo contactó " + (g.ejecutiva && g.ejecutiva !== g.key_ejecutiva ? String(g.ejecutiva).split(" ")[0] : "una ATC") + " el " + corta(g.fecha_on) + (g.contactos > 1 ? " (" + g.contactos + " veces)" : "") + ": " + (RES_TXT[g.resultado] || g.resultado || "—") + " · venció el " + corta(c.fecha_fin); },
+          orden: function (c, h) { var g = CONTACTADOS[String(c.key_usuario || "").replace(/\//g, "-")] || {}; return ("00000" + dif(h, g.fecha_on || h)).slice(-5); } },
         { id: "v1", fuente: "vencidos", prioridad: "alta", titulo: "Vencieron hace 1 a 15 días",
           porque: "Recién dejaron de venir y todavía tienen el hábito. Es el grupo que más vuelve.",
           rango: function (h) { return "Vencieron entre el " + corta(sumar(h, -15)) + " y el " + corta(sumar(h, -1)); },
@@ -124,6 +134,7 @@
             v1: "PROMO 2 MESES a Gs 499.000, o el PAQUETE MENSUAL.",
             pases: "PAQUETE MENSUAL: un mes entero de entrenamiento.",
             v16: "PROMO AMISTAD a Gs 299.000.",
+            sin_compra: "PROMO 2 MESES a Gs 499.000.",
             cumple: "PLAN CUMPLEAÑERO a Gs 150.000.",
             v46: "PROMO AMISTAD a Gs 299.000: mejor si venís con alguien.",
             v91: "PROMO AMISTAD a Gs 299.000 para volver con un amigo."
@@ -134,18 +145,21 @@
        los atiende la Jefa de ATC en «Mi atención directa · Seguimiento de clientes» (fidelizacion.js). */
     var SOLO_JEFA = ["vencen", "nunca", "riesgo"];
     SEGS = SEGS.filter(function (s) { return SOLO_JEFA.indexOf(s.id) < 0; });
-    /* Grupos de vencidos: mismo filtro, fecha y orden. */
+    /* Grupos de vencidos: mismo filtro, fecha y orden (salvo los que tienen el suyo propio). */
     SEGS.forEach(function (s, i) {
         s.n = i + 1;
-        if (s.fuente !== "vencidos") return;
+        if (s.fuente !== "vencidos" || s.propio) return;
         s.filtro = function (c, h) { var d = dif(h, c.fecha_fin); return d >= s.desde && d <= s.hasta && (s.pases ? esPase(c.paquete) : !esPase(c.paquete)); };
         s.fecha = function (c) { return c.fecha_fin; };
         s.dato = function (c, h) { return (s.pases ? "Su pase terminó el " : "Venció el ") + corta(c.fecha_fin) + " (hace " + dif(h, c.fecha_fin) + " días) · " + nombreBonito(c.paquete); };
         s.orden = function (c, h) { return ("00000" + dif(h, c.fecha_fin)).slice(-5); };   // los que vencieron hace menos, primero
     });
     var SEG = {}; SEGS.forEach(function (s) { SEG[s.id] = s; });
-    var POR_DEFECTO = ["v1", "pases", "v16"];
-    var SIN_REPETIR = 30;   // días: un cliente contactado no vuelve a las listas hasta pasado este plazo
+    var POR_DEFECTO = ["sin_compra", "v1", "pases", "v16"];
+    var SIN_REPETIR = 15;   // días: un cliente contactado no vuelve a las listas hasta pasado el plazo de la comisión
+    /* Último contacto de cada cliente (CRM) para el grupo «no adquirieron o no respondieron». */
+    var CONTACTADOS = {};
+    var RES_TXT = { no_contesta: "no contestó", interesado: "lo iba a pensar", agendado: "dijo que compraba", no_interesado: "no le interesó", numero_errado: "número equivocado", otro: "otro" };
 
     /* ---------- estado ---------- */
     var P = {
@@ -155,6 +169,7 @@
     };
     if (!Array.isArray(P.prefs.sel)) P.prefs.sel = POR_DEFECTO.slice();
     P.prefs.sel = P.prefs.sel.filter(function (id) { return !!SEG[id]; });
+    if (!P.prefs.vioSinCompra) { P.prefs.vioSinCompra = true; if (P.prefs.sel.indexOf("sin_compra") < 0) P.prefs.sel.unshift("sin_compra"); }
     if (!P.prefs.sel.length) P.prefs.sel = POR_DEFECTO.slice();
     if (!P.prefs.textos) P.prefs.textos = {};
     if (!P.prefs.bajadas) P.prefs.bajadas = {};
@@ -227,7 +242,8 @@
     var GRUPOS = {};   // id -> [{key, cliente, telefono, sucursal, paquete, fecha, dato, orden, seg}]
     function calcular() {
         var h = P.fecha || hoy();
-        GRUPOS = {};
+        GRUPOS = {}; CONTACTADOS = {};
+        ((P.ctx && P.ctx.ultimas) || []).forEach(function (g) { var k = String(g.key_cliente || ""); if (k && (!CONTACTADOS[k] || String(g.fecha_on) > String(CONTACTADOS[k].fecha_on))) CONTACTADOS[k] = g; });
         SEGS.forEach(function (s) {
             var vistos = {}, l = [];
             (P.datos[s.fuente] || []).forEach(function (c) {
@@ -245,7 +261,7 @@
        repartidos en 2 listas alternando para que las dos reciban clientes igual de buenos. */
     function listasPorSucursal() {
         var porSuc = {};
-        /* No se repiten clientes: quien ya fue contactado en los últimos 30 días no vuelve a entrar en las listas ni en la cola. */
+        /* No se repiten clientes: quien ya fue contactado en los últimos 15 días (plazo de la comisión) no vuelve a entrar en las listas ni en la cola. */
         var lim = sumar(P.fecha || hoy(), -SIN_REPETIR), contactado = {};
         ((P.ctx && P.ctx.ultimas) || []).forEach(function (g) { if (String(g.fecha_on).slice(0, 10) >= lim) contactado[g.key_cliente] = 1; });
         P.omitidos = 0;
