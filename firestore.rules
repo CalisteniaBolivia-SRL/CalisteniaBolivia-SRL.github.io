@@ -724,5 +724,12 @@ service cloud.firestore {
       allow read: if permisoPY('marketing') || permisoPY('direccion');
       allow write: if false;
     }
+
+    // Producción del Estudio creativo (un documento por producción, campo «pais»): la crea y la avanza la función; la leen Marketing y Dirección del país.
+    match /mkt_produccion/{id} {
+      allow read: if (resource.data.pais == 'bolivia' && (permiso('marketing') || permiso('direccion')))
+        || (resource.data.pais == 'paraguay' && (permisoPY('marketing') || permisoPY('direccion')));
+      allow write: if false;
+    }
   }
 }
