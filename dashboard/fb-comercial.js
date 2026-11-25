@@ -103,6 +103,11 @@
         if (v.cliente) nombres.push(norm(v.cliente));
         return { claves: claves, nombres: nombres };
     }
+    function enUTC(f) {
+        if (!f || /Z$|[+-]\d\d:?\d\d$/.test(f) || f.length <= 10) return f;
+        var d = new Date(f + (window.CM_PAIS === "paraguay" ? "-03:00" : "-04:00"));
+        return isNaN(d) ? f : d.toISOString();
+    }
     function comisiones(desde, hasta, keyEj) {
         return Promise.all([ventas(desde, hasta), gestionesDesde(menosDias(desde, VENTANA_DIAS)), equipo(), memo("anuladas", function () { return U.docs(col("com_comision_anulada")); })]).then(function (a) {
             var gest = a[1], nom = nombresEquipo(a[2]), anul = {};
@@ -116,15 +121,17 @@
             a[0].forEach(function (v) {
                 var monto = Number(v.precio != null ? v.precio : v.monto) || 0;
                 if (monto <= 0) return;
-                var fv = String(v.fecha || v.fecha_on || "").replace(" ", "T"), cl = clientesDeVenta(v), cand = [];
+                /* La hora de la venta viene del ERP en hora local (Bolivia UTC-4, Paraguay UTC-3); los contactos se guardan en UTC.
+                   Se pasa la venta a UTC antes de comparar, para no dejar afuera contactos de las 4 horas previas a la venta. */
+                var fvLocal = String(v.fecha || v.fecha_on || "").replace(" ", "T"), fv = enUTC(fvLocal), cl = clientesDeVenta(v), cand = [];
                 cl.claves.forEach(function (k) { cand = cand.concat(porClave[k] || []); });
                 if (!cand.length) cl.nombres.forEach(function (n) { cand = cand.concat(porNombre[n] || []); });
                 var lim = menosDias(fv, VENTANA_DIAS);
                 var g = cand.filter(function (x) { return x.fecha_on <= fv + (fv.length <= 10 ? "T23:59:59" : "") && x.fecha_on.slice(0, 10) >= lim; })
                     .sort(function (x, y) { return String(y.fecha_on).localeCompare(String(x.fecha_on)); })[0];
                 if (!g || (keyEj && g.key_ejecutiva !== keyEj)) return;
-                var key = String(v.key_paquete_venta || v.key || fv + g.key_cliente), an = anul[key];
-                out.push({ key_paquete_venta_usuario: key, fecha_venta: fv, key_cliente: g.key_cliente, cliente: g.cliente || null, paquete: v.paquete, sucursal: v.sucursal, monto: monto, cajero: v.cajero || null,
+                var key = String(v.key_paquete_venta || v.key || fvLocal + g.key_cliente), an = anul[key];
+                out.push({ key_paquete_venta_usuario: key, fecha_venta: fvLocal, key_cliente: g.key_cliente, cliente: g.cliente || null, paquete: v.paquete, sucursal: v.sucursal, monto: monto, cajero: v.cajero || null,
                     key_ejecutiva: g.key_ejecutiva, ejecutiva: nom[g.key_ejecutiva] || g.key_ejecutiva, fecha_contacto: g.fecha_on, canal: g.canal, resultado: g.resultado,
                     anulada: !!an, motivo_anulacion: an ? an.motivo : null, comision: an ? 0 : COMISION_BS });
             });
