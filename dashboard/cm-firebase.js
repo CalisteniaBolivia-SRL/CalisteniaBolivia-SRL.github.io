@@ -71,6 +71,7 @@
         else if (estado.error) { t.textContent = "No se pudo abrir la sesión de datos: " + estado.error; b.className = "cm-fb-barra is-bad"; }
         else if (otraPersona()) { t.textContent = "En este equipo quedó abierta la sesión de datos de otra persona. Para trabajar con tu usuario, vuelve a ingresar."; b.className = "cm-fb-barra is-bad"; }
         else if (faltan.length) { t.textContent = "Tus permisos del ERP cambiaron desde tu último ingreso (nuevo: " + faltan.join(", ") + "). Hasta que vuelvas a ingresar con tu usuario y contraseña del ERP, no vas a poder guardar con esos permisos (por ejemplo, asignar listas)."; b.className = "cm-fb-barra is-bad"; }
+        else if (estado.usuario && estado.claims.cm !== 1) t.textContent = "Te dieron permisos nuevos en el ERP. Para que este módulo los tome, tocá «Volver a ingresar» y entrá otra vez con tu usuario y contraseña del ERP (una sola vez).";
         else t.textContent = "Para guardar y ver los datos de este módulo, sal del centro de mando y vuelve a ingresar con tu usuario y contraseña del ERP.";
         b.appendChild(t);
         if (estado.configurado) {
