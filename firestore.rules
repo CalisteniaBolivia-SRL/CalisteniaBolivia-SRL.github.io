@@ -99,6 +99,13 @@ service cloud.firestore {
       allow update: if permiso('supervision') && request.resource.data.registrado_por == resource.data.registrado_por;
       allow delete: if false;
     }
+    // Libreta de teléfonos que cargan las ATC (cuando el ERP no lo tiene, como en Paraguay): sirve para las próximas listas.
+    match /com_cliente_tel/{cliente} {
+      allow read: if veComercial();
+      allow create, update: if equipoATC() && soloCampos(['telefono', 'por', 'fecha'])
+        && request.resource.data.telefono is string && request.resource.data.telefono.matches('^[0-9]{10,15}$') && request.resource.data.por == yo();
+      allow delete: if false;
+    }
     match /com_asignacion/{cliente} {
       allow read: if veComercial();
       allow delete: if central();
@@ -107,6 +114,9 @@ service cloud.firestore {
       allow update: if soyATC() && resource.data.key_ejecutiva == yo()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['correo', 'correo_por', 'fecha_correo'])
         && request.resource.data.correo is string && request.resource.data.correo.size() <= 120 && request.resource.data.correo_por == yo();
+      allow update: if soyATC() && resource.data.key_ejecutiva == yo()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'telefono_por', 'fecha_telefono'])
+        && request.resource.data.telefono is string && request.resource.data.telefono.matches('^[0-9]{10,15}$') && request.resource.data.telefono_por == yo();
       allow create, update: if central() || (soyATC() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
         && exists(/databases/$(database)/documents/com_cola/$(cliente))
         && get(/databases/$(database)/documents/com_cola/$(cliente)).data.tomado_por == null
@@ -492,6 +502,13 @@ service cloud.firestore {
       allow create, update: if centralPY() || permisoPY('administracion');
       allow delete: if false;
     }
+    // Libreta de teléfonos que cargan las ATC (cuando el ERP no lo tiene, como en Paraguay): sirve para las próximas listas.
+    match /py_com_cliente_tel/{cliente} {
+      allow read: if veComercialPY();
+      allow create, update: if equipoATCPY() && soloCampos(['telefono', 'por', 'fecha'])
+        && request.resource.data.telefono is string && request.resource.data.telefono.matches('^[0-9]{10,15}$') && request.resource.data.por == yo();
+      allow delete: if false;
+    }
     match /py_com_asignacion/{cliente} {
       allow read: if veComercialPY();
       allow delete: if centralPY();
@@ -500,6 +517,9 @@ service cloud.firestore {
       allow update: if soyATCPY() && resource.data.key_ejecutiva == yo()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['correo', 'correo_por', 'fecha_correo'])
         && request.resource.data.correo is string && request.resource.data.correo.size() <= 120 && request.resource.data.correo_por == yo();
+      allow update: if soyATCPY() && resource.data.key_ejecutiva == yo()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'telefono_por', 'fecha_telefono'])
+        && request.resource.data.telefono is string && request.resource.data.telefono.matches('^[0-9]{10,15}$') && request.resource.data.telefono_por == yo();
       allow create, update: if centralPY() || (soyATCPY() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
         && exists(/databases/$(database)/documents/py_com_cola/$(cliente))
         && get(/databases/$(database)/documents/py_com_cola/$(cliente)).data.tomado_por == null

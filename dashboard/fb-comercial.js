@@ -59,7 +59,27 @@
         /* Las asignaciones del «Plan de hoy» traen además la foto del cliente (nombre, teléfono, grupo, mensaje).
            Con keyEj (vista de la ATC) se leen solo las suyas; sin keyEj (Jefe de ATC), todas. */
         var q = keyEj ? col("com_asignacion").where("key_ejecutiva", "==", keyEj) : col("com_asignacion");
-        return U.docs(q).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); });
+        return U.docs(q).then(function (l) { return l.filter(function (a) { return Number(a.estado == null ? 1 : a.estado) > 0; }).map(function (a) { return Object.assign({}, a, { key_cliente: a.key, key_ejecutiva: a.key_ejecutiva || null, motivo: a.motivo || null, fecha_on: a.fecha_on }); }); })
+            .then(conTelefonos);
+    }
+    /* Teléfonos que cargaron las ATC (libreta com_cliente_tel): completan a los clientes que vienen sin teléfono del ERP
+       (en Paraguay el ERP no lo guarda). Solo se buscan los que faltan, de a 10 por vez. */
+    function conTelefonos(lista) {
+        var faltan = lista.filter(function (a) { return !String(a.telefono || "").replace(/\D/g, ""); });
+        if (!faltan.length) return lista;
+        var i = 0;
+        function lote() {
+            var parte = faltan.slice(i, i + 10); i += 10;
+            if (!parte.length) return Promise.resolve();
+            return Promise.all(parte.map(function (a) { return col("com_cliente_tel").doc(String(a.key_cliente).replace(/\//g, "-")).get().then(function (d) { if (d.exists && d.data().telefono) a.telefono = d.data().telefono; }, function () {}); })).then(lote);
+        }
+        return lote().then(function () { return lista; });
+    }
+    function telValido(t) {
+        var d = String(t || "").replace(/\D/g, "");
+        if (window.CM_PAIS === "paraguay") { if (d.indexOf("595") !== 0) { d = d.replace(/^0+/, ""); if (d.length === 9) d = "595" + d; } return d.length >= 11 && d.length <= 15 ? d : null; }
+        if (d.length === 8) d = "591" + d;
+        return d.length >= 10 && d.length <= 15 ? d : null;
     }
     function gestionesDesde(desde) {
         return memo("gest:" + desde, function () { return U.docs(col("com_gestion").where("fecha_on", ">=", desde)).then(function (l) { return U.vigentes(l).sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); }); });
@@ -346,6 +366,14 @@
     });
     /* Correo del cliente: viene de su ficha del ERP al asignar la lista, o lo carga la ATC / el Jefe a mano. */
     function correoValido(v) { var t = String(v || "").trim().toLowerCase(); return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t) && t.length <= 120 ? t : null; }
+    CMFB.registrar("comercial_telefono_guardar", function (a) {
+        var k = U.txt(a, "key_cliente", 120, true), t = telValido(a.telefono);
+        if (!t) throw U.err(window.CM_PAIS === "paraguay" ? "Ese número no es válido (ej.: 0981 123 456)." : "Ese número no es válido (ej.: 7123 4567).");
+        var yo = CMFB.usuarioKey(), ahora = U.ahora();
+        return col("com_asignacion").doc(k).update({ telefono: t, telefono_por: yo, fecha_telefono: ahora }).catch(function (e) { if (e && e.code !== "not-found") throw e; })
+            .then(function () { return col("com_cliente_tel").doc(k.replace(/\//g, "-")).set({ telefono: t, por: yo, fecha: ahora }); })
+            .then(function () { return { estado: "exito", data: { telefono: t } }; });
+    });
     CMFB.registrar("comercial_correo_guardar", function (a) {
         var k = U.txt(a, "key_cliente", 120, true), c = correoValido(a.correo);
         if (/[/]/.test(k)) throw U.err("El cliente no es válido.");

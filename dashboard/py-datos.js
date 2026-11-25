@@ -106,9 +106,22 @@
                 var hay = Object.keys(ventas).some(function (k) { return ventas[k] && ventas[k].f; });
                 setInterval(function () { if (!document.hidden) actualizar(); }, 8000);
                 return hay ? (actualizar(), null) : actualizar();
-            });
+            }).then(function () { return cargarFichas(); });
         }
         return listaPromesa;
+    }
+    /* Teléfono y correo de la ficha del cliente en el CRM del ERP de Paraguay (cuando Caja los carga). */
+    var fichas = null;
+    function cargarFichas() {
+        if (fichas) return Promise.resolve(fichas);
+        return cargarERP().then(function () {
+            return ERP.pedir({ version: "1.0", service: "crm", component: "cliente", type: "getAll", key_empresa: ERP.KEY_EMPRESA, key_usuario: claveUsuario() }, 60000);
+        }).then(function (m) {
+            var d = (m && m.data) || {}, l = Array.isArray(d) ? d : Object.keys(d).map(function (k) { return d[k]; });
+            fichas = {};
+            l.forEach(function (x) { if (x && x.key) fichas[x.key] = { telefono: String(x.telefono || "").replace(/\D/g, "").length >= 8 ? x.telefono : null, correo: x.correo || null }; });
+            return fichas;
+        }).catch(function () { fichas = {}; return fichas; });
     }
 
     /* ---------- consultas con el mismo formato que Bolivia ---------- */
@@ -144,7 +157,8 @@
             if (!v.cl || !(v.dm > 0)) return;
             var p = Object.keys(v.p || {}).filter(function (k) { return v.p[k] > 0; })[0] || "Paquete";
             var fin = new Date(v.f + "T12:00:00"); fin.setDate(fin.getDate() + v.dm);
-            var x = { key_usuario: v.cl, cliente: v.cn || "Cliente", sucursal: SUCURSAL, paquete: p, fecha_inicio: v.f, fecha_fin: fin.toISOString().slice(0, 10), telefono: null };
+            var fi = (fichas && fichas[v.cl]) || {};
+            var x = { key_usuario: v.cl, cliente: v.cn || "Cliente", sucursal: SUCURSAL, paquete: p, fecha_inicio: v.f, fecha_fin: fin.toISOString().slice(0, 10), telefono: fi.telefono || null, correo: fi.correo || null };
             if (!por[v.cl] || por[v.cl].fecha_fin < x.fecha_fin) por[v.cl] = x;
         });
         return Object.keys(por).map(function (k) { return por[k]; });

@@ -23,7 +23,17 @@
     var hoy = function () { return iso(new Date()); };
     function corta(s) { var p = String(s || "").slice(0, 10).split("-"); return p.length === 3 ? p[2] + "/" + p[1] : "—"; }
     function hora(s) { var d = new Date(String(s || "")); return isNaN(d) ? "" : pad(d.getHours()) + ":" + pad(d.getMinutes()); }
-    function digitos(t) { var d = String(t || "").replace(/\D/g, ""); if (d.length === 8) d = "591" + d; return d.length >= 10 ? d : ""; }
+    /* Teléfono para llamar y WhatsApp, con el código de cada país: Bolivia 591 (8 dígitos), Paraguay 595 (09xx xxx xxx). */
+    function digitos(t) {
+        var d = String(t || "").replace(/\D/g, "");
+        if (!d) return "";
+        if (window.CM_PAIS === "paraguay") {
+            if (d.indexOf("595") !== 0) { d = d.replace(/^0+/, ""); if (d.length === 9) d = "595" + d; }
+            return d.length >= 11 && d.length <= 15 ? d : "";
+        }
+        if (d.length === 8) d = "591" + d;
+        return d.length >= 10 && d.length <= 15 ? d : "";
+    }
     function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
     function fechaLarga() { var t = new Date().toLocaleDateString("es-BO", { weekday: "long", day: "numeric", month: "long" }); return t.charAt(0).toUpperCase() + t.slice(1); }
     /* Ícono (iconos.js); si no cargó, nada. */
@@ -60,7 +70,7 @@
     var LISTA_CRM = { vencen: "por_vencer", nunca: "en_riesgo", riesgo: "en_riesgo", v1: "vencidos", v16: "vencidos", v46: "vencidos", v91: "vencidos", pases: "vencidos", cumple: "otro" };
     var INTENTO = ["Primer contacto", "Segundo contacto", "Tercer contacto", "Cuarto contacto"];
 
-    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {}, ver: 10, correos: {}, editCorreo: {} };
+    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {}, ver: 10, correos: {}, editCorreo: {}, tels: {}, editTel: {} };
     var DE_A = 10; /* tarjetas por tanda: se ven 10 y se cargan 10 más al bajar (o con «Ver más») */
 
     function misClientes() {
@@ -81,6 +91,25 @@
 
     /* ---------- Correo ---------- */
     function correoDe(c) { return M.correos[c.key_cliente] || c.correo || ""; }
+    function telDe(c) { return M.tels[c.key_cliente] || c.telefono || ""; }
+    /* Sin teléfono (en Paraguay el ERP no lo guarda): la ATC lo carga acá y le aparecen Llamar y WhatsApp.
+       Queda guardado para las próximas listas de ese cliente. */
+    function filaTelefono(c) {
+        var k = c.key_cliente;
+        if (M.ctx.soloVer && !M.ctx.gestionar) return el("span", { class: "ml-dato", text: "Sin teléfono" });
+        if (!M.editTel[k]) return el("button", { type: "button", class: "ml-btn ml-sin-tel", onclick: function () { M.editTel[k] = true; pintar(); } }, [ico("telefono"), "+ Agregar teléfono"]);
+        var inp = el("input", { type: "tel", class: "ml-correo-in", placeholder: window.CM_PAIS === "paraguay" ? "0981 123 456" : "7123 4567", value: telDe(c), maxlength: "20", "aria-label": "Teléfono de " + (c.cliente || "") });
+        var guardar = function () {
+            var v = inp.value.trim();
+            if (!digitos(v)) { M.ctx.avisar(window.CM_PAIS === "paraguay" ? "Ese número no es válido (ej.: 0981 123 456)." : "Ese número no es válido (ej.: 7123 4567).", "bad"); inp.focus(); return; }
+            M.ctx.llamar("comercial_telefono_guardar", { key_cliente: k, telefono: digitos(v) }).then(function (x) {
+                M.tels[k] = (x && x.data && x.data.telefono) || digitos(v); M.editTel[k] = false; M.ctx.avisar("Teléfono guardado."); pintar();
+            }, function (e) { M.ctx.avisar((e && e.message) || "No se pudo guardar el teléfono.", "bad"); });
+        };
+        inp.addEventListener("keydown", function (e) { if (e.key === "Enter") guardar(); });
+        setTimeout(function () { try { inp.focus(); } catch (e) {} }, 0);
+        return el("span", { class: "ml-correo-t is-edit" }, [inp, el("button", { type: "button", class: "ml-btn", text: "Guardar", onclick: guardar }), el("button", { type: "button", class: "ml-link", text: "Cancelar", onclick: function () { M.editTel[k] = false; pintar(); } })]);
+    }
     function mailto(c, msj) {
         var asunto = "Calistenia Company" + (c.sucursal ? " " + c.sucursal : "") + " · " + (String(c.cliente || "").split(" ")[0] || "Hola");
         return "mailto:" + encodeURIComponent(correoDe(c)) + "?subject=" + encodeURIComponent(asunto) + "&body=" + encodeURIComponent(msj || "");
@@ -158,7 +187,7 @@
     function mensajeDe(c) { return rellenar(c.mensaje || "", c); }
 
     function tarjeta(c) {
-        var tel = digitos(c.telefono), wa = tel ? "https://wa.me/" + tel : "", g = c.ultima, guardando = M.guardando[c.key_cliente];
+        var tel = digitos(telDe(c)), wa = tel ? "https://wa.me/" + tel : "", g = c.ultima, guardando = M.guardando[c.key_cliente];
         var marcar = function (canal) { return function () { M.canal[c.key_cliente] = canal; }; };
         var guion = guionPara(c), propio = guionJefe(c), msj = mensajeDe(c);
         var hecho = c.estado === "hecho" || c.estado === "espera";
@@ -183,7 +212,7 @@
         cuerpo.push(
             el("p", { class: "ml-paso", text: "Llamá primero. Si no atiende, mandá el mensaje por WhatsApp o por correo." }),
             el("div", { class: "ml-acc" }, [
-                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, [ico("telefono"), "Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
+                tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, [ico("telefono"), "Llamar"]) : filaTelefono(c),
                 wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(msj), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null,
                 correoDe(c) ? el("a", { class: "ml-btn ml-correo", href: mailto(c, msj), onclick: marcar("correo") }, [ico("correo"), "Correo"]) : null
             ]),
