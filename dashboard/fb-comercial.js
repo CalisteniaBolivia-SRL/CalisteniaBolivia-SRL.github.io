@@ -117,7 +117,7 @@
                 (porClave[g.key_cliente] = porClave[g.key_cliente] || []).push(g);
                 if (g.cliente) (porNombre[norm(g.cliente)] = porNombre[norm(g.cliente)] || []).push(g);
             });
-            var out = [];
+            var out = [], sinValido = [];
             a[0].forEach(function (v) {
                 var monto = Number(v.precio != null ? v.precio : v.monto) || 0;
                 if (monto <= 0) return;
@@ -127,16 +127,19 @@
                 cl.claves.forEach(function (k) { cand = cand.concat(porClave[k] || []); });
                 if (!cand.length) cl.nombres.forEach(function (n) { cand = cand.concat(porNombre[n] || []); });
                 var lim = menosDias(fv, VENTANA_DIAS);
-                var g = cand.filter(function (x) { return x.fecha_on <= fv + (fv.length <= 10 ? "T23:59:59" : "") && x.fecha_on.slice(0, 10) >= lim; })
+                var enVentana = cand.filter(function (x) { return x.fecha_on <= fv + (fv.length <= 10 ? "T23:59:59" : "") && x.fecha_on.slice(0, 10) >= lim; });
+                /* Un contacto marcado «número equivocado» no llegó al cliente: no cuenta para la comisión. */
+                var g = enVentana.filter(function (x) { return x.resultado !== "numero_errado"; })
                     .sort(function (x, y) { return String(y.fecha_on).localeCompare(String(x.fecha_on)); })[0];
-                if (!g || (keyEj && g.key_ejecutiva !== keyEj)) return;
+                if (!g) { if (enVentana.length) sinValido.push(String(v.key_paquete_venta || v.key || fvLocal + enVentana[0].key_cliente)); return; }
+                if (keyEj && g.key_ejecutiva !== keyEj) return;
                 var key = String(v.key_paquete_venta || v.key || fvLocal + g.key_cliente), an = anul[key];
                 out.push({ key_paquete_venta_usuario: key, fecha_venta: fvLocal, key_cliente: g.key_cliente, cliente: g.cliente || null, paquete: v.paquete, sucursal: v.sucursal, monto: monto, cajero: v.cajero || null,
                     key_ejecutiva: g.key_ejecutiva, ejecutiva: nom[g.key_ejecutiva] || g.key_ejecutiva, fecha_contacto: g.fecha_on, canal: g.canal, resultado: g.resultado,
                     anulada: !!an, motivo_anulacion: an ? an.motivo : null, comision: an ? 0 : COMISION_BS });
             });
             out.sort(function (x, y) { return String(y.fecha_venta).localeCompare(String(x.fecha_venta)); });
-            if (!keyEj) sincronizar(out, desde);
+            if (!keyEj) sincronizar(out, desde, sinValido);
             return out;
         });
     }
@@ -145,10 +148,18 @@
        comisiones que calculó; cada ATC lee solo las suyas desde ahí (aviso «¡Se cerró!» y «Confirmadas»). */
     var CAMPOS_CONF = ["fecha_venta", "key_cliente", "cliente", "paquete", "sucursal", "monto", "key_ejecutiva", "ejecutiva", "fecha_contacto", "canal", "anulada", "motivo_anulacion", "comision", "cajero"];
     function idConf(k) { return String(k).replace(/\//g, "-").slice(0, 300); }
-    function sincronizar(lista, desde) {
-        if (!lista.length || !(CMFB.tieneRolPais("jefe_atc") || CMFB.tieneRolPais("administracion"))) return;
+    function sincronizar(lista, desde, sinValido) {
+        sinValido = sinValido || [];
+        if (!(lista.length || sinValido.length) || !(CMFB.tieneRolPais("jefe_atc") || CMFB.tieneRolPais("administracion"))) return;
         U.docs(col("com_comision_conf").where("fecha_venta", ">=", String(desde).slice(0, 10))).then(function (ya) {
             var previo = {}; ya.forEach(function (d) { previo[d.key] = d; });
+            /* Ventas confirmadas antes por un contacto que hoy no vale (número equivocado): quedan sin comisión. */
+            var quitar = sinValido.filter(function (k) { var p = previo[idConf(k)]; return p && p.comision !== 0; });
+            if (quitar.length) {
+                var lq = U.db().batch();
+                quitar.slice(0, 400).forEach(function (k) { lq.update(col("com_comision_conf").doc(idConf(k)), { anulada: true, comision: 0, motivo_anulacion: "El único contacto fue «número equivocado»: no cuenta para la comisión.", fecha_confirmacion: U.ahora() }); });
+                lq.commit().catch(function () {});
+            }
             var cambios = lista.filter(function (c) {
                 var p = previo[idConf(c.key_paquete_venta_usuario)];
                 return !p || p.anulada !== c.anulada || p.comision !== c.comision || p.key_ejecutiva !== c.key_ejecutiva || (c.cajero && p.cajero !== c.cajero);
