@@ -627,5 +627,92 @@ service cloud.firestore {
         && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
       allow update, delete: if centralPY();
     }
+
+    // ---------- Denuncias anónimas del personal → Recursos Humanos (Bolivia) ----------
+    // Quien denuncia NO tiene sesión: crea la denuncia con un código al azar como id (20 letras/números) y solo con ese
+    // código la vuelve a ver (get, nunca list). No se guarda quién la envía. La reciben RRHH y Dirección; con
+    // «solo_direccion», solo Dirección. Las notas internas no las ve quien denunció.
+    function veDenuncia(d) { return permiso('direccion') || (permiso('rrhh') && d.solo_direccion == false); }
+    match /rh_denuncia/{id} {
+      allow get: if true;
+      allow list: if veDenuncia(resource.data);
+      allow create: if id.matches('^[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$')
+        && soloCampos(['pais', 'categoria', 'sucursal', 'cuando', 'involucrados', 'descripcion', 'pruebas', 'solo_direccion', 'estado', 'fecha', 'ultima_actividad', 'de_ultimo'])
+        && request.resource.data.pais == 'bolivia'
+        && request.resource.data.categoria in ['acoso_laboral', 'acoso_sexual', 'discriminacion', 'robo_fraude', 'seguridad', 'clientes', 'incumplimiento', 'otro']
+        && request.resource.data.descripcion is string && request.resource.data.descripcion.size() >= 20 && request.resource.data.descripcion.size() <= 5000
+        && texto('sucursal', 120) && texto('cuando', 120) && texto('involucrados', 300) && texto('pruebas', 1000)
+        && request.resource.data.solo_direccion is bool && request.resource.data.estado == 'recibida' && request.resource.data.de_ultimo == 'denunciante'
+        && request.resource.data.fecha == request.time && request.resource.data.ultima_actividad == request.time;
+      // Quien denunció (sin sesión) solo marca que escribió algo nuevo; RRHH/Dirección cambian el estado.
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultima_actividad', 'de_ultimo'])
+          && request.resource.data.de_ultimo == 'denunciante' && request.resource.data.ultima_actividad == request.time)
+        || (veDenuncia(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'ultima_actividad', 'de_ultimo'])
+          && request.resource.data.estado in ['recibida', 'en_revision', 'resuelta', 'descartada'] && request.resource.data.de_ultimo in ['denunciante', 'rrhh']);
+      allow delete: if false;
+      // Conversación: la ve quien tiene el código (y RRHH/Dirección).
+      match /mensajes/{m} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasOnly(['de', 'texto', 'fecha']) && request.resource.data.fecha == request.time
+          && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 3000
+          && exists(/databases/$(database)/documents/rh_denuncia/$(id))
+          && (request.resource.data.de == 'denunciante'
+            || (request.resource.data.de == 'rrhh' && veDenuncia(get(/databases/$(database)/documents/rh_denuncia/$(id)).data)));
+        allow update, delete: if false;
+      }
+      // Notas internas: solo RRHH/Dirección.
+      match /notas/{n} {
+        allow read: if veDenuncia(get(/databases/$(database)/documents/rh_denuncia/$(id)).data);
+        allow create: if veDenuncia(get(/databases/$(database)/documents/rh_denuncia/$(id)).data)
+          && request.resource.data.keys().hasOnly(['texto', 'tipo', 'autor', 'autor_nombre', 'fecha']) && request.resource.data.autor == yo()
+          && request.resource.data.fecha == request.time && request.resource.data.tipo in ['nota', 'registro']
+          && request.resource.data.texto is string && request.resource.data.texto.size() <= 2000 && texto('autor_nombre', 120);
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------- Denuncias anónimas del personal → Recursos Humanos (Paraguay) ----------
+    // Quien denuncia NO tiene sesión: crea la denuncia con un código al azar como id (20 letras/números) y solo con ese
+    // código la vuelve a ver (get, nunca list). No se guarda quién la envía. La reciben RRHH y Dirección; con
+    // «solo_direccion», solo Dirección. Las notas internas no las ve quien denunció.
+    function veDenunciaPY(d) { return permisoPY('direccion') || (permisoPY('rrhh') && d.solo_direccion == false); }
+    match /py_rh_denuncia/{id} {
+      allow get: if true;
+      allow list: if veDenunciaPY(resource.data);
+      allow create: if id.matches('^[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$')
+        && soloCampos(['pais', 'categoria', 'sucursal', 'cuando', 'involucrados', 'descripcion', 'pruebas', 'solo_direccion', 'estado', 'fecha', 'ultima_actividad', 'de_ultimo'])
+        && request.resource.data.pais == 'paraguay'
+        && request.resource.data.categoria in ['acoso_laboral', 'acoso_sexual', 'discriminacion', 'robo_fraude', 'seguridad', 'clientes', 'incumplimiento', 'otro']
+        && request.resource.data.descripcion is string && request.resource.data.descripcion.size() >= 20 && request.resource.data.descripcion.size() <= 5000
+        && texto('sucursal', 120) && texto('cuando', 120) && texto('involucrados', 300) && texto('pruebas', 1000)
+        && request.resource.data.solo_direccion is bool && request.resource.data.estado == 'recibida' && request.resource.data.de_ultimo == 'denunciante'
+        && request.resource.data.fecha == request.time && request.resource.data.ultima_actividad == request.time;
+      // Quien denunció (sin sesión) solo marca que escribió algo nuevo; RRHH/Dirección cambian el estado.
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultima_actividad', 'de_ultimo'])
+          && request.resource.data.de_ultimo == 'denunciante' && request.resource.data.ultima_actividad == request.time)
+        || (veDenunciaPY(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'ultima_actividad', 'de_ultimo'])
+          && request.resource.data.estado in ['recibida', 'en_revision', 'resuelta', 'descartada'] && request.resource.data.de_ultimo in ['denunciante', 'rrhh']);
+      allow delete: if false;
+      // Conversación: la ve quien tiene el código (y RRHH/Dirección).
+      match /mensajes/{m} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasOnly(['de', 'texto', 'fecha']) && request.resource.data.fecha == request.time
+          && request.resource.data.texto is string && request.resource.data.texto.size() > 0 && request.resource.data.texto.size() <= 3000
+          && exists(/databases/$(database)/documents/py_rh_denuncia/$(id))
+          && (request.resource.data.de == 'denunciante'
+            || (request.resource.data.de == 'rrhh' && veDenunciaPY(get(/databases/$(database)/documents/py_rh_denuncia/$(id)).data)));
+        allow update, delete: if false;
+      }
+      // Notas internas: solo RRHH/Dirección.
+      match /notas/{n} {
+        allow read: if veDenunciaPY(get(/databases/$(database)/documents/py_rh_denuncia/$(id)).data);
+        allow create: if veDenunciaPY(get(/databases/$(database)/documents/py_rh_denuncia/$(id)).data)
+          && request.resource.data.keys().hasOnly(['texto', 'tipo', 'autor', 'autor_nombre', 'fecha']) && request.resource.data.autor == yo()
+          && request.resource.data.fecha == request.time && request.resource.data.tipo in ['nota', 'registro']
+          && request.resource.data.texto is string && request.resource.data.texto.size() <= 2000 && texto('autor_nombre', 120);
+        allow update, delete: if false;
+      }
+    }
+
   }
 }

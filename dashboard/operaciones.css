@@ -139,3 +139,33 @@
 .tk-aviso a:hover { border-color: #FFFFFF; }
 @media (max-width: 1000px) { .tk-tablero { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .tk-tablero { grid-template-columns: 1fr; } .tk-aviso a { margin-left: 0; } }
+/* Denuncias anónimas (formulario del personal y bandeja de RRHH) */
+.dn-form { max-width: 760px; }
+.dn-form .op-campo small { align-self: flex-end; }
+.dn-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.dn-dest { border: 1px solid #2B2E33; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.dn-dest legend { font-size: 12px; color: #A4A8AF; padding: 0 4px; }
+.dn-dest label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.dn-dest input { margin-top: 3px; }
+.dn-aviso { font-size: 12px; }
+.dn-ok { max-width: 760px; }
+.dn-codigo { margin: 6px 0; font: 700 clamp(20px, 5vw, 30px)/1.2 ui-monospace, Consolas, monospace; letter-spacing: .06em; padding: 12px; border: 1px dashed #A4A8AF; text-align: center; word-break: break-all; user-select: all; }
+.dn-seguir { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.dn-input-codigo { font-family: ui-monospace, Consolas, monospace !important; letter-spacing: .06em; text-transform: uppercase; }
+.dn-cab { align-items: center; } .dn-cab h2 { margin: 0; }
+.dn-hilo { display: flex; flex-direction: column; gap: 8px; }
+.dn-m { border: 1px solid #2B2E33; border-left: 2px solid #A4A8AF; padding: 8px 12px; max-width: 92%; }
+.dn-m.is-yo { align-self: flex-start; } .dn-m.is-rrhh { align-self: flex-end; border-left-color: #E30613; }
+.dn-m small, .dn-nota small { color: #A4A8AF; font-size: 12px; }
+.dn-m p, .dn-nota p, .dn-texto { margin: 4px 0 0; white-space: pre-wrap; line-height: 1.5; font-size: 14px; }
+.dn-responder { display: flex; flex-direction: column; gap: 8px; }
+.dn-datos { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 13px; }
+.dn-datos dt { color: #A4A8AF; } .dn-datos dd { margin: 0; white-space: pre-wrap; }
+.dn-texto { border-top: 1px solid #2B2E33; padding-top: 10px; }
+.dn-notas { display: flex; flex-direction: column; gap: 6px; }
+.dn-nota { border-left: 2px solid #3A3E44; padding: 4px 10px; } .dn-nota.is-reg p { color: #A4A8AF; font-size: 13px; }
+.dn-solo { color: #D9AE5B; }
+.dn-url { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; color: #D6D8DC; }
+.dn-qr { background: #FFFFFF; padding: 10px; width: 220px; max-width: 100%; } .dn-qr svg { display: block; width: 100%; height: auto; }
+a.op-btn { text-decoration: none; display: inline-block; }
+@media (max-width: 640px) { .dn-2 { grid-template-columns: 1fr; } .dn-m { max-width: 100%; } .dn-datos { grid-template-columns: 1fr; } }
