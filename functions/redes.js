@@ -18,6 +18,7 @@ const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/
 const { defineSecret, defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const ia = require("./redes-ia");
+const ig = require("./redes-ig");   // conexión directa de Instagram (sin página de Facebook)
 
 const REGION = "southamerica-east1";
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -30,6 +31,7 @@ const ESPERA_MS = 4000;          // si el cliente manda varios mensajes seguidos
 const VENTANA_MS = 24 * 3600000; // Meta deja responder mensajes directos hasta 24 h después del último del cliente
 
 const ahora = () => new Date().toISOString();
+const appIdIG = () => { try { return ig.IG_APP_ID.value() || ""; } catch (e) { return ""; } };
 
 /* ---------- Webhook de Meta ---------- */
 
@@ -79,8 +81,9 @@ async function recibirAviso(db, b, deps) {
 
 /* ---------- Graph API ---------- */
 
-async function graph(ruta, token, metodo, cuerpo) {
-    const url = GRAPH + "/" + ruta;
+/* api «instagram»: cuentas conectadas directo con Instagram (graph.instagram.com); si no, Graph de Facebook. */
+async function graph(ruta, token, metodo, cuerpo, api) {
+    const url = (api === "instagram" ? ig._internos.IG_GRAPH : GRAPH) + "/" + ruta;
     const opts = { method: metodo || "GET", headers: token ? { Authorization: "Bearer " + token } : {} };
     if (cuerpo) { opts.headers["Content-Type"] = "application/x-www-form-urlencoded"; opts.body = new URLSearchParams(cuerpo).toString(); }
     const r = await fetch(url, opts);
@@ -89,18 +92,18 @@ async function graph(ruta, token, metodo, cuerpo) {
     return j;
 }
 
-async function textoPublicacion(c, token, g) {
+async function textoPublicacion(c, token, g, api) {
     if (!c.publicacion_id || !token) return "";
     try {
         const campo = c.plataforma === "instagram" ? "caption" : "message";
-        const j = await g(encodeURIComponent(c.publicacion_id) + "?fields=" + campo, token);
+        const j = await g(encodeURIComponent(c.publicacion_id) + "?fields=" + campo, token, undefined, undefined, api);
         return String(j[campo] || "").slice(0, 1500);
     } catch (e) { return ""; }
 }
 
-async function publicar(c, texto, token, g) {
+async function publicar(c, texto, token, g, api) {
     const ruta = encodeURIComponent(c.id) + (c.plataforma === "instagram" ? "/replies" : "/comments");
-    const j = await g(ruta, token, "POST", { message: texto });
+    const j = await g(ruta, token, "POST", { message: texto }, api);
     return String(j.id || "");
 }
 
@@ -123,16 +126,16 @@ async function datosDe(db, c) {
     const [conf, cta, tok] = await Promise.all([
         db.collection("rs_config").doc(c.pais || "bolivia").get(),
         c.plataforma === "tiktok" ? null : db.collection("rs_cuenta").doc(c.cuenta).get(),
-        c.plataforma === "tiktok" ? null : db.collection("rs_token").doc(c.cuenta).get()
+        c.plataforma === "tiktok" ? null : ig._internos.tokenDe(db, c.cuenta)
     ]);
-    return { conf: conf.exists ? conf.data() : {}, cuenta: cta && cta.exists ? cta.data() : {}, token: tok && tok.exists ? tok.data().token : "" };
+    return { conf: conf.exists ? conf.data() : {}, cuenta: cta && cta.exists ? cta.data() : {}, token: tok ? tok.token : "", api: tok ? tok.api : "facebook" };
 }
 
 /* Redacta la respuesta y decide: publicar sola, dejar pendiente, borrador (TikTok) o ignorar (spam). */
 async function procesar(db, ref, c, deps) {
     const g = deps.graph || graph;
-    const { conf, cuenta, token } = await datosDe(db, c);
-    const pub = c.publicacion_texto || (c.plataforma === "tiktok" ? "" : await textoPublicacion(c, token, g));
+    const { conf, cuenta, token, api } = await datosDe(db, c);
+    const pub = c.publicacion_texto || (c.plataforma === "tiktok" ? "" : await textoPublicacion(c, token, g, api));
     const confIA = Object.assign({}, conf);
     if (c.indicacion) confIA.tono_extra = [conf.tono_extra, "Para este comentario: " + c.indicacion].filter(Boolean).join("\n");
     let r;
@@ -155,7 +158,7 @@ async function procesar(db, ref, c, deps) {
     else if (!(await tomarCupo(db, c.cuenta, Number(conf.max_por_hora) > 0 ? Number(conf.max_por_hora) : MAX_POR_HORA))) razon = "Se alcanzó el máximo de respuestas automáticas de esta hora.";
     if (razon) return ref.update(Object.assign(base, { estado: "pendiente", espera: razon }));
     try {
-        const id = await publicar(c, r.respuesta, token, g);
+        const id = await publicar(c, r.respuesta, token, g, api);
         return ref.update(Object.assign(base, { estado: "respondido", id_respuesta: id, fecha_respuesta: ahora(), publicado_por: "automatico" }));
     } catch (e) {
         return ref.update(Object.assign(base, { estado: "error", detalle_error: String(e.message).slice(0, 300) }));
@@ -167,11 +170,10 @@ async function publicarAprobado(db, ref, c, deps) {
     const g = deps.graph || graph;
     const texto = String(c.respuesta_final || "").trim();
     if (!texto) return ref.update({ estado: "pendiente", espera: "La respuesta está vacía." });
-    const tok = await db.collection("rs_token").doc(c.cuenta).get();
-    const token = tok.exists ? tok.data().token : "";
+    const { token, api } = await ig._internos.tokenDe(db, c.cuenta);
     if (!token) return ref.update({ estado: "error", detalle_error: "Falta el token de la cuenta." });
     try {
-        const id = await publicar(c, texto.slice(0, 1000), token, g);
+        const id = await publicar(c, texto.slice(0, 1000), token, g, api);
         return ref.update({ estado: "respondido", id_respuesta: id, fecha_respuesta: ahora(), publicado_por: c.revisado_por || "aprobado" });
     } catch (e) {
         return ref.update({ estado: "error", detalle_error: String(e.message).slice(0, 300) });
@@ -210,11 +212,11 @@ function mensajesDelAviso(b) {
 }
 const idConversacion = (m) => m.plataforma + "_" + m.cuenta + "_" + m.cliente;
 
-async function nombreCliente(m, token, g) {
+async function nombreCliente(m, token, g, api) {
     if (!token) return "";
     try {
         const campos = m.plataforma === "instagram_dm" ? "name,username" : "first_name,last_name";
-        const j = await g(encodeURIComponent(m.cliente) + "?fields=" + campos, token);
+        const j = await g(encodeURIComponent(m.cliente) + "?fields=" + campos, token, undefined, undefined, api);
         return String(j.name || j.username || [j.first_name, j.last_name].filter(Boolean).join(" ") || "").slice(0, 120);
     } catch (e) { return ""; }
 }
@@ -228,14 +230,14 @@ async function recibirMensajes(db, b, deps) {
         if (!cta.exists || cta.data().activa !== true) continue;
         const refM = db.collection("rs_mensaje").doc(m.plataforma + "_" + m.mid.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 300));
         if ((await refM.get()).exists) continue;                       // Meta reenvía avisos; los propios ya están guardados
-        if (m.eco && m.app_id && m.app_id === META_APP_ID.value()) continue;   // lo mandó esta app (bot o panel)
+        if (m.eco && m.app_id && (m.app_id === META_APP_ID.value() || m.app_id === appIdIG())) continue;   // lo mandó esta app (bot o panel)
         const idc = idConversacion(m), refC = db.collection("rs_conversacion").doc(idc);
         const c = await refC.get();
         const pais = cta.data().pais === "paraguay" ? "paraguay" : "bolivia";
         if (!c.exists) {
-            const tok = await db.collection("rs_token").doc(m.cuenta).get();
+            const tok = await ig._internos.tokenDe(db, m.cuenta);
             await refC.set({ plataforma: m.plataforma, cuenta: m.cuenta, cuenta_nombre: cta.data().nombre || "", pais, cliente_id: m.cliente,
-                usuario_nombre: await nombreCliente(m, tok.exists ? tok.data().token : "", g), tema: "otro", temas: [], estado_atencion: "bot", bot: "activo",
+                usuario_nombre: await nombreCliente(m, tok.token, g, tok.api), tema: "otro", temas: [], estado_atencion: "bot", bot: "activo",
                 asignado_a: null, asignado_nombre: null, nota: null, no_leidos: 0, fecha_on: ahora() });
         }
         if (m.eco) {
@@ -253,9 +255,11 @@ async function recibirMensajes(db, b, deps) {
 }
 
 async function enviarMensaje(db, conv, texto, g) {
-    const tok = await db.collection("rs_token").doc(conv.cuenta).get();
-    if (!tok.exists) throw new Error("Falta el token de la cuenta.");
-    const j = await g("me/messages", tok.data().token, "POST", { recipient: JSON.stringify({ id: conv.cliente_id }), messaging_type: "RESPONSE", message: JSON.stringify({ text: texto.slice(0, 1000) }) });
+    const tok = await ig._internos.tokenDe(db, conv.cuenta);
+    if (!tok.token) throw new Error("Falta el token de la cuenta.");
+    const cuerpo = { recipient: JSON.stringify({ id: conv.cliente_id }), message: JSON.stringify({ text: texto.slice(0, 1000) }) };
+    if (tok.api !== "instagram") cuerpo.messaging_type = "RESPONSE";   // Messenger lo exige; Instagram directo no lo usa
+    const j = await g("me/messages", tok.token, "POST", cuerpo, tok.api);
     return String(j.message_id || "");
 }
 
@@ -359,14 +363,16 @@ async function vincular(db, ref, v, deps) {
 
 const opcionesIA = { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 120, memory: "256MiB", maxInstances: 5, retry: false };
 
-exports.metaWebhook = onRequest({ region: REGION, secrets: [META_APP_SECRET, META_VERIFY_TOKEN], maxInstances: 5, timeoutSeconds: 30, memory: "256MiB" }, async (req, res) => {
+exports.metaWebhook = onRequest({ region: REGION, secrets: [META_APP_SECRET, META_VERIFY_TOKEN, ig.IG_APP_ID, ig.IG_APP_SECRET], maxInstances: 5, timeoutSeconds: 30, memory: "256MiB" }, async (req, res) => {
     if (req.method === "GET") {
         const q = req.query || {};
         if (q["hub.mode"] === "subscribe" && q["hub.verify_token"] && q["hub.verify_token"] === META_VERIFY_TOKEN.value()) return res.status(200).send(String(q["hub.challenge"] || ""));
         return res.status(403).send("No");
     }
     if (req.method !== "POST") return res.status(405).send("No");
-    if (!firmaValida(req.rawBody, req.get("x-hub-signature-256"), META_APP_SECRET.value())) return res.status(401).send("Firma no válida");
+    /* Los avisos vienen firmados con la clave de la app de Meta o con la de Instagram (conexión directa). */
+    const firma = req.get("x-hub-signature-256");
+    if (!firmaValida(req.rawBody, firma, META_APP_SECRET.value()) && !firmaValida(req.rawBody, firma, ig.IG_APP_SECRET.value())) return res.status(401).send("Firma no válida");
     try { await recibirAviso(admin.firestore(), req.body, {}); }
     catch (e) { console.error("metaWebhook", e.message); return res.status(500).send("Error"); }
     return res.status(200).send("OK");

@@ -46,6 +46,16 @@
     /* Desde el portal de un país (Capital Corp → Calistenia Company → país) se abre filtrado por ese país. */
     var mPais = /[?&]pais=(bolivia|paraguay)\b/.exec(location.search);
     if (mPais) estado.pais = mPais[1];
+    /* Vuelta desde Instagram (conexión directa): se muestra el resultado en Configuración. */
+    var mIg = /[?&]ig=(ok|error|sin_avisos)\b/.exec(location.search);
+    if (mIg) {
+        var qp = new URLSearchParams(location.search);
+        estado.pestana = "config";
+        estado.igAviso = mIg[1] === "ok" ? ["ok", "Instagram conectado: " + (qp.get("cuenta") || "") + ". Desde ahora se responden solos sus comentarios y mensajes."]
+            : mIg[1] === "sin_avisos" ? ["warn", "Instagram " + (qp.get("cuenta") || "") + " quedó conectado, pero Instagram no aceptó la suscripción a los avisos. Revisá que en la app de Meta estén configurados los Webhooks de Instagram y volvé a tocar «Conectar Instagram»."]
+            : ["bad", "No se pudo conectar Instagram: " + (qp.get("motivo") || "error")];
+        try { history.replaceState(null, "", location.pathname + (estado.pais ? "?pais=" + estado.pais : "") + "#config"); } catch (e) {}
+    }
 
     /* ---------- pestañas ---------- */
     var PESTANAS = [["conversaciones", "Conversaciones"], ["aprobar", "Comentarios por aprobar"], ["tiktok", "TikTok"], ["historial", "Historial de comentarios"], ["config", "Configuración"]];
@@ -204,7 +214,8 @@
             el("div", { class: "rs-fila" }, [el("label", {}, ["Nombre", nombre]), el("label", {}, ["Token", token])]), el("div", {}, [btn])]);
     }
     function vistaConfig(cont) {
-        cont.appendChild(seccionConectar());
+        cont.appendChild(seccionInstagram());
+        cont.appendChild(el("details", { class: "rs-form" }, [el("summary", { text: "Facebook (necesita la página y su portafolio comercial)" }), seccionConectar()]));
         cont.appendChild(el("div", { class: "rs-grid" }, [formConfig("bolivia"), formConfig("paraguay")]));
         var tb = el("tbody");
         if (!estado.cuentas.length) tb.appendChild(el("tr", {}, [el("td", { colspan: 5, class: "lg-vacio", text: "Sin cuentas conectadas." })]));
@@ -216,7 +227,7 @@
                     db().collection("rs_cuenta").doc(c.key).set(d).then(function () { c[campo] = d[campo]; avisar("Cuenta actualizada."); }).catch(function (er) { e.target.checked = !e.target.checked; avisar(textoError(er), "bad"); });
                 } }), " " + etiqueta]);
             };
-            tb.appendChild(el("tr", {}, [el("td", { text: c.nombre || c.key }), el("td", { text: REDES[c.plataforma] || c.plataforma }), el("td", { text: PAISES[c.pais] || c.pais }),
+            tb.appendChild(el("tr", {}, [el("td", { text: c.nombre || c.key }), el("td", { text: (REDES[c.plataforma] || c.plataforma) + (c.conexion === "instagram_directo" ? " (directo)" : "") }), el("td", { text: PAISES[c.pais] || c.pais }),
                 el("td", {}, [interruptor("activa", "Recibir comentarios y mensajes")]), el("td", {}, [interruptor("auto", "Responder sola")])]));
         });
         cont.appendChild(el("section", { class: "rs-form" }, [el("h3", { class: "lg-h3", text: "Cuentas conectadas" }),
@@ -234,6 +245,31 @@
             sc.onerror = function () { mal(new Error("No se pudo cargar el inicio de sesión de Facebook (revisa la conexión o un bloqueador de anuncios).")); };
             document.head.appendChild(sc);
         });
+    }
+    /* ---------- Conectar Instagram directo (sin página de Facebook ni portafolio) ---------- */
+    var PUENTE_IG = window.CM_IG_PUENTE || ("https://southamerica-east1-" + ((window.CM_FIREBASE_CONFIG && window.CM_FIREBASE_CONFIG.projectId) || "centro-de-comando-a57cf") + ".cloudfunctions.net/igConectar");
+    function seccionInstagram() {
+        var pais = el("select", {}, [el("option", { value: "bolivia" }, ["Bolivia"]), el("option", { value: "paraguay" }, ["Paraguay"])]);
+        if (estado.pais) pais.value = estado.pais;
+        var res = el("p", { class: "lg-muted", "aria-live": "polite" });
+        var btn = el("button", { type: "button", class: "rs-ig" }, ["Conectar Instagram"]);
+        btn.onclick = function () {
+            btn.disabled = true; res.textContent = "Abriendo Instagram…";
+            var u = window.firebase && firebase.auth().currentUser;
+            (u ? u.getIdToken() : Promise.reject(new Error("Tu sesión venció: salí y volvé a entrar con tu usuario del ERP."))).then(function (t) {
+                return fetch(PUENTE_IG, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ pais: pais.value }) });
+            }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.url) throw new Error(j.error || "No se pudo abrir Instagram (" + r.status + ")."); return j.url; }); })
+                .then(function (url) { location.href = url; })
+                .catch(function (e) { res.textContent = textoError(e); btn.disabled = false; });
+        };
+        var directas = estado.cuentas.filter(function (c) { return c.conexion === "instagram_directo"; });
+        return el("section", { class: "rs-form rs-conectar is-ig" }, [
+            el("h3", { class: "lg-h3", text: "Conectar Instagram" }),
+            el("p", { class: "lg-muted", text: "Tocá el botón, entrá con el usuario y la contraseña del Instagram de la empresa y tocá «Permitir». Desde ese momento se responden solos sus comentarios y mensajes directos. No hace falta la página de Facebook." }),
+            el("div", { class: "rs-fila" }, [el("label", {}, ["País de esta cuenta", pais]), el("div", { class: "rs-fb-wrap" }, [btn])]),
+            res,
+            directas.length ? el("p", { class: "lg-muted", text: "Conectadas así: " + directas.map(function (c) { return c.nombre + " (" + (PAISES[c.pais] || c.pais) + ")"; }).join(", ") + ". Si cambian la contraseña de Instagram, vuelvan a tocar «Conectar Instagram»." }) : null
+        ]);
     }
     function seccionConectar() {
         var appId = estado.meta.app_id || "";
@@ -435,7 +471,7 @@
         return CMFB.listo.then(function () {
             if (!CMFB.tieneRol("marketing")) throw new Error("Para usar este tablero, sal del centro de mando y vuelve a ingresar con un usuario del ERP que tenga el permiso «marketing».");
             return Promise.all(["bolivia", "paraguay", "meta"].map(function (p) { return db().collection("rs_config").doc(p).get().then(function (d) { if (p === "meta") estado.meta = d.exists ? d.data() : {}; else estado.config[p] = d.exists ? d.data() : {}; }); })).then(cargarCuentas);
-        }).then(function () { pintar(); escuchar(); }).catch(function (e) { mensaje($("#rs-estado"), "bad", textoError(e)); });
+        }).then(function () { pintar(); escuchar(); if (estado.igAviso) { var a = estado.igAviso; estado.igAviso = null; mensaje($("#rs-aviso"), a[0], a[1]); } }).catch(function (e) { mensaje($("#rs-estado"), "bad", textoError(e)); });
     }
     $("#rs-actualizar").addEventListener("click", cargar);
     cargar();
