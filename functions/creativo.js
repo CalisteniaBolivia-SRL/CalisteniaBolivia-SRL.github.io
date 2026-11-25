@@ -124,6 +124,7 @@ async function imagen(prompt, aspecto) {
         body: JSON.stringify({ contents: [{ parts: [{ text: txt(prompt, 4000) }] }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: ar } } })
     });
     const d = await r.json().catch(() => ({}));
+    if (r.status === 429) throw Object.assign(new Error("La clave de Gemini no tiene cupo para generar imágenes (está en el plan gratuito). Hay que activar la facturación en Google AI Studio. Mientras tanto, copiá el prompt en tu herramienta de imágenes."), { publico: true });
     if (!r.ok) throw Object.assign(new Error("No se pudo generar la imagen (" + ((d.error && d.error.message) || r.status) + "). Usá el prompt en tu herramienta de imágenes."), { publico: true });
     const partes = (((d.candidates || [])[0] || {}).content || {}).parts || [];
     const img = partes.find((x) => x.inlineData && x.inlineData.data);
