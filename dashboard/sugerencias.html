@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Buzón de sugerencias · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="reemplazos.css?v=1">
+<link rel="stylesheet" href="sugerencias.css?v=1">
+<script src="pais.js?v=5"></script>
+<script src="cm-mcp.js?v=3"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=2"></script>
+<script src="cm-firebase.js?v=13"></script>
+<script>
+/* Recursos Humanos (y Dirección) leen y gestionan las sugerencias que los clientes mandan desde la app.
+   Siempre con el usuario del ERP; en Paraguay valen los permisos de /centro_mando del ERP de Paraguay. */
+(function () {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    var py = /[?&]pais=paraguay\b/.test(location.search);
+    var t = s.tableros.concat(py ? (s.tableros_py || []) : []);
+    if (!["rrhh", "direccion"].some(function (x) { return t.indexOf(x) >= 0; })) { location.replace("./?sin=rrhh"); return; }
+    window.CM_USUARIO = s;
+})();
+</script>
+<link rel="stylesheet" href="sobrio.css?v=6">
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><a href="rrhh.html" id="sg-volver">Recursos Humanos</a><a href="manual.html#sugerencias">Manual</a><span class="cm-quien" id="cm-quien"></span><button type="button" id="cm-salir">Salir</button></div>
+
+<main class="rp sg" lang="es">
+  <header class="rp-top">
+    <div>
+      <span class="rp-eyebrow">Calistenia Company · Recursos Humanos</span>
+      <h1 class="rp-titulo">Buzón de sugerencias</h1>
+      <p class="rp-muted">Lo que los clientes escriben desde la app (Perfil → Buzón de sugerencias): quejas, ideas y felicitaciones sobre la atención, los entrenadores, las clases y las sucursales. Leé cada una, anotá qué se hizo y marcá su estado. Las anónimas no traen datos del cliente.</p>
+    </div>
+    <div class="rp-herr">
+      <label>Período <select id="sg-periodo"><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="0">Todo</option></select></label>
+      <label>Estado <select id="sg-estado"><option value="">Todos</option></select></label>
+      <label>Tema <select id="sg-cat"><option value="">Todos</option></select></label>
+      <label>Sucursal <select id="sg-suc"><option value="">Todas</option></select></label>
+      <label>Buscar <input type="search" id="sg-buscar" placeholder="Texto, cliente…" maxlength="60"></label>
+      <button type="button" class="rp-btn" id="sg-csv">Descargar Excel (CSV)</button>
+    </div>
+  </header>
+  <p class="rp-msg" id="sg-msg" role="status" aria-live="polite">Cargando…</p>
+  <section class="rp-kpis" id="sg-kpis"></section>
+  <section class="rp-card"><h2>Por tema</h2><p class="rp-muted">Cuántas sugerencias llegaron de cada tema en el período, y cuántas siguen sin atender.</p><div class="rp-scroll" id="sg-temas"></div></section>
+  <section class="sg-lista" id="sg-lista" aria-label="Sugerencias"></section>
+</main>
+<script src="sugerencias.js?v=1"></script>
+</body>
+</html>

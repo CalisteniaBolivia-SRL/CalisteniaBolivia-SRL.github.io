@@ -76,3 +76,15 @@ La pantalla 5 muestra el resumen del día y responde lo básico. Para conversar 
 
 1. En claude.ai: Proyectos → Crear proyecto «Capital Corp», pegar las instrucciones del caballero de negocios y activar el conector Calistenia Bolivia (y el del ERP de Paraguay cuando esté reconectado).
 2. En la computadora del muro: abrir el proyecto, copiar su enlace (https://claude.ai/project/…) y pegarlo en la pantalla 5 con «Elegir el proyecto de Claude de este equipo». Queda guardado en ese equipo.
+
+## Buzón de sugerencias (permisos `rrhh` y `direccion`)
+
+Tablero **Buzón de sugerencias** (`sugerencias.html`, también desde Recursos Humanos). Los clientes escriben desde la app de clientes (**Perfil → Buzón de sugerencias**).
+
+- **Cómo llega:** la app crea el documento directo en Firestore, sin sesión (API REST con la clave web del proyecto). Las reglas solo le permiten **crear**: no puede leer, editar ni borrar nada. Bolivia escribe en `rh_sugerencia` y Paraguay en `py_rh_sugerencia`.
+- **Validación (reglas):** campos permitidos, tema de una lista fija, mensaje de 5 a 2000 caracteres, estado `nueva`, origen `app`. Si es **anónima**, no puede traer nombre, teléfono, correo ni key de usuario.
+- **Gestión:** RRHH y Dirección (en Paraguay, los permisos de su ERP) leen y solo cambian `estado` (nueva, revision, resuelta, archivada), `nota` y quién/cuándo la atendió. No se borra.
+- **Pruebas de las reglas:** `pruebas/sugerencias.reglas.test.mjs` (instrucciones adentro).
+
+### Activación
+Publicar `firestore.rules` (como siempre). No necesita funciones nuevas.
