@@ -9,7 +9,7 @@
     /* Comisión de Atención al Cliente por venta confirmada, en la moneda de cada país. */
     window.CM_COMISION = pais === "paraguay" ? 10000 : 5;
     if (pais !== "paraguay") return;
-    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html", "asistente.html", "referidos.html", "jarvis.html", "mantenimiento.html", "calificaciones.html", "tareas.html"];
+    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html", "asistente.html", "referidos.html", "jarvis.html", "mantenimiento.html", "calificaciones.html", "tareas.html", "denuncia.html", "denuncias.html"];
     var pag = location.pathname.split("/").pop() || "index.html";
     document.documentElement.classList.add("cm-py");
     function aplicar() {
