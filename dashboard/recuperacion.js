@@ -290,12 +290,12 @@
         });
         return cargaXlsx;
     }
-    var COLS = ["N°", "Grupo", "Cliente", "Teléfono", "WhatsApp", "Dato", "Promoción a ofrecer", "Mensaje sugerido", "Resultado", "Observaciones"];
+    var COLS = ["N°", "Grupo", "Cliente", "Teléfono", "WhatsApp", "Dato", "Promoción a ofrecer", "Mensaje sugerido", "Resultado", "Observaciones", "Correo"];
     function hojaLista(X, lista, titulo) {
         var filasHoja = [[titulo], ["Preparada por Atención al Cliente el " + larga(P.fecha) + ". Resultado: Compró · Lo va a pensar · No contesta · No le interesa · Número equivocado."], [], COLS];
         lista.forEach(function (c, i) {
             var s = SEG[c.seg];
-            filasHoja.push([i + 1, s.n + ". " + s.titulo, c.cliente, c.telefono, linkWa(c) ? "Abrir chat" : "Sin número válido", c.dato, promoVisible(s) || "Sin promoción (seguimiento)", mensajePara(c), "", ""]);
+            filasHoja.push([i + 1, s.n + ". " + s.titulo, c.cliente, c.telefono, linkWa(c) ? "Abrir chat" : "Sin número válido", c.dato, promoVisible(s) || "Sin promoción (seguimiento)", mensajePara(c), "", "", (P.correos && P.correos[String(c.key)]) || ""]);
         });
         var ws = X.utils.aoa_to_sheet(filasHoja);
         lista.forEach(function (c, i) {
@@ -502,6 +502,18 @@
                 campana_id: exclusivo(s) ? P.fecha + "_" + s.id : null, paquete_key: exclusivo(s) ? exclusivo(s).key : null, paquete_nombre: exclusivo(s) ? exclusivo(s).nombre : null };
         });
     }
+    /* Busca el correo en la ficha del ERP (ver_cliente), 6 a la vez, una sola vez por cliente en esta carga. */
+    P.correos = {};
+    function conCorreos(lista) {
+        var faltan = lista.filter(function (c) { return !(c.key_cliente in P.correos); }), i = 0;
+        function sig() {
+            if (i >= faltan.length) return Promise.resolve();
+            var c = faltan[i++];
+            return llamar("ver_cliente", { key_usuario: c.key_cliente }).then(function (r) { var cl = (r && (r.cliente || (r.result && r.result.cliente))) || {}; P.correos[c.key_cliente] = String(cl.correo || "").trim(); },
+                function () { P.correos[c.key_cliente] = ""; }).then(sig);
+        }
+        return Promise.all([sig(), sig(), sig(), sig(), sig(), sig()]).then(function () { lista.forEach(function (c) { if (P.correos[c.key_cliente]) c.correo = P.correos[c.key_cliente]; }); });
+    }
     /* Asigna las 2 listas de una sucursal. Si la misma ATC tiene las dos, se le asignan juntas. */
     /* ATC que reciben lista en una sucursal: las elegidas en la tabla y, con «Repartir entre todas», además todas las
        ATC activas que tienen esa sucursal en Equipo (antes solo había 2 listas por sucursal y la tercera ATC quedaba sin nada). */
@@ -533,16 +545,18 @@
         var asignados = {}; pedidos.forEach(function (q) { q.clientes.forEach(function (c) { asignados[c.key_cliente] = 1; }); });
         if (soloEj) pedidos = pedidos.filter(function (q) { return q.ej === soloEj; });
         var resto = x.todos.filter(function (c) { return !asignados[String(c.key).replace(/\//g, "-").slice(0, 120)]; });
-        var hechos = [];
-        return pedidos.reduce(function (p, q) {
+        var hechos = [], restoPaq = paquete(resto, 0);
+        /* Correo de cada cliente (de su ficha del ERP): para los de las listas y los primeros de la cola. */
+        var paraCorreo = []; pedidos.forEach(function (q) { paraCorreo = paraCorreo.concat(q.clientes); });
+        return conCorreos(paraCorreo.concat(restoPaq.slice(0, 120))).then(function () { return pedidos.reduce(function (p, q) {
             return p.then(function () {
                 return P.ctx.llamar("comercial_plan_asignar", { key_ejecutiva: q.ej, sucursal: x.sucursal, lista_n: q.n, clientes: q.clientes, nota: P.prefs.nota || "", reemplazar: P.prefs.reemplazar !== false })
                     .then(function () { hechos.push(nombreAtc(q.ej) + " (" + q.clientes.length + ")"); });
             });
-        }, Promise.resolve()).then(function () {
+        }, Promise.resolve()); }).then(function () {
             P.enCola = soloEj ? 0 : P.enCola;
             if (!pedidos.length) return hechos;
-            return P.ctx.llamar("comercial_cola_guardar", { sucursal: x.sucursal, clientes: paquete(resto, 0), tanda: Number(P.prefs.max) || 40, nota: P.prefs.nota || "" })
+            return P.ctx.llamar("comercial_cola_guardar", { sucursal: x.sucursal, clientes: restoPaq, tanda: Number(P.prefs.max) || 40, nota: P.prefs.nota || "" })
                 .then(function () { P.enCola = (P.enCola || 0) + resto.length; return hechos; }, function () { return hechos; });
         });
     }

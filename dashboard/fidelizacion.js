@@ -86,7 +86,7 @@
     /* ---------- estado ---------- */
     var F = { cont: null, ctx: null, vista: "listas", lista: null, suc: null, filtro: "pendientes", ver: POR_TANDA, cargando: false, cargado: false, errores: {}, sinDatos: {},
         datos: { porVencer: [], sinAsistir: [] }, paquetes: [], config: {}, contactos: [], abierto: {}, borrador: {}, guardando: {}, canal: {},
-        msgLista: {}, vivas: [], periodo: "mes", mes: { res: null, cargando: false, error: null }, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
+        msgLista: {}, vivas: [], correos: {}, periodo: "mes", mes: { res: null, cargando: false, error: null }, res: null, resCargando: false, resError: null, verRes: POR_TANDA };
 
     function llamar(tool, args) {
         return (F.ctx && F.ctx.llamar ? F.ctx.llamar(tool, args || {}) : window.CM.llamar(tool, args || {})).then(function (r) {
@@ -332,9 +332,22 @@
         var hrefWa = function () { var t = texto(); return "https://wa.me/" + wa + (t ? "?text=" + encodeURIComponent(t) : ""); };
         var previa = el("p", { class: "fd-previa-c" });
         var hist = u ? el("p", { class: "fd-hist" + (u.resultado === "renueva" ? " is-ok" : "") }, [ico("reloj"), " " + textoRes(u.resultado, l.id) + " · " + corta(u.fecha_on) + (u.motivo ? " · " + MOTIVO[u.motivo] : "") + (u.nota ? " · «" + u.nota.slice(0, 120) + "»" : "")]) : null;
+        /* Correo: se busca en la ficha del ERP cuando el cliente aparece en pantalla (no se repinta la lista). */
+        var slotCorreo = el("span", { class: "fd-correo-slot" });
+        var ponerCorreo = function () {
+            var co = F.correos[k]; slotCorreo.textContent = "";
+            if (!co) return;
+            var asunto = "Calistenia Company" + (c.sucursal ? " " + c.sucursal : "") + " · " + primerNombre(c.cliente);
+            slotCorreo.appendChild(el("a", { class: "fd-tel", href: "mailto:" + encodeURIComponent(co) + "?subject=" + encodeURIComponent(asunto) + "&body=" + encodeURIComponent(texto()), title: co,
+                onclick: function (e) { e.currentTarget.href = "mailto:" + encodeURIComponent(co) + "?subject=" + encodeURIComponent(asunto) + "&body=" + encodeURIComponent(texto()); F.canal[k] = "correo"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("correo"), " Correo"]));
+        };
+        F.slotCorreo = F.slotCorreo || {}; F.slotCorreo[k] = ponerCorreo;   // la fila vigente (si se repinta mientras se busca)
+        if (k in F.correos) ponerCorreo();
+        else { F.correos[k] = ""; llamar("ver_cliente", { key_usuario: k }).then(function (r) { var cl = (r && r.cliente) || {}; F.correos[k] = String(cl.correo || "").trim(); F.slotCorreo[k](); }, function () {}); }
         var acciones = el("div", { class: "fd-acc" }, [
             wa ? el("a", { class: "fd-wa", href: hrefWa(), target: "_blank", rel: "noopener", onclick: function (e) { e.currentTarget.href = hrefWa(); F.canal[k] = "whatsapp"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("whatsapp"), " WhatsApp"]) : el("span", { class: "fd-sintel", text: "Sin teléfono válido" }),
             c.telefono ? el("a", { class: "fd-tel", href: "tel:" + String(c.telefono).replace(/[^\d+]/g, ""), onclick: function () { F.canal[k] = "llamada"; if (!abierto) { F.abierto[k] = true; setTimeout(pintar, 300); } } }, [ico("telefono"), " Llamar"]) : null,
+            slotCorreo,
             !abierto ? el("button", { type: "button", class: "fd-link", text: u ? "Registrar otro contacto" : "Registrar cómo fue", onclick: function () { F.abierto[k] = true; pintar(); } }) : null
         ]);
         var art = el("article", { class: "fd-fila" + (u && u.resultado === "renueva" ? " is-ok" : "") }, [

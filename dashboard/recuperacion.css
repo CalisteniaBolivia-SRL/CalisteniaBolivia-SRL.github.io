@@ -455,3 +455,9 @@
 .fd-card-r { margin: 0; font-size: .86em; color: var(--fd-ok); }
 .fd-descargar { margin-left: auto; font: inherit; font-weight: 600; background: #F2F3F5 !important; color: #0F1115 !important; border-color: #F2F3F5 !important; }
 @media (max-width: 560px) { .fd-cont-d { border-right: 0; margin-right: 0; } .fd-descargar { margin-left: 0; } }
+#co-contenido .ml-correo { background: var(--ml-card, #16181B); color: #FFFFFF; border: 1px solid var(--ml-line2, #3A3E44); }
+#co-contenido .ml-correo:hover { border-color: #FFFFFF; }
+#co-contenido .ml-correo-t { margin: 0; font-size: .88em; color: var(--ml-muted, #A4A8AF); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; word-break: break-all; }
+#co-contenido .ml-correo-t svg { width: 15px; height: 15px; }
+#co-contenido .ml-correo-in { font: inherit; background: #0D0E10; color: #FFFFFF; border: 1px solid var(--ml-line2, #3A3E44); border-radius: 0; padding: 7px 9px; min-width: 0; flex: 1 1 200px; }
+#co-contenido .ml-correo-in:focus { outline: none; border-color: #FFFFFF; }
