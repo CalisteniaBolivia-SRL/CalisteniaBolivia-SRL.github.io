@@ -263,12 +263,27 @@
                 .then(function (url) { location.href = url; })
                 .catch(function (e) { res.textContent = textoError(e); btn.disabled = false; });
         };
+        /* Webhooks de Meta: los registra el servidor con sus claves (el token de verificación no pasa por el navegador). */
+        var resAv = el("p", { class: "lg-muted", "aria-live": "polite" });
+        var btnAv = el("button", { type: "button", class: "lg-btn" }, ["Activar avisos de Meta"]);
+        btnAv.onclick = function () {
+            btnAv.disabled = true; resAv.textContent = "Registrando los avisos en Meta…";
+            var u = window.firebase && firebase.auth().currentUser;
+            (u ? u.getIdToken() : Promise.reject(new Error("Tu sesión venció: salí y volvé a entrar con tu usuario del ERP."))).then(function (t) {
+                return fetch(PUENTE_IG, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ accion: "avisos", pais: pais.value }) });
+            }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Error " + r.status); return j; }); }).then(function (j) {
+                var nom = { instagram: "Instagram", page: "Página de Facebook" };
+                resAv.textContent = (j.resultados || []).map(function (x) { return (nom[x.objeto] || x.objeto) + ": " + (x.ok ? "activo (" + x.campos + ")" : "no se pudo — " + x.error); }).join(" · ");
+            }).catch(function (e) { resAv.textContent = textoError(e); }).then(function () { btnAv.disabled = false; });
+        };
         var directas = estado.cuentas.filter(function (c) { return c.plataforma === "instagram"; });
         return el("section", { class: "rs-form rs-conectar is-ig" }, [
             el("h3", { class: "lg-h3", text: "Conectar Instagram" }),
             el("p", { class: "lg-muted", text: "Tocá el botón, entrá con el usuario de Facebook que administra la página vinculada al Instagram de la empresa y aceptá los permisos (elegí la página y su Instagram). Desde ese momento se responden solos los comentarios y mensajes directos. No hace falta portafolio comercial." }),
             el("div", { class: "rs-fila" }, [el("label", {}, ["País de esta cuenta", pais]), el("div", { class: "rs-fb-wrap" }, [btn])]),
             res,
+            el("div", { class: "rs-fila" }, [el("p", { class: "lg-muted", text: "Una sola vez (o si Meta deja de avisar): registra en Meta la dirección donde llegan los comentarios y mensajes." }), el("div", { class: "rs-fb-wrap" }, [btnAv])]),
+            resAv,
             directas.length ? el("p", { class: "lg-muted", text: "Instagram conectados: " + directas.map(function (c) { return c.nombre + " (" + (PAISES[c.pais] || c.pais) + ")"; }).join(", ") + ". Si cambian la contraseña de Facebook o quitan los permisos, vuelvan a tocar «Conectar Instagram»." }) : null
         ]);
     }

@@ -18,6 +18,10 @@ const { defineSecret } = require("firebase-functions/params");
 if (!admin.apps.length) admin.initializeApp();
 const IG_APP_ID = defineSecret("IG_APP_ID");
 const IG_APP_SECRET = defineSecret("IG_APP_SECRET");
+const META_VERIFY_TOKEN = defineSecret("META_VERIFY_TOKEN");
+const WEBHOOK = "https://southamerica-east1-centro-de-comando-a57cf.cloudfunctions.net/metaWebhook";
+/* Avisos que la app recibe de Meta: comentarios y mensajes de Instagram, y publicaciones/mensajes de la página. */
+const SUSCRIPCIONES = [{ object: "instagram", fields: "comments,messages" }, { object: "page", fields: "feed,messages,message_echoes" }];
 const REGION = "southamerica-east1";
 const IG_GRAPH = "https://graph.instagram.com/v21.0";
 const REDIRECCION = "https://southamerica-east1-centro-de-comando-a57cf.cloudfunctions.net/igConectar";
@@ -98,7 +102,27 @@ async function completar(db, codigo, estadoDoc, deps) {
     return { id, nombre, pais, suscrita };
 }
 
-exports.igConectar = onRequest({ region: REGION, cors: ORIGENES, secrets: [IG_APP_ID, IG_APP_SECRET], maxInstances: 2, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {
+/* Registra los webhooks de la app de Meta desde el servidor (el token de verificación nunca pasa por el navegador).
+   Meta verifica en el momento llamando a metaWebhook con ese token. */
+async function activarAvisos(deps) {
+    const p = (deps && deps.pedir) || pedir;
+    const appId = deps && deps.appId != null ? deps.appId : IG_APP_ID.value(), secreto = deps && deps.appSecret != null ? deps.appSecret : IG_APP_SECRET.value();
+    const verif = deps && deps.verifyToken != null ? deps.verifyToken : META_VERIFY_TOKEN.value();
+    const tokApp = appId + "|" + secreto, out = [];
+    for (const s of SUSCRIPCIONES) {
+        try {
+            await p(FB_GRAPH + "/" + encodeURIComponent(appId) + "/subscriptions", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({ object: s.object, callback_url: WEBHOOK, fields: s.fields, include_values: "true", verify_token: verif, access_token: tokApp }).toString() });
+            out.push({ objeto: s.object, ok: true, campos: s.fields });
+        } catch (e) { out.push({ objeto: s.object, ok: false, error: String(e.message).slice(0, 300) }); }
+    }
+    let actuales = [];
+    try { const j = await p(FB_GRAPH + "/" + encodeURIComponent(appId) + "/subscriptions?access_token=" + encodeURIComponent(tokApp)); actuales = (j.data || []).map((x) => ({ objeto: x.object, activa: x.active, campos: (x.fields || []).map((f) => f.name || f).join(",") })); }
+    catch (e) { console.warn("ig: leer suscripciones", e.message); }
+    return { resultados: out, actuales };
+}
+
+exports.igConectar = onRequest({ region: REGION, cors: ORIGENES, secrets: [IG_APP_ID, IG_APP_SECRET, META_VERIFY_TOKEN], maxInstances: 2, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {
     const db = admin.firestore();
     /* 1) El panel pide la dirección de autorización. */
     if (req.method === "POST") {
@@ -106,6 +130,10 @@ exports.igConectar = onRequest({ region: REGION, cors: ORIGENES, secrets: [IG_AP
         const t = await verificar(req, pais);
         if (!t) return res.status(401).json({ error: "Sesión vencida o sin permiso (Marketing o Dirección). Salí y volvé a entrar con tu usuario del ERP." });
         if (!IG_APP_ID.value() || !IG_APP_SECRET.value()) return res.status(500).json({ error: "Falta cargar las claves de la app de Instagram (IG_APP_ID e IG_APP_SECRET)." });
+        if (req.body && req.body.accion === "avisos") {
+            try { return res.json(await activarAvisos()); }
+            catch (e) { console.error("ig: avisos", e.message); return res.status(502).json({ error: String(e.message).slice(0, 300) }); }
+        }
         const estado = crypto.randomBytes(24).toString("hex");
         await db.collection("rs_ig_estado").doc(estado).set({ uid: t.uid, pais, fecha: ahora(), vence: Date.now() + 15 * 60000 });
         const url = "https://www.facebook.com/v21.0/dialog/oauth?" + new URLSearchParams({ client_id: IG_APP_ID.value(), redirect_uri: REDIRECCION, response_type: "code",
@@ -147,6 +175,6 @@ async function completarFacebook(db, codigo, estadoDoc, deps) {
     return (await ref.get()).data();
 }
 
-exports._internos = { tokenDe, completar, completarFacebook, verificar, IG_GRAPH, REDIRECCION, PERMISOS };
+exports._internos = { tokenDe, completar, completarFacebook, activarAvisos, verificar, IG_GRAPH, REDIRECCION, PERMISOS };
 exports.IG_APP_ID = IG_APP_ID;
 exports.IG_APP_SECRET = IG_APP_SECRET;
