@@ -1,12 +1,14 @@
 /* =====================================================================================================
-   Conexión directa de Instagram («Instagram API with Instagram Login»): sin página de Facebook ni portafolio.
-   1. El panel de Redes (permiso marketing o Dirección) pide la dirección de autorización (POST con su sesión).
-   2. Instagram muestra su propia pantalla: se entra con el usuario de Instagram de la empresa y se toca «Permitir».
-   3. Instagram vuelve a esta función con un código: se cambia por un acceso de larga duración (60 días), se guarda
-      la cuenta (rs_cuenta) y su acceso (rs_token, api: "instagram"; solo lo lee el servidor) y se la suscribe a los
-      avisos de comentarios y mensajes. Desde ahí, metaWebhook y las respuestas automáticas funcionan igual que antes.
-   4. El acceso se renueva solo cuando tiene más de 20 días (tokenDe).
-   Claves en Secret Manager: IG_APP_ID e IG_APP_SECRET (de la app de Meta, producto «Instagram»).
+   Conectar Instagram (y su página de Facebook) desde el panel de Redes, con el inicio de sesión de Facebook
+   hecho del lado del servidor (sin el SDK de Facebook en la página y sin portafolio comercial):
+   1. El panel (permiso marketing o Dirección) pide la dirección de autorización (POST con su sesión).
+   2. Facebook muestra su pantalla: se entra con el usuario de Facebook que administra la página vinculada al
+      Instagram de la empresa y se aceptan los permisos.
+   3. Facebook vuelve a esta función con un código: se cambia por un acceso de usuario de larga duración y
+      vincular() (redes.js) guarda las páginas y sus cuentas de Instagram con sus accesos (rs_cuenta, rs_token;
+      solo los lee el servidor) y las suscribe a los avisos de comentarios y mensajes.
+   (Se conserva el soporte de cuentas «instagram_directo» —Instagram Login— por si Meta lo habilita más adelante.)
+   Claves en Secret Manager: IG_APP_ID (id de la app de Meta) e IG_APP_SECRET (su clave secreta).
    ===================================================================================================== */
 const crypto = require("crypto");
 const admin = require("firebase-admin");
@@ -21,7 +23,8 @@ const IG_GRAPH = "https://graph.instagram.com/v21.0";
 const REDIRECCION = "https://southamerica-east1-centro-de-comando-a57cf.cloudfunctions.net/igConectar";
 const PANEL = "https://calisteniabolivia-srl.github.io/dashboard/redes.html";
 const ORIGENES = ["https://calisteniabolivia-srl.github.io"].concat(process.env.ORIGEN_EXTRA ? [process.env.ORIGEN_EXTRA] : []);
-const PERMISOS = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments";
+const FB_GRAPH = "https://graph.facebook.com/v21.0";
+const PERMISOS = "pages_show_list,pages_read_engagement,pages_manage_metadata,pages_manage_engagement,pages_read_user_content,pages_messaging,instagram_basic,instagram_manage_comments,instagram_manage_messages,business_management";
 const RENOVAR_DIAS = 20;
 const ahora = () => new Date().toISOString();
 
@@ -105,28 +108,45 @@ exports.igConectar = onRequest({ region: REGION, cors: ORIGENES, secrets: [IG_AP
         if (!IG_APP_ID.value() || !IG_APP_SECRET.value()) return res.status(500).json({ error: "Falta cargar las claves de la app de Instagram (IG_APP_ID e IG_APP_SECRET)." });
         const estado = crypto.randomBytes(24).toString("hex");
         await db.collection("rs_ig_estado").doc(estado).set({ uid: t.uid, pais, fecha: ahora(), vence: Date.now() + 15 * 60000 });
-        const url = "https://www.instagram.com/oauth/authorize?" + new URLSearchParams({ enable_fb_login: "0", force_authentication: "1", client_id: IG_APP_ID.value(),
-            redirect_uri: REDIRECCION, response_type: "code", scope: PERMISOS, state: estado }).toString();
+        const url = "https://www.facebook.com/v21.0/dialog/oauth?" + new URLSearchParams({ client_id: IG_APP_ID.value(), redirect_uri: REDIRECCION, response_type: "code",
+            scope: PERMISOS, state: estado, auth_type: "rerequest" }).toString();
         return res.json({ url });
     }
     if (req.method !== "GET") return res.status(405).send("No");
-    /* 2) Instagram vuelve con el código (o con el aviso de que se canceló). */
+    /* 2) Facebook vuelve con el código (o con el aviso de que se canceló). */
     const q = req.query || {};
     const ref = q.state && /^[a-f0-9]{48}$/.test(String(q.state)) ? db.collection("rs_ig_estado").doc(String(q.state)) : null;
     const ed = ref ? await ref.get() : null;
     if (!ed || !ed.exists || !(Number(ed.data().vence) > Date.now())) return volverAlPanel(res, "bolivia", { ig: "error", motivo: "La autorización venció o no es válida. Volvé a tocar «Conectar Instagram»." });
     const estadoDoc = ed.data();
     await ref.delete().catch(() => {});
-    if (q.error || !q.code) return volverAlPanel(res, estadoDoc.pais, { ig: "error", motivo: q.error_description || "Se canceló la conexión en Instagram." });
+    if (q.error || !q.code) return volverAlPanel(res, estadoDoc.pais, { ig: "error", motivo: q.error_description || q.error_message || "Se canceló la conexión en Facebook." });
     try {
-        const r = await completar(db, String(q.code).replace(/#_$/, ""), estadoDoc);
-        return volverAlPanel(res, r.pais, { ig: r.suscrita ? "ok" : "sin_avisos", cuenta: r.nombre });
+        const r = await completarFacebook(db, String(q.code).replace(/#_$/, ""), estadoDoc);
+        if (r.estado !== "conectado") return volverAlPanel(res, estadoDoc.pais, { ig: "error", motivo: r.error || "No se encontraron páginas para conectar." });
+        const ig = (r.cuentas || []).filter((c) => c.red === "instagram").map((c) => c.nombre);
+        return volverAlPanel(res, estadoDoc.pais, ig.length ? { ig: "ok", cuenta: ig.join(", ") }
+            : { ig: "sin_ig", cuenta: (r.cuentas || []).map((c) => c.nombre).join(", ") });
     } catch (e) {
         console.error("igConectar", e.message);
         return volverAlPanel(res, estadoDoc.pais, { ig: "error", motivo: String(e.message).slice(0, 200) });
     }
 });
 
-exports._internos = { tokenDe, completar, verificar, IG_GRAPH, REDIRECCION };
+/* Código de Facebook → acceso de usuario → páginas e Instagram (vincular de redes.js, el mismo de «Conectar con Facebook»). */
+async function completarFacebook(db, codigo, estadoDoc, deps) {
+    const p = (deps && deps.pedir) || pedir;
+    const appId = deps && deps.appId != null ? deps.appId : IG_APP_ID.value(), secreto = deps && deps.appSecret != null ? deps.appSecret : IG_APP_SECRET.value();
+    const t = await p(FB_GRAPH + "/oauth/access_token?" + new URLSearchParams({ client_id: appId, client_secret: secreto, redirect_uri: REDIRECCION, code: codigo }).toString());
+    if (!t.access_token) throw new Error("Facebook no entregó el acceso.");
+    const ref = db.collection("rs_vinculo").doc();
+    const v = { pais: estadoDoc.pais === "paraguay" ? "paraguay" : "bolivia", paginas: [], creado_por: estadoDoc.uid || null, fecha: ahora(), estado: "servidor", origen: "igConectar" };
+    await ref.set(v);
+    const redes = require("./redes");   // aquí y no arriba: redes.js también usa este archivo
+    await redes._internos.vincular(db, ref, Object.assign({ user_token: t.access_token }, v), Object.assign({ appId, appSecret: secreto }, deps && deps.graph ? { graph: deps.graph } : {}));
+    return (await ref.get()).data();
+}
+
+exports._internos = { tokenDe, completar, completarFacebook, verificar, IG_GRAPH, REDIRECCION, PERMISOS };
 exports.IG_APP_ID = IG_APP_ID;
 exports.IG_APP_SECRET = IG_APP_SECRET;

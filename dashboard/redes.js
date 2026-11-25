@@ -47,11 +47,12 @@
     var mPais = /[?&]pais=(bolivia|paraguay)\b/.exec(location.search);
     if (mPais) estado.pais = mPais[1];
     /* Vuelta desde Instagram (conexión directa): se muestra el resultado en Configuración. */
-    var mIg = /[?&]ig=(ok|error|sin_avisos)\b/.exec(location.search);
+    var mIg = /[?&]ig=(ok|error|sin_avisos|sin_ig)\b/.exec(location.search);
     if (mIg) {
         var qp = new URLSearchParams(location.search);
         estado.pestana = "config";
         estado.igAviso = mIg[1] === "ok" ? ["ok", "Instagram conectado: " + (qp.get("cuenta") || "") + ". Desde ahora se responden solos sus comentarios y mensajes."]
+            : mIg[1] === "sin_ig" ? ["warn", "Se conectó " + (qp.get("cuenta") || "la página") + ", pero no tiene un Instagram profesional vinculado. En Instagram: Configuración → Cuenta → Compartir en otras apps / Página vinculada, vinculá la página y volvé a tocar «Conectar Instagram»."]
             : mIg[1] === "sin_avisos" ? ["warn", "Instagram " + (qp.get("cuenta") || "") + " quedó conectado, pero Instagram no aceptó la suscripción a los avisos. Revisá que en la app de Meta estén configurados los Webhooks de Instagram y volvé a tocar «Conectar Instagram»."]
             : ["bad", "No se pudo conectar Instagram: " + (qp.get("motivo") || "error")];
         try { history.replaceState(null, "", location.pathname + (estado.pais ? "?pais=" + estado.pais : "") + "#config"); } catch (e) {}
@@ -254,21 +255,21 @@
         var res = el("p", { class: "lg-muted", "aria-live": "polite" });
         var btn = el("button", { type: "button", class: "rs-ig" }, ["Conectar Instagram"]);
         btn.onclick = function () {
-            btn.disabled = true; res.textContent = "Abriendo Instagram…";
+            btn.disabled = true; res.textContent = "Abriendo Facebook…";
             var u = window.firebase && firebase.auth().currentUser;
             (u ? u.getIdToken() : Promise.reject(new Error("Tu sesión venció: salí y volvé a entrar con tu usuario del ERP."))).then(function (t) {
                 return fetch(PUENTE_IG, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ pais: pais.value }) });
-            }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.url) throw new Error(j.error || "No se pudo abrir Instagram (" + r.status + ")."); return j.url; }); })
+            }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.url) throw new Error(j.error || "No se pudo abrir la conexión (" + r.status + ")."); return j.url; }); })
                 .then(function (url) { location.href = url; })
                 .catch(function (e) { res.textContent = textoError(e); btn.disabled = false; });
         };
-        var directas = estado.cuentas.filter(function (c) { return c.conexion === "instagram_directo"; });
+        var directas = estado.cuentas.filter(function (c) { return c.plataforma === "instagram"; });
         return el("section", { class: "rs-form rs-conectar is-ig" }, [
             el("h3", { class: "lg-h3", text: "Conectar Instagram" }),
-            el("p", { class: "lg-muted", text: "Tocá el botón, entrá con el usuario y la contraseña del Instagram de la empresa y tocá «Permitir». Desde ese momento se responden solos sus comentarios y mensajes directos. No hace falta la página de Facebook." }),
+            el("p", { class: "lg-muted", text: "Tocá el botón, entrá con el usuario de Facebook que administra la página vinculada al Instagram de la empresa y aceptá los permisos (elegí la página y su Instagram). Desde ese momento se responden solos los comentarios y mensajes directos. No hace falta portafolio comercial." }),
             el("div", { class: "rs-fila" }, [el("label", {}, ["País de esta cuenta", pais]), el("div", { class: "rs-fb-wrap" }, [btn])]),
             res,
-            directas.length ? el("p", { class: "lg-muted", text: "Conectadas así: " + directas.map(function (c) { return c.nombre + " (" + (PAISES[c.pais] || c.pais) + ")"; }).join(", ") + ". Si cambian la contraseña de Instagram, vuelvan a tocar «Conectar Instagram»." }) : null
+            directas.length ? el("p", { class: "lg-muted", text: "Instagram conectados: " + directas.map(function (c) { return c.nombre + " (" + (PAISES[c.pais] || c.pais) + ")"; }).join(", ") + ". Si cambian la contraseña de Facebook o quitan los permisos, vuelvan a tocar «Conectar Instagram»." }) : null
         ]);
     }
     function seccionConectar() {
