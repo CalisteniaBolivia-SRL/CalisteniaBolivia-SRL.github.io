@@ -714,5 +714,15 @@ service cloud.firestore {
       }
     }
 
+
+    // ---------- Estudio creativo de Marketing: los paquetes los guarda la función «creativo»; Marketing y Dirección los leen ----------
+    match /mkt_creativo/{id} {
+      allow read: if permiso('marketing') || permiso('direccion');
+      allow write: if false;
+    }
+    match /py_mkt_creativo/{id} {
+      allow read: if permisoPY('marketing') || permisoPY('direccion');
+      allow write: if false;
+    }
   }
 }

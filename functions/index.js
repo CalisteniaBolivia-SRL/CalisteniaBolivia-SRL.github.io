@@ -153,6 +153,8 @@ exports.igConectar = require("./redes-ig").igConectar;
 
 /* Asistente «Capital Corp» de la pantalla central del muro (asistente.js). */
 exports.asistente = require("./asistente").asistente;
+/* «Estudio creativo» de Marketing: paquete creativo completo y prompts para cada IA (creativo.js). */
+exports.creativo = require("./creativo").creativo;
 
 /* Asistente de voz en tiempo real (Gemini Live): entrega el token temporal. */
 exports.liveToken = require("./live").liveToken;
