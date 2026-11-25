@@ -149,6 +149,7 @@ exports.rsNuevoComentario = redes.rsNuevoComentario;
 exports.rsComentarioCambio = redes.rsComentarioCambio;
 exports.rsMensajeNuevo = redes.rsMensajeNuevo;
 exports.rsVincular = redes.rsVincular;
+exports.igConectar = require("./redes-ig").igConectar;
 
 /* Asistente «Capital Corp» de la pantalla central del muro (asistente.js). */
 exports.asistente = require("./asistente").asistente;
