@@ -60,7 +60,7 @@
     var LISTA_CRM = { vencen: "por_vencer", nunca: "en_riesgo", riesgo: "en_riesgo", v1: "vencidos", v16: "vencidos", v46: "vencidos", v91: "vencidos", pases: "vencidos", cumple: "otro" };
     var INTENTO = ["Primer contacto", "Segundo contacto", "Tercer contacto", "Cuarto contacto"];
 
-    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {}, ver: 10 };
+    var M = { cont: null, ctx: null, canal: {}, filtro: "pendientes", guardando: {}, buscar: "", abierto: {}, ver: 10, correos: {}, editCorreo: {} };
     var DE_A = 10; /* tarjetas por tanda: se ven 10 y se cargan 10 más al bajar (o con «Ver más») */
 
     function misClientes() {
@@ -77,6 +77,28 @@
             }
             return Object.assign({}, a, { ultima: tocado ? g : null, estado: estado, intentos: tocado ? (g.contactos || 1) : 0 });
         }).sort(function (x, y) { return (x.estado === "seguir" ? 0 : 1) - (y.estado === "seguir" ? 0 : 1) || (x.orden || 0) - (y.orden || 0); });
+    }
+
+    /* ---------- Correo ---------- */
+    function correoDe(c) { return M.correos[c.key_cliente] || c.correo || ""; }
+    function mailto(c, msj) {
+        var asunto = "Calistenia Company" + (c.sucursal ? " " + c.sucursal : "") + " · " + (String(c.cliente || "").split(" ")[0] || "Hola");
+        return "mailto:" + encodeURIComponent(correoDe(c)) + "?subject=" + encodeURIComponent(asunto) + "&body=" + encodeURIComponent(msj || "");
+    }
+    function filaCorreo(c) {
+        var k = c.key_cliente, co = correoDe(c);
+        if (co && !M.editCorreo[k]) return el("p", { class: "ml-correo-t" }, [ico("correo"), " " + co + " ", !M.ctx.soloVer ? el("button", { type: "button", class: "ml-link", text: "Cambiar", onclick: function () { M.editCorreo[k] = true; pintar(); } }) : null]);
+        if (M.ctx.soloVer && !M.ctx.gestionar) return null;
+        if (!M.editCorreo[k]) return el("p", { class: "ml-correo-t" }, [el("button", { type: "button", class: "ml-link", text: "+ Agregar correo", onclick: function () { M.editCorreo[k] = true; pintar(); } })]);
+        var inp = el("input", { type: "email", class: "ml-correo-in", placeholder: "nombre@gmail.com", value: co, maxlength: "120", "aria-label": "Correo de " + (c.cliente || "") });
+        var guardar = function () {
+            var v = inp.value.trim();
+            M.ctx.llamar("comercial_correo_guardar", { key_cliente: k, correo: v }).then(function (x) {
+                M.correos[k] = (x && x.data && x.data.correo) || v.toLowerCase(); M.editCorreo[k] = false; M.ctx.avisar("Correo guardado: " + M.correos[k]); pintar();
+            }, function (e) { M.ctx.avisar((e && e.message) || "No se pudo guardar el correo.", "bad"); });
+        };
+        inp.addEventListener("keydown", function (e) { if (e.key === "Enter") guardar(); });
+        return el("p", { class: "ml-correo-t is-edit" }, [inp, el("button", { type: "button", class: "ml-btn", text: "Guardar", onclick: guardar }), el("button", { type: "button", class: "ml-link", text: "Cancelar", onclick: function () { M.editCorreo[k] = false; pintar(); } })]);
     }
 
     function registrar(c, res) {
@@ -159,11 +181,13 @@
             return el("article", { class: "ml-cli is-hecho" }, cuerpo);
         }
         cuerpo.push(
-            el("p", { class: "ml-paso", text: "Llamá primero. Si no atiende, mandá el mensaje por WhatsApp." }),
+            el("p", { class: "ml-paso", text: "Llamá primero. Si no atiende, mandá el mensaje por WhatsApp o por correo." }),
             el("div", { class: "ml-acc" }, [
                 tel ? el("a", { class: "ml-btn ml-llamar", href: "tel:+" + tel, onclick: marcar("llamada") }, [ico("telefono"), "Llamar"]) : el("span", { class: "ml-dato", text: "Sin teléfono válido" }),
-                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(msj), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null
+                wa ? el("a", { class: "ml-btn ml-wa", href: wa + "?text=" + encodeURIComponent(msj), target: "_blank", rel: "noopener", onclick: marcar("whatsapp") }, [ico("whatsapp", "cmi-wa"), "WhatsApp"]) : null,
+                correoDe(c) ? el("a", { class: "ml-btn ml-correo", href: mailto(c, msj), onclick: marcar("correo") }, [ico("correo"), "Correo"]) : null
             ]),
+            filaCorreo(c),
             guion ? el("details", { class: "ml-det" }, [el("summary", {}, [ico("guion"), "Guion de la llamada", ico("flecha", "ml-chev")]), el("p", { text: guion })]) : null,
             propio ? el("details", { class: "ml-det" }, [el("summary", {}, [ico("nota"), "Guion del Jefe de ATC", ico("flecha", "ml-chev")]), el("p", { text: propio })]) : null,
             msj ? el("details", { class: "ml-det ml-det-wa" }, [el("summary", {}, [ico("whatsapp"), "Mensaje que se envía", ico("flecha", "ml-chev")]), el("p", { class: "ml-burbuja", text: msj })]) : null
@@ -273,11 +297,11 @@
         if (M.filtro === "ventas") { cont.appendChild(misVentas(ctx, per, mias)); window.scrollTo(0, y); return; }
         var lista = M.filtro === "pendientes" ? pend : M.filtro === "hechos" ? hechos : [];
         if (M.filtro === "buscar") {
-            var inp = el("input", { type: "search", class: "ml-buscar", placeholder: "Nombre o teléfono", value: M.buscar, "aria-label": "Buscar cliente" });
+            var inp = el("input", { type: "search", class: "ml-buscar", placeholder: "Nombre, teléfono o correo", value: M.buscar, "aria-label": "Buscar cliente" });
             inp.addEventListener("input", function () { M.buscar = inp.value; M.ver = DE_A; clearTimeout(M.t); M.t = setTimeout(function () { pintar(); var b = M.cont.querySelector(".ml-buscar"); if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } }, 250); });
             cont.appendChild(inp);
             var q = norm(M.buscar).trim();
-            lista = q ? todos.filter(function (c) { return norm(c.cliente + " " + c.telefono).indexOf(q) >= 0; }) : [];
+            lista = q ? todos.filter(function (c) { return norm(c.cliente + " " + c.telefono + " " + (c.correo || "")).indexOf(q) >= 0; }) : [];
         }
         if (!lista.length) cont.appendChild(el("p", { class: "ml-vacio", text: M.filtro === "pendientes" ? "No te quedan clientes pendientes." : M.filtro === "hechos" ? "Todavía no contactaste a nadie de esta lista." : (M.buscar ? "No hay clientes con ese nombre o teléfono." : "Escribe un nombre o un teléfono.") }));
         var ul = el("div", { class: "ml-lista" });

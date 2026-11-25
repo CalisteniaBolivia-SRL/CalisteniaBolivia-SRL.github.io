@@ -28,7 +28,7 @@
     };
     var U = CMFB.util;
     var COMISION_BS = window.CM_COMISION || 5, VENTANA_DIAS = 15;
-    var CANALES = ["whatsapp", "llamada", "presencial", "otro"];
+    var CANALES = ["whatsapp", "llamada", "correo", "presencial", "otro"];
     var RESULTADOS = ["no_contesta", "interesado", "agendado", "no_interesado", "numero_errado", "ya_activo", "otro"];
     /* Cada país con sus datos: Paraguay usa las colecciones py_com_* (mismas reglas, permisos del ERP de Paraguay). */
     var col = function (n) { return U.db().collection((window.CM_PAIS === "paraguay" ? "py_" : "") + n); };
@@ -286,7 +286,7 @@
                 lote: lote, lista_n: n, sucursal: suc, orden: Number(c.orden) || 0, nota_jefa: nota,
                 cliente: rec(c, "cliente", 200), telefono: rec(c, "telefono", 40), grupo: rec(c, "grupo", 20), grupo_n: Number(c.grupo_n) || null,
                 grupo_titulo: rec(c, "grupo_titulo", 120), dato: rec(c, "dato", 200), promo: rec(c, "promo", 300), mensaje: rec(c, "mensaje", 1000),
-                campana_id: rec(c, "campana_id", 80), paquete_key: rec(c, "paquete_key", 120), paquete_nombre: rec(c, "paquete_nombre", 200) } });
+                campana_id: rec(c, "campana_id", 80), paquete_key: rec(c, "paquete_key", 120), paquete_nombre: rec(c, "paquete_nombre", 200), correo: correoValido(rec(c, "correo", 120)) } });
         });
         var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
         return col("com_ejecutiva").doc(ej).get().then(function (x) {
@@ -326,6 +326,15 @@
             return tanda().then(function () { return pc; }).then(function () { return { estado: "exito", data: { asignados: docs.length, dados_de_baja: viejos.length, lote: lote } }; });
         });
     });
+    /* Correo del cliente: viene de su ficha del ERP al asignar la lista, o lo carga la ATC / el Jefe a mano. */
+    function correoValido(v) { var t = String(v || "").trim().toLowerCase(); return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t) && t.length <= 120 ? t : null; }
+    CMFB.registrar("comercial_correo_guardar", function (a) {
+        var k = U.txt(a, "key_cliente", 120, true), c = correoValido(a.correo);
+        if (/[/]/.test(k)) throw U.err("El cliente no es válido.");
+        if (!c) throw U.err("Ese correo no es válido (ej.: nombre@gmail.com).");
+        return col("com_asignacion").doc(k).update({ correo: c, correo_por: CMFB.usuarioKey(), fecha_correo: U.ahora() }).then(function () { return { estado: "exito", data: { correo: c } }; });
+    });
+
     /* ---------- Cola automática por sucursal ----------
        Al asignar el Plan de hoy, los clientes de los grupos tildados que no entraron en las listas quedan en
        com_cola, en el mismo orden de prioridad. Cuando una ATC termina su lista, su pantalla toma sola la tanda
@@ -343,7 +352,7 @@
             docs.push({ id: k, d: { sucursal: suc, orden: i, tanda: tanda, estado: 1, tomado_por: null, lote: lote, nota_jefa: U.txt(a, "nota", 600, false),
                 cliente: rec(c, "cliente", 200), telefono: rec(c, "telefono", 40), grupo: rec(c, "grupo", 20), grupo_n: Number(c.grupo_n) || null, grupo_titulo: rec(c, "grupo_titulo", 120),
                 dato: rec(c, "dato", 200), promo: rec(c, "promo", 300), mensaje: rec(c, "mensaje", 1000), campana_id: rec(c, "campana_id", 80), paquete_key: rec(c, "paquete_key", 120), paquete_nombre: rec(c, "paquete_nombre", 200),
-                key_usuario_registro: CMFB.usuarioKey() } });
+                correo: correoValido(rec(c, "correo", 120)), key_usuario_registro: CMFB.usuarioKey() } });
         });
         var nuevos = {}; docs.forEach(function (x) { nuevos[x.id] = 1; });
         /* La cola anterior de la sucursal se reemplaza: lo que no se tomó y no está en la nueva se da de baja. */
@@ -392,7 +401,7 @@
                     b.set(col("com_asignacion").doc(c.id), { key_ejecutiva: e.key, motivo: "Cola automática · " + (c.grupo_titulo || ""), estado: 1, fecha_on: ahora, key_usuario_registro: e.key,
                         lote: ahora, lista_n: 1, sucursal: c.sucursal, orden: c.orden || 0, nota_jefa: c.nota_jefa || null, cliente: c.cliente || null, telefono: c.telefono || null,
                         grupo: c.grupo || null, grupo_n: c.grupo_n || null, grupo_titulo: c.grupo_titulo || null, dato: c.dato || null, promo: c.promo || null, mensaje: c.mensaje || null,
-                        campana_id: c.campana_id || null, paquete_key: c.paquete_key || null, paquete_nombre: c.paquete_nombre || null, auto: true });
+                        campana_id: c.campana_id || null, paquete_key: c.paquete_key || null, paquete_nombre: c.paquete_nombre || null, correo: c.correo || null, auto: true });
                     b.update(col("com_cola").doc(c.id), { estado: 0, tomado_por: e.key, fecha_tomado: ahora });
                     return b.commit().then(function () { tomados++; }, function () { reservados--; }).then(sig);
                 }

@@ -103,6 +103,10 @@ service cloud.firestore {
       allow read: if veComercial();
       allow delete: if central();
       // Jefe de ATC asigna; una ATC solo puede tomarse a sí misma un cliente que en ese mismo momento sale libre de la cola.
+      // La ATC puede cargar o corregir el correo de un cliente de su propia lista.
+      allow update: if soyATC() && resource.data.key_ejecutiva == yo()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['correo', 'correo_por', 'fecha_correo'])
+        && request.resource.data.correo is string && request.resource.data.correo.size() <= 120 && request.resource.data.correo_por == yo();
       allow create, update: if central() || (soyATC() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
         && exists(/databases/$(database)/documents/com_cola/$(cliente))
         && get(/databases/$(database)/documents/com_cola/$(cliente)).data.tomado_por == null
@@ -162,7 +166,7 @@ service cloud.firestore {
         && soloCampos(['lista', 'key_cliente', 'cliente', 'telefono', 'sucursal', 'paquete_actual', 'fecha_fin', 'canal', 'resultado', 'motivo', 'nota', 'paquete_ofrecido', 'estado', 'fecha_on', 'key_usuario_registro', 'registrado_por'])
         && request.resource.data.lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
         && request.resource.data.resultado in ['renueva', 'lo_piensa', 'no_contesta', 'no_renueva', 'numero_errado']
-        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'correo', 'presencial', 'otro']
         && (request.resource.data.motivo == null || request.resource.data.motivo in ['horario', 'precio', 'salud', 'viaje_trabajo', 'experiencia', 'se_mudo', 'otro_gimnasio', 'motivacion', 'otro'])
         && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() > 0 && request.resource.data.key_cliente.size() <= 120
         && texto('cliente', 200) && texto('telefono', 40) && texto('sucursal', 120) && texto('paquete_actual', 200) && texto('nota', 2000)
@@ -226,7 +230,7 @@ service cloud.firestore {
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
       allow create: if (central() || (soyATC() && request.resource.data.key_ejecutiva == yo()))
         && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])
-        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'correo', 'presencial', 'otro']
         && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'ya_activo', 'otro']
         && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() <= 120
         && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
@@ -455,6 +459,10 @@ service cloud.firestore {
       allow read: if veComercialPY();
       allow delete: if centralPY();
       // Jefe de ATC asigna; una ATC solo puede tomarse a sí misma un cliente que en ese mismo momento sale libre de la cola.
+      // La ATC puede cargar o corregir el correo de un cliente de su propia lista.
+      allow update: if soyATCPY() && resource.data.key_ejecutiva == yo()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['correo', 'correo_por', 'fecha_correo'])
+        && request.resource.data.correo is string && request.resource.data.correo.size() <= 120 && request.resource.data.correo_por == yo();
       allow create, update: if centralPY() || (soyATCPY() && request.resource.data.key_ejecutiva == yo() && request.resource.data.estado == 1
         && exists(/databases/$(database)/documents/py_com_cola/$(cliente))
         && get(/databases/$(database)/documents/py_com_cola/$(cliente)).data.tomado_por == null
@@ -512,7 +520,7 @@ service cloud.firestore {
         && soloCampos(['lista', 'key_cliente', 'cliente', 'telefono', 'sucursal', 'paquete_actual', 'fecha_fin', 'canal', 'resultado', 'motivo', 'nota', 'paquete_ofrecido', 'estado', 'fecha_on', 'key_usuario_registro', 'registrado_por'])
         && request.resource.data.lista in ['renovar_hoy', 'renovar_semana', 'nunca', 'riesgo']
         && request.resource.data.resultado in ['renueva', 'lo_piensa', 'no_contesta', 'no_renueva', 'numero_errado']
-        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'correo', 'presencial', 'otro']
         && (request.resource.data.motivo == null || request.resource.data.motivo in ['horario', 'precio', 'salud', 'viaje_trabajo', 'experiencia', 'se_mudo', 'otro_gimnasio', 'motivacion', 'otro'])
         && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() > 0 && request.resource.data.key_cliente.size() <= 120
         && texto('cliente', 200) && texto('telefono', 40) && texto('sucursal', 120) && texto('paquete_actual', 200) && texto('nota', 2000)
@@ -576,7 +584,7 @@ service cloud.firestore {
       // Cada ATC registra contactos solo a su nombre; ATC Central también puede registrar.
       allow create: if (centralPY() || (soyATCPY() && request.resource.data.key_ejecutiva == yo()))
         && soloCampos(['key_ejecutiva', 'key_cliente', 'cliente', 'sucursal', 'lista', 'canal', 'resultado', 'nota', 'proximo_seguimiento', 'estado', 'fecha_on'])
-        && request.resource.data.canal in ['whatsapp', 'llamada', 'presencial', 'otro']
+        && request.resource.data.canal in ['whatsapp', 'llamada', 'correo', 'presencial', 'otro']
         && request.resource.data.resultado in ['no_contesta', 'interesado', 'agendado', 'no_interesado', 'numero_errado', 'ya_activo', 'otro']
         && request.resource.data.key_cliente is string && request.resource.data.key_cliente.size() <= 120
         && texto('nota', 2000) && texto('cliente', 200) && request.resource.data.fecha_on is string;
