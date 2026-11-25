@@ -37,6 +37,7 @@
     function sucursalDe(s) { var t = String(s || "").trim(); return t || "Sin sucursal"; }
     function telefonoWa(t) {
         var d = String(t || "").replace(/\D/g, "");
+        if (window.CM_PAIS === "paraguay") { if (d.indexOf("595") !== 0) { d = d.replace(/^0+/, ""); if (d.length === 9) d = "595" + d; } return d.length >= 11 ? d : ""; }
         if (d.length === 8) d = "591" + d;
         return d.length >= 10 ? d : "";
     }
