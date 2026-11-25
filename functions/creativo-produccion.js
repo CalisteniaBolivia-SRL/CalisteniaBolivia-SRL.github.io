@@ -20,8 +20,8 @@ const { execFile } = require("child_process");
 
 const PROYECTO = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || "centro-de-comando-a57cf";
 const BUCKET = process.env.CREATIVO_BUCKET || (PROYECTO + ".firebasestorage.app");
-const M_IMAGEN = process.env.CREATIVO_M_IMAGEN || "gemini-2.5-flash-image";
-const M_VIDEO = process.env.CREATIVO_M_VIDEO || "veo-3.0-fast-generate-001";
+const M_IMAGEN = process.env.CREATIVO_M_IMAGEN || "gemini-3.1-flash-image";
+const M_VIDEO = process.env.CREATIVO_M_VIDEO || "veo-3.1-fast-generate-001";
 const M_MUSICA = process.env.CREATIVO_M_MUSICA || "lyria-002";
 const VOZ = process.env.CREATIVO_VOZ || "es-US-Chirp3-HD-Charon";
 const REGION_IA = process.env.CREATIVO_REGION_IA || "us-central1";
