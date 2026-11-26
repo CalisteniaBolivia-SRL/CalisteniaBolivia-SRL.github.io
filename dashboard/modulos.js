@@ -48,15 +48,19 @@
         { id: "atc", datosPY: true, tipo: "tablero", nombre: "Atención al Cliente", quien: { bolivia: "ATC de cada sucursal", paraguay: "ATC" }, rol: "Llamar, escribir y cerrar ventas", que: "Tu lista del día con Llamar y WhatsApp, tus seguimientos y lo que vas ganando por cada cliente que vuelve", permisos: ["atencion", "atc"], href: function (p) { return url("comercial.html?vista=atc", p); } },
         { id: "legal", tipo: "tablero", nombre: "Legal", quien: { bolivia: "Asesoría legal · Dirección", paraguay: "Asesoría legal · Dirección" }, rol: "Contratos, permisos y casos", que: "Vencimientos de contratos y licencias, procesos con su bitácora y calendario de plazos", permisos: ["legal"], datosPY: true, href: function (p) { return url("legal.html", p); } }
     ];
-    /* Qué se ve por defecto mientras Dirección no edite el checklist. Bolivia: todo. Paraguay: lo que ya tiene sus datos. */
+    /* Qué se ve por defecto mientras Dirección no edite el checklist: todo, en los dos países. En Paraguay, lo que todavía
+       no tiene sus datos conectados se ve igual, con el aviso «Falta conectar los datos de Paraguay» (pedido del director). */
     var POR_DEFECTO = {
         bolivia: function () { return true; },
-        paraguay: function (m) { return !!m.datosPY; }
+        paraguay: function () { return true; }
     };
     var K_CFG = "cm_modulos_cfg";
     function cfgLocal() { try { return JSON.parse(localStorage.getItem(K_CFG) || "null") || {}; } catch (e) { return {}; } }
     function visible(m, pais, cfg) {
         var c = (cfg || cfgLocal())[pais];
+        /* Checklist de Paraguay guardado antes de este cambio (sin «v: 2»): ahí los módulos sin datos quedaban apagados
+           solo por defecto; ahora se muestran con el aviso. Lo que Dirección guarde de ahora en más se respeta tal cual. */
+        if (pais === "paraguay" && c && c.visibles && !(c.v >= 2) && !m.datosPY) return true;
         if (c && c.visibles) {
             /* Módulos fusionados: se ve si estaba marcado con cualquiera de sus nombres (ej. Supervisores = Supervisión + Reemplazos). */
             var v = c.visibles[m.id], va = m.alias ? c.visibles[m.alias] : undefined;

@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=15"></script>
-<script src="modulos.js?v=22"></script>
+<script src="modulos.js?v=23"></script>
 <script>
 (function () {
     var s = null;
@@ -92,7 +92,7 @@
     var b = this; b.disabled = true; $("md-msg").textContent = "Guardando…"; $("md-msg").className = "md-msg";
     Promise.all(PAISES.map(function (p) {
       M.lista.forEach(function (m) { if (m.alias) estado[p][m.alias] = estado[p][m.id]; });   // módulos fusionados: un solo valor
-      cfg[p] = { visibles: estado[p], fecha_edicion: new Date().toISOString(), editado_por: CMFB.usuarioKey() };
+      cfg[p] = { visibles: estado[p], v: 2, fecha_edicion: new Date().toISOString(), editado_por: CMFB.usuarioKey() };
       return db.collection("com_config").doc("modulos_" + p).set(cfg[p]);
     })).then(function () {
       try { localStorage.setItem("cm_modulos_cfg", JSON.stringify(cfg)); } catch (e) {}
@@ -105,7 +105,7 @@
     if (!CMFB.tieneRol("direccion")) { $("md-estado").textContent = "Sal del centro de mando y volvé a entrar con tu usuario del ERP (permiso de Dirección) para guardar."; return; }
     var db = firebase.firestore(), cfg = {};
     return Promise.all(PAISES.map(function (p) { return db.collection("com_config").doc("modulos_" + p).get().then(function (x) { if (x.exists) cfg[p] = x.data(); }); }))
-      .then(function () { pintar(cfg); $("md-estado").textContent = Object.keys(cfg).length ? "Selección guardada cargada." : "Todavía no se guardó ninguna selección: se muestran los valores por defecto (Bolivia, todo; Paraguay, lo que ya tiene sus datos)."; });
+      .then(function () { pintar(cfg); $("md-estado").textContent = Object.keys(cfg).length ? "Selección guardada cargada." : "Todavía no se guardó ninguna selección: se muestran los valores por defecto (todo, en los dos países; en Paraguay, lo que falta conectar se ve con el aviso)."; });
   }).catch(function (e) { $("md-estado").textContent = "No se pudo leer la selección: " + ((e && e.message) || e); });
 })();
 </script>
