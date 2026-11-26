@@ -57,20 +57,29 @@
         if (J.outCtx) return;
         J.outCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
         J.outGain = J.outCtx.createGain(); J.analizador = J.outCtx.createAnalyser(); J.analizador.fftSize = 256;
-        J.outGain.connect(J.analizador); J.analizador.connect(J.outCtx.destination);
+        J.outGain.connect(J.analizador);
+        /* La voz sale por un elemento <audio>: así el cancelador de eco del navegador la reconoce y la resta del micrófono.
+           Si el navegador no lo permite, sale directo por los parlantes como antes. */
+        try {
+            var dst = J.outCtx.createMediaStreamDestination(); J.analizador.connect(dst);
+            var au = new Audio(); au.autoplay = true; au.srcObject = dst.stream; J.outAudio = au;
+            var p = au.play(); if (p && p.catch) p.catch(function () { try { J.analizador.disconnect(dst); } catch (e) {} J.analizador.connect(J.outCtx.destination); });
+        } catch (e) { J.analizador.connect(J.outCtx.destination); }
     }
     function reproducir(b64) {
         prepararSalida();
         var pcm = new Int16Array(deBase64(b64)), f = new Float32Array(pcm.length);
         for (var i = 0; i < pcm.length; i++) f[i] = pcm[i] / 32768;
         var buf = J.outCtx.createBuffer(1, f.length, 24000); buf.copyToChannel(f, 0);
+        J.cortado = false;
         var src = J.outCtx.createBufferSource(); src.buffer = buf; src.connect(J.outGain);
         var t = Math.max(J.outCtx.currentTime + 0.03, J.proxima);
         src.start(t); J.proxima = t + buf.duration;
-        J.fuentes.push(src); src.onended = function () { J.fuentes = J.fuentes.filter(function (x) { return x !== src; }); if (!J.fuentes.length && J.estado === "hablando") estado("escuchando"); };
+        J.fuentes.push(src); src.onended = function () { J.fuentes = J.fuentes.filter(function (x) { return x !== src; }); if (!J.fuentes.length) { if (!J.cortado) J.colaHasta = Date.now() + 450; if (J.estado === "hablando") estado("escuchando"); } };
         if (J.estado !== "hablando") estado("hablando");
     }
     function callar() {
+        J.cortado = true; J.colaHasta = 0;
         J.fuentes.forEach(function (s) { try { s.stop(); } catch (e) {} });
         J.fuentes = []; J.proxima = 0;
         if (J.abierto) estado("escuchando");
@@ -88,11 +97,25 @@
                 J.micNodo.port.onmessage = function (e) {
                     J.nivelMic = e.data.nivel;
                     if (J.mudo || !J.ws || J.ws.readyState !== 1 || !J.listo) return;
+                    if (!dejaPasar(e.data.nivel)) return;
                     J.ws.send(JSON.stringify({ realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: aBase64(e.data.pcm) } } }));
                 };
                 fuente.connect(J.micNodo);
             });
         });
+    }
+    /* Anti-eco: mientras el asistente habla (y un instante después), el micrófono no se manda, para que no se escuche
+       a sí mismo por los parlantes y se corte. Si alguien le habla claramente más fuerte que el eco (≈ 0,2 s seguidos),
+       se lo deja interrumpir. */
+    function hablandoAhora() { return J.fuentes.length > 0 || (J.outCtx && J.proxima > J.outCtx.currentTime) || Date.now() < (J.colaHasta || 0); }
+    function dejaPasar(nivel) {
+        if (!hablandoAhora()) { J.ecoBase = 0; J.fuerte = 0; return true; }
+        if (!J.ecoBase) J.ecoBase = Math.min(nivel, 0.05);
+        var umbral = Math.max(0.06, J.ecoBase * 3);
+        if (nivel > umbral) J.fuerte = (J.fuerte || 0) + 1;
+        else { J.fuerte = 0; J.ecoBase = J.ecoBase * 0.9 + nivel * 0.1; }   // aprende solo del eco, no de quien habla fuerte
+        if (J.fuerte >= 5) { J.fuerte = 0; callar(); J.colaHasta = 0; return true; }
+        return false;
     }
     function cerrarMicrofono() {
         if (J.micStream) J.micStream.getTracks().forEach(function (t) { t.stop(); });
@@ -122,7 +145,7 @@
                 ws.onopen = function () {
                     var s = JSON.parse(JSON.stringify(J.setup));
                     s.inputAudioTranscription = {}; s.outputAudioTranscription = {};
-                    s.realtimeInputConfig = { automaticActivityDetection: { disabled: false, silenceDurationMs: 700, prefixPaddingMs: 300 } };
+                    s.realtimeInputConfig = { automaticActivityDetection: { disabled: false, startOfSpeechSensitivity: "START_SENSITIVITY_LOW", endOfSpeechSensitivity: "END_SENSITIVITY_LOW", silenceDurationMs: 800, prefixPaddingMs: 300 } };
                     s.sessionResumption = J.handle ? { handle: J.handle } : {};
                     s.contextWindowCompression = { slidingWindow: {} };
                     ws.send(JSON.stringify({ setup: s }));
