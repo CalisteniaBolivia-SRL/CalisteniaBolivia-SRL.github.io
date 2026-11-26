@@ -1,11 +1,12 @@
 /* =====================================================================================================
    Códigos de referido · reglas de negocio (sin interfaz ni datos: se prueban solas con Node).
    Bolivia y Paraguay usan exactamente estas reglas; solo cambia la moneda.
-   - Código único por trabajador (JUAN-CAL), con link y QR.
+   - Código único por trabajador (JUAN; los viejos JUAN-CAL siguen valiendo), con link y QR. Cada uno puede elegirlo.
    - Solo clientes nuevos (sin compras antes de anotarse). Un cliente queda con el primer código que usó.
    - Anti-fraude: ni el propio código ni el de un familiar declarado (alerta, además, si comparte apellidos).
    - Comisión = % del monto realmente cobrado (5 % por defecto; configurable global y por paquete).
-   - El cliente que se anota con un código tiene 15 % de descuento en su primer paquete (lo aplica Caja al cobrar).
+   - El cliente que se anota con un código tiene 15 % de descuento en su paquete, sea nuevo o actual (lo aplica Caja al cobrar).
+     La comisión del referidor sigue siendo solo por clientes nuevos.
    - Se genera solo al pagar y queda congelada; si se anula la venta, «Revertida» (y saldo en contra si ya se pagó).
    - Estados: pendiente (venta sin pago) → ganada (pagada) → pagada (al trabajador) | revertida.
    ===================================================================================================== */
@@ -14,23 +15,26 @@
 
     var ESTADOS = ["pendiente", "ganada", "pagada", "revertida"];
     var PCT_DEFECTO = 5;          // comisión del equipo de referidos: 5 % de lo cobrado
-    var DESC_CLIENTE = 15;        // descuento del cliente que se anota con el código, en su primer paquete
+    var DESC_CLIENTE = 15;        // descuento del cliente que se anota con el código, en su paquete
 
     function sinAcentos(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, ""); }
     function redondear(n) { return Math.round(Number(((Number(n) || 0) * 100).toFixed(6))) / 100; }   /* 4,975 → 4,98 */
 
     /* ---------- código ---------- */
     function normCodigo(s) { return sinAcentos(s).toUpperCase().replace(/[^A-Z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20); }
-    /* JUAN-CAL con el primer nombre; si ya existe, JUAN2-CAL, JUAN3-CAL… (existe(codigo) → bool). */
+    /* JUAN con el primer nombre; si ya existe, JUAN2, JUAN3… (existe(codigo) → bool). Los códigos viejos terminan en
+       «-CAL» (JUAN-CAL): siguen valiendo, pero se muestran sin esa terminación. */
     function generarCodigo(nombre, existe) {
         var base = sinAcentos(nombre).toUpperCase().replace(/[^A-Z ]/g, " ").trim().split(/\s+/)[0] || "CAL";
-        base = base.slice(0, 12);
+        base = base.slice(0, 12); if (base.length < 3) base = (base + "CAL").slice(0, 3);
         for (var i = 1; i < 1000; i++) {
-            var c = base + (i === 1 ? "" : String(i)) + "-CAL";
+            var c = base + (i === 1 ? "" : String(i));
             if (!existe || !existe(c)) return c;
         }
-        return base + Date.now().toString(36).toUpperCase() + "-CAL";
+        return base + Date.now().toString(36).toUpperCase();
     }
+    function mostrarCodigo(c) { return String(c || "").replace(/-CAL$/, ""); }
+    function codigoValido(c) { return /^[A-Z0-9]{3,14}$/.test(c); }
 
     /* ---------- personas ---------- */
     function normCI(s) { return sinAcentos(s).toUpperCase().replace(/[^0-9A-Z]/g, ""); }
@@ -196,7 +200,7 @@
     }
 
     var API = {
-        ESTADOS: ESTADOS, PCT_DEFECTO: PCT_DEFECTO, DESC_CLIENTE: DESC_CLIENTE, normCodigo: normCodigo, generarCodigo: generarCodigo, normCI: normCI, normTel: normTel,
+        ESTADOS: ESTADOS, PCT_DEFECTO: PCT_DEFECTO, mostrarCodigo: mostrarCodigo, codigoValido: codigoValido, DESC_CLIENTE: DESC_CLIENTE, normCodigo: normCodigo, generarCodigo: generarCodigo, normCI: normCI, normTel: normTel,
         apellidos: apellidos, mismaPersona: mismaPersona, validarInscripcion: validarInscripcion, esClienteExistente: esClienteExistente,
         ventaDelReferido: ventaDelReferido, cobrado: cobrado, pctPara: pctPara, calcularComision: calcularComision, actualizar: actualizar,
         periodo: periodo, resumen: resumen, metaYBonos: metaYBonos, liquidacion: liquidacion, tablaPaquetes: tablaPaquetes, ranking: ranking, redondear: redondear

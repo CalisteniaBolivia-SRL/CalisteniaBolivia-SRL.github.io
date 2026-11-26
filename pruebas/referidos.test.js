@@ -7,12 +7,17 @@ const juan = { key_usuario: "u-juan", nombre: "Juan Pérez Vaca", ci: "1234567 S
   familiares: [{ nombre: "Ana Pérez", ci: "7654321", telefono: "" }] };
 const ins = (o) => Object.assign({ codigo: "JUAN-CAL", ci: "9990001", telefono: "71111111", nombre: "Lucía Áñez Rojas", fecha: "2026-11-10T10:00:00Z" }, o);
 
-test("código: único, en mayúsculas y con -CAL", () => {
-  const usados = new Set(["JUAN-CAL"]);
-  assert.equal(R.generarCodigo("Juan Carlos Pérez", () => false), "JUAN-CAL");
-  assert.equal(R.generarCodigo("Juan Carlos Pérez", (c) => usados.has(c)), "JUAN2-CAL");
-  assert.equal(R.generarCodigo("José Ñandú", () => false), "JOSE-CAL");
+test("código: único, en mayúsculas, sin -CAL (los viejos -CAL siguen valiendo)", () => {
+  const usados = new Set(["JUAN"]);
+  assert.equal(R.generarCodigo("Juan Carlos Pérez", () => false), "JUAN");
+  assert.equal(R.generarCodigo("Juan Carlos Pérez", (c) => usados.has(c)), "JUAN2");
+  assert.equal(R.generarCodigo("José Ñandú", () => false), "JOSE");
+  assert.equal(R.generarCodigo("Al", () => false), "ALC");
   assert.equal(R.normCodigo(" juan-cal "), "JUAN-CAL");
+  assert.equal(R.mostrarCodigo("JUAN-CAL"), "JUAN");
+  assert.equal(R.codigoValido("JUANFIT"), true);
+  assert.equal(R.codigoValido("JU"), false);
+  assert.equal(R.codigoValido("JUAN FIT"), false);
 });
 
 test("cliente nuevo (sin ficha en el ERP) → válido", () => {
