@@ -8,6 +8,24 @@
     window.CM_MONEDA = pais === "paraguay" ? "Gs" : "Bs";
     /* Comisión de Atención al Cliente por venta confirmada, en la moneda de cada país. */
     window.CM_COMISION = pais === "paraguay" ? 10000 : 5;
+    /* «← Volver»: si se llegó desde otro tablero del centro de mando, un botón para volver ahí (a la misma pestaña). */
+    var NOMBRES = { administracion: "Administración", contabilidad: "Contabilidad", direccion: "Dirección", rrhh: "Recursos Humanos", marketing: "Marketing",
+        supervision: "Supervisores", calificaciones: "Supervisores", reemplazos: "Reemplazos", mantenimiento: "Mantenimiento", tareas: "Tareas", denuncias: "Denuncias",
+        sugerencias: "Sugerencias", redes: "Redes sociales", creativo: "Estudio creativo", "referidos-ventas": "Referidos nuevos", referidos: "Mis referidos",
+        legal: "Legal", reportes: "Reportes", muro: "Muro", manual: "Manual", modulos: "Módulos", jarvis: "Asistente", asistente: "Asistente" };
+    function ponerVolver() {
+        var barra = document.querySelector(".cm-barra"), r = document.referrer;
+        if (!barra || !r || barra.querySelector(".cm-volver")) return;
+        try {
+            var u = new URL(r), de = (u.pathname.split("/").pop() || "").replace(".html", ""), yo = (location.pathname.split("/").pop() || "").replace(".html", "");
+            if (u.origin !== location.origin || !/\/dashboard\//.test(u.pathname) || !de || de === "index" || de === yo) return;
+            var n = de === "comercial" ? (/vista=jefe/.test(u.search) ? "Jefe de ATC" : "Atención al Cliente") : NOMBRES[de];
+            if (!n) return;
+            var a = document.createElement("a"); a.className = "cm-volver"; a.href = r; a.textContent = "← " + n;
+            var primero = barra.querySelector("a"); barra.insertBefore(a, primero ? primero.nextSibling : barra.firstChild);
+        } catch (e) {}
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ponerVolver); else ponerVolver();
     if (pais !== "paraguay") return;
     var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html", "asistente.html", "referidos.html", "jarvis.html", "mantenimiento.html", "calificaciones.html", "tareas.html", "denuncia.html", "denuncias.html", "sugerencias.html", "creativo.html", "referidos-ventas.html"];
     var pag = location.pathname.split("/").pop() || "index.html";

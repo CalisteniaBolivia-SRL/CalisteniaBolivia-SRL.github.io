@@ -9,7 +9,7 @@
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <link rel="stylesheet" href="operaciones.css?v=6">
-<script src="pais.js?v=7"></script>
+<script src="pais.js?v=9"></script>
 <!-- Solo la base de datos: sin el módulo de inicio de sesión, la denuncia nunca viaja con el usuario de quien la hace. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -17,6 +17,8 @@
 <link rel="stylesheet" href="sobrio.css?v=9">
 </head>
 <body>
+<div class="cm-barra"><a href="./" id="dn-volver">← Volver</a></div>
+<script>(function(){var a=document.getElementById("dn-volver");try{var r=document.referrer&&new URL(document.referrer);if(r&&r.origin===location.origin&&!/denuncia\.html/.test(r.pathname)){a.href=document.referrer;}else if(/[?&]pais=paraguay\b/.test(location.search)){a.href="./?pais=paraguay";}}catch(e){}})();</script>
 <main class="op dn" lang="es">
   <header class="op-top">
     <div>
