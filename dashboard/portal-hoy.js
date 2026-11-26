@@ -18,8 +18,11 @@
     var AVISOS = [
         { roles: ["atencion", "atc"], texto: function (n) { return n === 1 ? "cliente en tu lista para llamar" : "clientes en tu lista para llamar"; }, href: "comercial.html?vista=atc",
           contar: function (db, pre, uid) { return db.collection(pre + "com_asignacion").where("key_ejecutiva", "==", uid).get().then(function (q) { return q.docs.filter(function (d) { var x = d.data(); return x.lote && Number(x.estado == null ? 1 : x.estado) > 0; }).length; }); } },
-        { roles: ["atencion", "atc", "jefe_atc"], urgente: true, texto: function (n) { return n === 1 ? "referido nuevo espera tu llamada" : "referidos nuevos esperan tu llamada"; }, href: "referidos-ventas.html",
-          contar: function (db, pre) { return db.collection(pre + "ref_inscripcion").where("fecha_on", ">=", hace(3)).get().then(function (q) { return q.docs.filter(function (d) { var x = d.data(); return !x.seguimiento && x.estado !== "rechazada"; }).length; }); } },
+        /* Referidos: a la Jefa de ATC, los nuevos que nadie tomó (para asignar); a cada ATC, solo los que tiene asignados. */
+        { roles: ["jefe_atc"], urgente: true, texto: function (n) { return n === 1 ? "referido nuevo sin asignar" : "referidos nuevos sin asignar"; }, href: "referidos-ventas.html",
+          contar: function (db, pre) { return db.collection(pre + "ref_inscripcion").where("fecha_on", ">=", hace(14)).get().then(function (q) { return q.docs.filter(function (d) { var x = d.data(); return !x.seguimiento && x.estado !== "rechazada"; }).length; }); } },
+        { roles: ["atencion", "atc"], soloSin: "jefe_atc", urgente: true, texto: function (n) { return n === 1 ? "referido asignado a vos para llamar" : "referidos asignados a vos para llamar"; }, href: "referidos-ventas.html",
+          contar: function (db, pre, uid) { return db.collection(pre + "ref_inscripcion").where("tomado_por", "==", uid).get().then(function (q) { var d14 = hace(14); return q.docs.filter(function (d) { var x = d.data(); return (x.seguimiento === "tomado" || x.seguimiento === "no_contesta") && String(x.fecha_on) >= d14; }).length; }); } },
         { roles: ["jefe_atc", "administracion", "direccion"], urgente: true, texto: function (n) { return n === 1 ? "pago de referido por confirmar" : "pagos de referidos por confirmar"; }, href: "referidos-ventas.html",
           contar: function (db, pre) { return db.collection(pre + "ref_pago").where("estado", "==", "por_confirmar").get().then(function (q) { return q.size; }); } },
         { roles: ["administracion", "direccion"], urgente: true, texto: function (n) { return n === 1 ? "tarea urgente" : "tareas urgentes"; }, href: "tareas.html",
@@ -45,7 +48,10 @@
         pintando[pais] = true;
         var py = pais === "paraguay", pre = py ? "py_" : "", db = firebase.firestore(), uid = CMFB.usuarioKey(), mios = permisos(pais);
         var dir = mios.indexOf("direccion") >= 0;
-        var tiene = function (a) { return mios.indexOf("todo") >= 0 || a.roles.some(function (r) { return mios.indexOf(r) >= 0; }); };
+        var tiene = function (a) {
+            if (a.soloSin && (mios.indexOf(a.soloSin) >= 0 || mios.indexOf("todo") >= 0)) return false;   // la Jefa ya tiene su propio aviso
+            return mios.indexOf("todo") >= 0 || a.roles.some(function (r) { return mios.indexOf(r) >= 0; });
+        };
         var lista = AVISOS.filter(tiene);
         if (!lista.length) { pintando[pais] = false; return; }
         Promise.all(lista.map(function (a) { return a.contar(db, pre, uid, dir).then(function (n) { return { a: a, n: n }; }, function () { return null; }); })).then(function (r) {

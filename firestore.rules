@@ -775,7 +775,7 @@ service cloud.firestore {
 
     // ---------- Referidos: venta en el momento (Bolivia) ----------
     // Oferta pública (paquetes con su precio, % de descuento y datos de cobro): la lee la página de inscripción sin sesión.
-    match /ref_publico/{d} { allow read: if true; allow write: if refAdmin(); }
+    match /ref_publico/{d} { allow read: if true; allow write: if refAdmin() || central(); }
     // Pago del referido: el cliente (sin sesión) sube su comprobante; lo confirman Administración, Dirección o Jefe de ATC.
     match /ref_pago/{id} {
       allow create: if soloCampos(['inscripcion', 'codigo', 'nombre', 'ci', 'telefono', 'paquete', 'precio_lista', 'precio_final', 'desc', 'comprobante', 'estado', 'fecha_on'])
@@ -793,7 +793,7 @@ service cloud.firestore {
 
     // ---------- Referidos: venta en el momento (Paraguay) ----------
     // Oferta pública (paquetes con su precio, % de descuento y datos de cobro): la lee la página de inscripción sin sesión.
-    match /py_ref_publico/{d} { allow read: if true; allow write: if refAdminPY(); }
+    match /py_ref_publico/{d} { allow read: if true; allow write: if refAdminPY() || centralPY(); }
     // Pago del referido: el cliente (sin sesión) sube su comprobante; lo confirman Administración, Dirección o Jefe de ATC.
     match /py_ref_pago/{id} {
       allow create: if soloCampos(['inscripcion', 'codigo', 'nombre', 'ci', 'telefono', 'paquete', 'precio_lista', 'precio_final', 'desc', 'comprobante', 'estado', 'fecha_on'])
