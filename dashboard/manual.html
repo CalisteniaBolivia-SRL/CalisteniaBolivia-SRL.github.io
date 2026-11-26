@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Manual de uso · Centro de mando</title>
 <link rel="icon" href="../images/132458707.png">
-<script src="pais.js?v=10"></script>
+<script src="pais.js?v=11"></script>
 <link rel="stylesheet" href="tablero-base.css?v=1">
 <style>
   .mn { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 18px; }
@@ -79,6 +79,9 @@
       '<ul><li>Cajas, control de ingreso, molinetes y sucursales.</li><li><b>Comisiones de los ATC</b>: lo que ganó cada ATC y el <b>control de caja</b> del paquete exclusivo (ventas a personas fuera de la lista).</li><li>Al abrir esa sección también se confirman las ventas de las ATC con el registro de caja.</li></ul>' },
     { id: "contabilidad", titulo: "Contabilidad y fiscalización", rol: "Contabilidad · CM", permisos: ["contabilidad"], html:
       '<ul><li>Caja contra banco, precios, NIT, convenios y prórrogas.</li><li>Revisá las alertas del día y anotá lo que requiere corrección en el ERP.</li></ul>' },
+    { id: "cobros_qr", titulo: "Cobros QR", rol: "Administración · Dirección", permisos: ["administracion", "direccion", "jefe_atc"], html:
+      '<h3>Qué es</h3><p>El único lugar donde se cargan los QR de cobro. Lo que se carga acá aparece solo en la <b>caja</b> (al elegir «QR» en la venta de paquetes), en la <b>pantalla de caja</b> de cada sucursal, en la página del <b>referido</b> y en Atención al Cliente.</p>' +
+      '<h3>Cómo se usa</h3><ol><li>Cargá primero el <b>QR general</b>: es el que se usa donde no haya otro.</li><li>Si una sucursal cobra con otra cuenta, cargale el suyo («Cargar QR»): foto o captura del QR, banco, cuenta, titular y NIT.</li><li>Los canales (<b>Referidos</b>, <b>Atención al Cliente</b>, <b>App</b>) pueden tener uno propio. La Jefa de ATC puede cargar los de Referidos y Atención al Cliente.</li><li><b>Pausar</b> un QR hace que se use el general hasta que se reactive.</li><li><b>Pantalla de caja</b>: abre el QR de esa sucursal a pantalla completa, para dejarlo en una tablet o monitor de cara al cliente. Se actualiza solo si cambian el QR.</li></ol>' },
     { id: "tareas", titulo: "Tareas de Administración", rol: "Administración · Dirección", permisos: ["administracion", "direccion"], html:
       '<ul><li>Entrá desde la tarjeta <b>Tareas de Administración</b> o desde la franja de arriba en los tableros de Administración y Dirección (muestra urgentes, pendientes, vencidas y las que esperan decisión).</li><li><b>+ Nueva tarea</b>: qué hay que hacer, la <b>prioridad</b> (Urgente · Alta: esta semana · Media: este mes · Baja: cuando se pueda), sucursal, responsable, fecha límite y, si hace falta, los <b>pasos</b> (uno por línea) para tildarlos de a uno.</li><li>Cuando se termina, tildá la tarea: queda <b>hecha</b> con la fecha y quién la hizo. Si te equivocaste, la destildás.</li><li>Marcá «Necesita una decisión de Dirección» cuando la tiene que aprobar el director. Dirección lo ve, deja su <b>comentario o decisión</b> en la tarea y puede cambiar la prioridad.</li><li>Las tareas vencidas se marcan en rojo. Lo que ya no corresponde se <b>archiva</b>.</li></ul>' },
     { id: "mantenimiento", titulo: "Mantenimiento", rol: "Mantenimiento · CM", permisos: ["mantenimiento", "administracion", "supervision", "direccion"], html:

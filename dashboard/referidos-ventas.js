@@ -78,7 +78,7 @@
     function tabs() {
         var t = $("rv-tabs"); t.textContent = "";
         var nuevos = abiertas().filter(function (i) { return !i.seguimiento; }).length;
-        [M.puedeConfirmar ? ["resumen", "Resumen", 0] : null, ["llamar", "Para llamar", nuevos], M.puedeConfirmar ? ["pagos", "Pagos por confirmar", M.pagos.length] : null, M.puedeConfirmar ? ["hechos", "Pagos confirmados", 0] : null, M.puedeConfirmar ? ["cerrados", "Cerrados", 0] : null, M.puedeConfirmar ? ["cobro", "Cobro (QR)", 0] : null].filter(Boolean).forEach(function (x) {
+        [M.puedeConfirmar ? ["resumen", "Resumen", 0] : null, ["llamar", "Para llamar", nuevos], M.puedeConfirmar ? ["pagos", "Pagos por confirmar", M.pagos.length] : null, M.puedeConfirmar ? ["hechos", "Pagos confirmados", 0] : null, M.puedeConfirmar ? ["cerrados", "Cerrados", 0] : null, M.puedeConfirmar ? ["cobro", "Cobro", 0] : null].filter(Boolean).forEach(function (x) {
             var b = el("button", { type: "button", role: "tab", class: M.vista === x[0] ? "is-on" : "", "aria-selected": M.vista === x[0] ? "true" : "false" }, [x[1], x[2] ? el("b", { text: String(x[2]) }) : null]);
             b.addEventListener("click", function () { M.vista = x[0]; pintar(); });
             t.appendChild(b);
@@ -259,57 +259,40 @@
         return wrap;
     }
 
-    /* ---------- Cobro: datos de pago y QR que ve el cliente al anotarse (Jefa de ATC, Administración, Dirección) ---------- */
+    /* ---------- Cobro: descuento y paquetes que ve el cliente; el QR sale de «Cobros QR» (un solo lugar) ---------- */
     function vistaCobro() {
         var wrap = el("section", { class: "op-card rv-cobro" });
         wrap.appendChild(el("h2", { text: "Cobro a referidos · " + (PY ? "Paraguay" : "Bolivia") }));
-        wrap.appendChild(el("p", { class: "op-muted", text: "Al anotarse con un código, el cliente elige su paquete con el descuento, paga por transferencia o QR y manda el comprobante. Cargá acá el QR y los datos de la cuenta y tocá «Publicar». Los comprobantes llegan a «Pagos por confirmar»." }));
+        wrap.appendChild(el("p", { class: "op-muted", text: "Al anotarse con un código, el cliente elige su paquete con el descuento, paga con el QR y manda el comprobante, que llega a «Pagos por confirmar». El QR se carga en un solo lugar: Cobros QR (el de Referidos o, si no hay, el general)." }));
+        var qrBox = el("div", { class: "rv-cobro-qr" }, [el("p", { class: "op-muted", text: "Buscando el QR…" })]);
+        var irQR = el("a", { class: "op-btn", href: "cobros-qr.html" + (PY ? "?pais=paraguay" : ""), text: "Cargar o cambiar el QR en Cobros QR" });
         var desc = el("input", { type: "number", min: "0", max: "50", value: String(DESC) });
-        var texto = el("textarea", { rows: "5", maxlength: "800", placeholder: "Banco, número de cuenta, titular, " + (PY ? "cédula/RUC" : "CI/NIT") + " y a qué número escribir por dudas" });
-        var archivo = el("input", { type: "file", accept: "image/*" });
-        var ver = el("img", { class: "rv-qr", alt: "QR de cobro", hidden: true });
-        var quitar = el("button", { type: "button", class: "op-btn", text: "Quitar QR", hidden: true });
         var estado = el("p", { class: "op-muted", "aria-live": "polite" });
-        var publicar = el("button", { type: "submit", class: "op-btn is-fuerte", text: "Publicar" });
-        var qr = "", previa = null, paquetes = [];
-        function mostrar() { ver.hidden = !qr; quitar.hidden = !qr; if (qr) ver.src = qr; }
-        quitar.addEventListener("click", function () { qr = ""; archivo.value = ""; mostrar(); });
-        archivo.addEventListener("change", function () {
-            var f = archivo.files && archivo.files[0]; if (!f) return;
-            var img = new Image(), url = URL.createObjectURL(f);
-            img.onload = function () {
-                var k = Math.min(1, 900 / Math.max(img.width, img.height)), c = document.createElement("canvas");
-                c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-                var x = c.getContext("2d"); x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
-                qr = c.toDataURL("image/jpeg", 0.85); URL.revokeObjectURL(url); mostrar();
-            };
-            img.onerror = function () { estado.textContent = "No se pudo leer esa imagen. Probá con otra foto o captura."; };
-            img.src = url;
-        });
-        Promise.all([col("ref_publico").doc("oferta").get(), col("ref_config").doc("paquetes").get()]).then(function (a) {
+        var publicar = el("button", { type: "submit", class: "op-btn is-fuerte", text: "Publicar descuento y paquetes" });
+        var previa = null, paquetes = [];
+        Promise.all([col("ref_publico").doc("oferta").get(), col("ref_config").doc("paquetes").get(), window.COBRO_QR ? COBRO_QR.buscar(db(), PY ? "paraguay" : "bolivia", { canal: "referidos" }) : Promise.resolve(null)]).then(function (a) {
             previa = a[0].exists ? a[0].data() : null;
             paquetes = (a[1].exists && a[1].data().lista) || (previa && previa.paquetes) || [];
-            if (previa) { if (previa.desc != null) desc.value = String(previa.desc); texto.value = previa.pago_texto || ""; qr = previa.pago_qr || ""; mostrar(); estado.textContent = "Publicado el " + new Date(previa.fecha_on).toLocaleDateString("es-BO") + "."; }
-            else estado.textContent = "Todavía no se publicó: mientras tanto, al cliente solo le dice «mostrá esta pantalla en caja».";
+            var q = a[2]; qrBox.textContent = "";
+            if (q) { qrBox.appendChild(el("img", { class: "rv-qr", src: q.imagen, alt: "QR de cobro" })); qrBox.appendChild(el("p", { class: "op-muted", text: (q.id === "referidos" ? "QR de Referidos" : "QR general") + (COBRO_QR.datosTexto(q) ? " · " + COBRO_QR.datosTexto(q) : "") })); }
+            else qrBox.appendChild(el("p", { class: "op-msg is-warn", text: "Todavía no hay QR cargado: mientras tanto, al cliente solo le dice «mostrá esta pantalla en caja»." }));
+            if (previa && previa.desc != null) desc.value = String(previa.desc);
+            estado.textContent = previa ? "Publicado el " + new Date(previa.fecha_on).toLocaleDateString("es-BO") + "." : "";
             if (!paquetes.length) estado.textContent += " Falta la lista de paquetes: la trae Administración con «Actualizar ahora» en Mis referidos → Administración.";
         }, function (e) { estado.textContent = errTxt(e); });
         var form = el("form", { class: "rv-cobro-form" }, [
+            qrBox, el("div", { class: "op-acc" }, [irQR]),
             el("label", { class: "op-campo" }, ["Descuento para el cliente (%)", desc]),
-            el("label", { class: "op-campo" }, ["Datos para pagar", texto]),
-            el("label", { class: "op-campo" }, ["QR de cobro (foto o captura)", archivo]),
-            ver, el("div", { class: "op-acc" }, [quitar]),
             el("div", { class: "op-acc" }, [publicar]), estado
         ]);
         form.addEventListener("submit", function (e) {
             e.preventDefault();
             var d = Number(desc.value);
             if (!(d >= 0 && d <= 50)) { estado.textContent = "El descuento va de 0 a 50 %."; return; }
-            if (!texto.value.trim() && !qr) { estado.textContent = "Cargá el QR o los datos para pagar."; return; }
             if (!paquetes.length) { estado.textContent = "Falta la lista de paquetes: pedile a Administración que toque «Actualizar ahora» en Mis referidos → Administración."; return; }
-            if (qr.length > 600000) { estado.textContent = "La imagen del QR es muy pesada. Probá con una captura más chica."; return; }
             publicar.disabled = true; estado.textContent = "Publicando…";
             var lista = paquetes.filter(function (p) { return p && p.nombre && Number(p.precio) > 0; }).slice(0, 60).map(function (p) { return { nombre: String(p.nombre).slice(0, 120), precio: Number(p.precio) }; });
-            col("ref_publico").doc("oferta").set({ desc: d, paquetes: lista, pago_texto: texto.value.trim().slice(0, 800), pago_qr: qr || "", fecha_on: ahoraISO(), editado_por: M.uid })
+            col("ref_publico").doc("oferta").set({ desc: d, paquetes: lista, pago_texto: "", pago_qr: "", fecha_on: ahoraISO(), editado_por: M.uid })
                 .then(function () { estado.textContent = "Publicado: ya lo ven los clientes al anotarse."; msg("Cobro publicado.", "ok"); }, function (er) { estado.textContent = errTxt(er); })
                 .then(function () { publicar.disabled = false; });
         });
