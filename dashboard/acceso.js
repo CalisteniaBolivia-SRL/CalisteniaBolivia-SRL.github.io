@@ -403,14 +403,16 @@
             var md5Clave = md5(password);
             form.reset();
             var hayAlgo = (tableros && tableros.length) || tablerosPy.length;
-            /* La sesión de datos se abre con permisos en cualquiera de los dos países (antes solo con permisos de Bolivia,
-               y quien trabaja solo en Paraguay quedaba sin poder usar los módulos). */
-            var pDatos = (hayAlgo && window.CMFB && window.CMFB.estado.configurado)
+            /* La sesión de datos se abre SIEMPRE al entrar (una sola vez): también para quien no tiene tableros, que la
+               necesita para «Mis referidos». Antes, sin permisos no se abría y «Mis referidos» volvía a pedir el usuario. */
+            var pDatos = (window.CMFB && window.CMFB.estado.configurado)
                 ? (boton.textContent = "Abriendo la sesión de datos…", window.CMFB.entrarConERP(usuario, md5Clave).catch(function (e) { console.warn("Sesión de datos:", e.message); }))
                 : Promise.resolve();
             return pDatos.then(function () {
                 var dl2 = (r && r.data) || {};
-                if (!hayAlgo) mostrarPortal(nombre, usuario, tableros);   // sin permisos: el aviso de siempre
+                /* Sin tableros del centro de mando: su único módulo es «Mis referidos», va directo. */
+                if (!hayAlgo && tableros !== null) { location.href = "referidos.html"; return; }
+                if (!hayAlgo) mostrarPortal(nombre, usuario, tableros);   // no se pudieron leer los permisos: el aviso de siempre
                 else entrar({ nombre: nombre, usuario: usuario, key_usuario: dl2.key || dl2.key_usuario || null, tableros: tableros || [], tableros_py: tablerosPy });
                 /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
                 if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
