@@ -348,8 +348,10 @@ service cloud.firestore {
         && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
         && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
       allow read: if refAdmin() || equipoATC();
-      allow update: if refAdmin() || (equipoATC() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento'])
-        && request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'] && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120));
+      allow update: if refAdmin() || (equipoATC() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento', 'historial'])
+        && (!('seguimiento' in request.resource.data) || request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'])
+        && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120)
+        && (!('historial' in request.resource.data) || (request.resource.data.historial is list && request.resource.data.historial.size() <= 80)));
       allow delete: if false;
     }
     match /ref_cliente/{id} { allow read, write: if refAdmin(); }
@@ -393,8 +395,10 @@ service cloud.firestore {
         && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
         && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
       allow read: if refAdminPY() || equipoATCPY();
-      allow update: if refAdminPY() || (equipoATCPY() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento'])
-        && request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'] && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120));
+      allow update: if refAdminPY() || (equipoATCPY() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento', 'historial'])
+        && (!('seguimiento' in request.resource.data) || request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'])
+        && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120)
+        && (!('historial' in request.resource.data) || (request.resource.data.historial is list && request.resource.data.historial.size() <= 80)));
       allow delete: if false;
     }
     match /py_ref_cliente/{id} { allow read, write: if refAdminPY(); }
