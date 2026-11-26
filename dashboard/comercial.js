@@ -259,14 +259,17 @@
     function grupoDe(t) { return MI_TRABAJO.indexOf(t) >= 0 ? "mio" : "crm"; }
     var ULTIMA = { crm: null, mio: null };
     var PRINCIPALES = 5;   // Panel, Plan de hoy, Ver una lista, Campañas, Comisiones
-    /* Temas del Jefe de ATC: lo del día, los clientes, el equipo y la plata. */
-    var GRUPOS_CRM = [
-        { id: "hoy", nombre: "Hoy", tabs: ["panel", "plan"] },
-        { id: "clientes", nombre: "Clientes", tabs: ["verlista", "campanas", "clientes"] },
-        { id: "referidos", nombre: "Referidos", tabs: ["referidos"] },
-        { id: "equipo", nombre: "Equipo", tabs: ["equipo", "tareas", "guiones", "actividad"] },
-        { id: "plata", nombre: "Comisiones", tabs: ["comisiones", "resumen", "reparto"] }
+    /* Temas del Jefe de ATC, en el orden del trabajo: el día, el equipo, sus propios clientes, campañas, referidos y la plata. */
+    var GRUPOS_JEFE = [
+        { id: "hoy", nombre: "Hoy", tabs: ["panel", "plan"], que: "Cómo va el equipo hoy y las listas para repartir a las chicas." },
+        { id: "equipo", nombre: "Mi equipo", tabs: ["verlista", "equipo", "tareas", "guiones", "actividad"], que: "Las chicas: la lista de cada una, sus sucursales, tareas, guiones y lo que hicieron." },
+        { id: "mios", nombre: "Mis clientes", tabs: ["fidel", "atencion"], que: "Los clientes que atendés vos: renovar, los que no vinieron y los que están en riesgo." },
+        { id: "campanas", nombre: "Campañas", tabs: ["campanas", "clientes"], que: "Promociones y paquetes exclusivos para las listas, y clientes antiguos para recuperar." },
+        { id: "referidos", nombre: "Referidos", tabs: ["referidos"], que: "Quienes se anotaron con el código de un referidor: llamarlos, asignarlos a una chica y confirmar pagos." },
+        { id: "plata", nombre: "Comisiones", tabs: ["comisiones", "resumen", "reparto"], que: "Lo que gana cada chica, lo que se paga el 25 y el resultado del mes por sucursal." }
     ];
+    var NOMBRE_TAB = { panel: "Resumen del día", plan: "Repartir listas", verlista: "Lista de cada chica", equipo: "Chicas y sucursales", tareas: "Tareas", guiones: "Guiones", actividad: "Actividad",
+        fidel: "Seguimiento", atencion: "Para atender", campanas: "Campañas", clientes: "Clientes antiguos", comisiones: "Comisiones a pagar", resumen: "Resumen del mes", reparto: "Por sucursal" };
     var ULTIMA_G = {};
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
     if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
@@ -337,48 +340,28 @@
         /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
         var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", "referidos", TAB_PLAN[0], TAB_ATENCION[0], TAB_FIDEL[0]].indexOf(S.tab) >= 0;
         var ir = function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); };
-        /* Dos áreas: «Equipo de ATC (CRM)» y «Mi atención directa»; arriba se elige el área y abajo sus pestañas. */
-        var conAreas = MASTER && !SOLO_ATENCION && tabs.some(function (t) { return grupoDe(t[0]) === "mio"; });
-        if (conAreas) {
-            var g = grupoDe(S.tab), todas = tabs.slice(); ULTIMA[g] = S.tab;
-            var area = function (id, titulo, sub) {
-                var on = g === id;
-                return el("button", { type: "button", class: "co-area" + (on ? " is-on" : ""), "aria-pressed": on ? "true" : "false", onclick: function () {
-                    if (on) return;
-                    var destino = ULTIMA[id] && todas.some(function (t) { return t[0] === ULTIMA[id]; }) ? ULTIMA[id] : todas.filter(function (t) { return grupoDe(t[0]) === id; })[0][0];
-                    ir(destino);
-                } }, [el("b", { text: titulo }), el("span", { text: sub })]);
-            };
-            nav.appendChild(el("div", { class: "co-areas", role: "group", "aria-label": "Área de trabajo" }, [
-                area("crm", "Equipo de ATC · CRM", "Listas, avance, campañas y comisiones de las chicas"),
-                area("mio", "Mi atención directa", "Clientes con plan que atiendo yo: renovar, no vinieron, en riesgo")
-            ]));
-            tabs = tabs.filter(function (t) { return grupoDe(t[0]) === g; });
-            if (tabs.length === 1) tabs = [];   // un área con una sola sección no necesita pestaña
-        }
-        /* Jefe de ATC (equipo): las secciones agrupadas en 4 temas; arriba el tema, abajo sus secciones. */
-        var gruposCrm = MASTER && !SOLO_ATENCION && grupoDe(S.tab) === "crm" && tabs.length > PRINCIPALES;
-        if (gruposCrm) {
+        /* Jefe de ATC: una sola fila de temas (sin «CRM» ni áreas aparte) y, abajo, las secciones de ese tema. */
+        if (MASTER && !SOLO_ATENCION) {
             var deTab = {}; tabs.forEach(function (t) { deTab[t[0]] = t; });
-            var gActual = GRUPOS_CRM.filter(function (g) { return g.tabs.indexOf(S.tab) >= 0; })[0] || GRUPOS_CRM[0];
-            ULTIMA_G[gActual.id] = S.tab;
+            var grupos = GRUPOS_JEFE.map(function (g) { return { g: g, tabs: g.tabs.filter(function (k) { return deTab[k]; }) }; }).filter(function (x) { return x.tabs.length; });
+            var gAct = grupos.filter(function (x) { return x.tabs.indexOf(S.tab) >= 0; })[0] || grupos[0];
+            ULTIMA_G[gAct.g.id] = S.tab;
             var fila = el("div", { class: "co-grupos", role: "group", "aria-label": "Temas" });
-            GRUPOS_CRM.forEach(function (g) {
-                var propias = g.tabs.filter(function (k) { return deTab[k]; });
-                if (!propias.length && !g.link) return;
-                var on = g === gActual;
-                fila.appendChild(el("button", { type: "button", class: "co-grupo" + (on ? " is-on" : ""), "aria-pressed": on ? "true" : "false", text: g.nombre, onclick: function () {
-                    if (on) return; var d = ULTIMA_G[g.id] && deTab[ULTIMA_G[g.id]] ? ULTIMA_G[g.id] : propias[0]; if (d) ir(d);
+            grupos.forEach(function (x) {
+                var on = x === gAct;
+                fila.appendChild(el("button", { type: "button", class: "co-grupo" + (on ? " is-on" : ""), "aria-pressed": on ? "true" : "false", text: x.g.nombre, onclick: function () {
+                    if (on) return; ir(ULTIMA_G[x.g.id] && deTab[ULTIMA_G[x.g.id]] ? ULTIMA_G[x.g.id] : x.tabs[0]);
                 } }));
             });
             nav.appendChild(fila);
-            var sub = el("div", { class: "co-subtabs", role: "tablist" });
-            gActual.tabs.filter(function (k) { return deTab[k]; }).forEach(function (k) {
-                var t = deTab[k];
-                sub.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === k ? " is-on" : ""), "aria-selected": S.tab === k ? "true" : "false", text: t[1], onclick: function () { ir(k); } }));
-            });
-            if (gActual.link) sub.appendChild(el("a", { class: "co-tab co-tab-link", href: gActual.link + (window.CM_PAIS === "paraguay" ? "?pais=paraguay" : ""), text: gActual.linkTxt }));
-            nav.appendChild(sub);
+            nav.appendChild(el("p", { class: "co-grupo-que", text: gAct.g.que }));
+            if (gAct.tabs.length > 1) {
+                var sub = el("div", { class: "co-subtabs", role: "tablist" });
+                gAct.tabs.forEach(function (k) {
+                    sub.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === k ? " is-on" : ""), "aria-selected": S.tab === k ? "true" : "false", text: NOMBRE_TAB[k] || deTab[k][1], onclick: function () { ir(k); } }));
+                });
+                nav.appendChild(sub);
+            }
             tabs = [];
         }
         var principales = SOLO_ATENCION ? tabs : tabs.slice(0, PRINCIPALES), resto = SOLO_ATENCION ? [] : tabs.slice(PRINCIPALES);
