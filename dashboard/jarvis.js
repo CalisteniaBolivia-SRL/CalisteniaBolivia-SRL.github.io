@@ -7,8 +7,7 @@
    - Los datos los pide el modelo con herramientas y se leen acá con la sesión del usuario (Bolivia: sistema de
      Calistenia; Paraguay: ERP de Paraguay; pendientes del equipo: base del centro de mando). Cada consulta se
      muestra en pantalla como tarjeta con los números.
-   - También se le puede escribir. Tras 2 minutos sin conversación se cierra (cuesta por minuto); se reabre con
-     «Capital», con el botón o escribiendo.
+   - Tras 2 minutos sin conversación se cierra (cuesta por minuto); se reabre con «Capital» o con el botón.
    ===================================================================================================== */
 (function () {
     "use strict";
@@ -145,7 +144,7 @@
 
     function abrirMicrofono() {
         if (J.micStream) return Promise.resolve();
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error("Este navegador no permite usar el micrófono. Puede escribirle a Capital abajo."));
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject(new Error("Este navegador no permite usar el micrófono. Pruebe con Chrome."));
         return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } }).then(function (st) {
             J.micStream = st;
             J.micCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -477,14 +476,13 @@
         prepararSalida(); if (J.outCtx.state === "suspended") J.outCtx.resume();
         aviso("");
         var mic = abrirMicrofono().catch(function (e) {
-            /* Sin micrófono igual se puede conversar escribiendo. */
-            aviso(e && e.name === "NotAllowedError" ? "El navegador bloqueó el micrófono: permítalo en el candado de la barra de direcciones. Mientras tanto, puede escribirle abajo." : (e && e.message) || "No se pudo abrir el micrófono.");
+            throw e && e.name === "NotAllowedError" ? new Error("El navegador bloqueó el micrófono: permítalo en el candado de la barra de direcciones y vuelva a tocar Conversar.") : e;
         });
         return mic.then(conectar).then(function () {
-            estado("escuchando", J.micStream ? "Hable con naturalidad. Si lo interrumpe, Capital se calla y lo escucha." : "Escríbale abajo.");
+            estado("escuchando", "Hable con naturalidad. Si lo interrumpe, Capital se calla y lo escucha.");
             if (opc.saludo !== false) enviarTexto("(La persona acaba de abrir la conversación. Saludá brevemente según la hora y preguntá en qué podés ayudar.)");
             clearInterval(J.reloj);
-            J.reloj = setInterval(function () { if (J.abierto && !J.fuentes.length && J.estado !== "pensando" && Date.now() - J.ultimo > INACTIVO_MS) terminar("Conversación en pausa por inactividad. Diga «Capital», toque Conversar o escríbale."); }, 5000);
+            J.reloj = setInterval(function () { if (J.abierto && !J.fuentes.length && J.estado !== "pensando" && Date.now() - J.ultimo > INACTIVO_MS) terminar("Conversación en pausa por inactividad. Diga «Capital» o toque Conversar."); }, 5000);
         }).catch(function (e) { if (e && e.reintentar) { J.abierto = false; return abrir(opc); } fallo(e); });
     }
     function terminar(nota) {
@@ -492,7 +490,7 @@
         clearInterval(J.reloj);
         try { if (J.ws) J.ws.close(); } catch (e) {}
         J.ws = null; J.listo = false; callar(); cerrarMicrofono();
-        estado("espera", nota || "Toque Conversar, diga «Capital» o escríbale.");
+        estado("espera", nota || "Toque Conversar o diga «Capital».");
         escucharPalabra();
     }
     function preguntar(t) {
@@ -558,11 +556,9 @@
     $("jv-boton").onclick = function () { J.abierto ? terminar() : abrir(); };
     $("jv-mudo").onclick = function () { J.mudo = !J.mudo; this.textContent = J.mudo ? "Activar micrófono" : "Silenciar micrófono"; this.classList.toggle("is-on", J.mudo); };
     $("jv-full").onclick = function () { var d = document.documentElement; (document.fullscreenElement ? document.exitFullscreen() : d.requestFullscreen && d.requestFullscreen()); };
-    $("jv-form").addEventListener("submit", function (e) { e.preventDefault(); var i = $("jv-texto"); preguntar(i.value); i.value = ""; });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-pregunta]"), function (b) { b.addEventListener("click", function () { preguntar(b.getAttribute("data-pregunta")); }); });
     document.addEventListener("keydown", function (e) { if (e.code === "Space" && e.target === document.body) { e.preventDefault(); J.abierto ? terminar() : abrir(); } });
     if (PY) { var pp = $("jv-pais"); if (pp) pp.textContent = "Paraguay"; }
-    estado("espera", SR ? "Toque Conversar, diga «Capital» o escríbale." : "Toque Conversar o escríbale.");
+    estado("espera", SR ? "Toque Conversar o diga «Capital»." : "Toque Conversar para hablar con Capital.");
     escucharPalabra();
     requestAnimationFrame(dibujar);
     window.JARVIS = { abrir: abrir, terminar: terminar, preguntar: preguntar, _J: J, _ejecutar: ejecutar };
