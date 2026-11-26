@@ -26,9 +26,13 @@
   .mn-erp textarea { width: 100%; box-sizing: border-box; margin-top: 6px; font: 13px/1.5 "Segoe UI", Roboto, Arial, sans-serif; color: #FFFFFF; background: #0D0E10; border: 1px solid #2B2E33; padding: 8px 10px; resize: vertical; }
   .mn-erp button { margin-top: 6px; font: inherit; color: #0D0E10; background: #FFFFFF; border: 0; padding: 6px 12px; cursor: pointer; }
   .mn-vacio { color: #A4A8AF; }
+  .mn-rapida { border-top: 2px solid #E30613 !important; }
+  .mn-guia { border-top: 1px solid #2B2E33; padding: 8px 0; }
+  .mn-guia summary { cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 14px; padding: 6px 0; }
+  .mn-guia ol { margin: 6px 0 4px; padding-left: 22px; line-height: 1.6; }
   @media print { .cm-barra, .mn-indice, .mn-erp { display: none; } body { background: #FFF; color: #000; } .mn-sec { background: #FFF; border-color: #999; } .mn-sec p, .mn-sec li, .mn-sec b { color: #000; } }
 </style>
-<link rel="stylesheet" href="sobrio.css?v=8">
+<link rel="stylesheet" href="sobrio.css?v=9">
 </head>
 <body>
 <div class="cm-barra"><a href="./">← Centro de mando</a><span class="cm-quien" id="cm-quien"></span><button type="button" onclick="window.print()">Imprimir</button></div>
@@ -46,6 +50,7 @@
   var M = [
     { id: "todos", titulo: "Para todos", rol: null, permisos: null, html:
       '<h3>Entrar</h3><ol><li>Abrí <b>calisteniabolivia-srl.github.io/dashboard</b> y entrá con tu <b>mismo usuario y contraseña del ERP</b>. No hay usuarios aparte.</li><li>Ves solo los tableros de tu perfil. Si no te aparece algo que necesitás, pedí a Dirección que revise tu rol en el ERP.</li><li>Después de un cambio de rol: tocá <b>Salir</b> y volvé a entrar.</li></ol>' +
+      '<h3>Cómo está ordenado</h3><ul><li>Arriba, <b>«Hoy»</b>: lo que tenés pendiente (por ejemplo «2 pagos por confirmar» o «18 clientes en tu lista»). Tocá la flecha y te lleva directo a resolverlo. Si dice «Todo al día», no hay nada urgente.</li><li>Abajo, <b>«Tus áreas»</b>: tus tableros ordenados por área (Ventas y clientes, Dirección, Administración, Operaciones, Marketing, Personas).</li><li>Adentro de cada tablero, las <b>pestañas de arriba</b> separan los temas. Las que terminan en <b>→</b> te llevan a otro módulo de la misma área.</li><li><b>Mis referidos</b> está en el menú de arriba, para todo el personal.</li></ul>' +
       '<h3>La app en el celular</h3><ul><li><b>Android</b>: abrí <b>calisteniabolivia-srl.github.io/dashboard/app</b>, tocá <b>Descargar la app</b> e instalala (la primera vez el teléfono pide permitir apps de origen desconocido).</li><li><b>iPhone</b>: en Safari, Compartir → <b>Agregar a pantalla de inicio</b>.</li><li>Se entra igual, con el usuario del ERP. Las mejoras llegan solas, sin reinstalar.</li></ul>' +
       '<h3>Si algo no carga</h3><ul><li>Apretá <b>Ctrl + F5</b> (en el celular: menú ⋮ → recargar).</li><li>Si dice que la sesión venció: <b>Salir</b> y volver a entrar.</li><li>«Conectar» (Calistenia): se autoriza una sola vez con tu usuario del ERP para leer datos en vivo.</li></ul>' +
       '<h3>Cuidado de la información</h3><ul><li>No compartas tu usuario ni la pantalla con personas ajenas. Los datos de clientes son privados.</li><li>Nunca pegues contraseñas ni claves en chats.</li></ul>' },
@@ -104,14 +109,39 @@
     { id: "legal", titulo: "Legal", rol: "Legal · CM", permisos: ["legal"], html:
       '<ul><li>Vencimientos de contratos y licencias por sucursal.</li><li>Procesos con su bitácora y calendario de plazos.</li></ul>' }
   ];
+  /* Guía rápida: lo esencial de cada puesto en pocos pasos (arriba del manual; el detalle sigue abajo). */
+  var GUIAS = [
+    { permisos: ["atencion", "atc"], titulo: "Atención al Cliente (ATC)", pasos: ["Entrá y mirá «Hoy»: cuántos clientes tenés para llamar y si hay referidos nuevos esperando.", "Abrí <b>Atención al Cliente</b>: tu lista. Llamá primero; si no atiende, mandá el WhatsApp (el mensaje ya está escrito).", "Después de cada contacto tocá cómo te fue (Compró, Interesado, No contesta…).", "Si se anotó alguien con un código de referido, llamalo enseguida desde <b>Referidos nuevos</b>.", "Cada cliente que compra dentro de los 15 días de tu contacto suma tu comisión (corte el 25)."] },
+    { permisos: ["jefe_atc"], titulo: "Jefe de ATC", pasos: ["Cada mañana: <b>Jefe de ATC → Hoy → Plan de hoy</b>: tildá los grupos de clientes y tocá «Dar lista a…» para cada chica.", "En <b>Hoy → Panel</b> mirá cuántos contactos lleva cada una y quién no tiene actividad.", "En <b>Clientes</b>: ver la lista de una chica, campañas y <b>Referidos nuevos</b> (confirmá ahí los pagos con comprobante).", "En <b>Equipo</b>: sucursales de cada chica, tareas y guiones.", "En <b>Comisiones</b>: lo que se paga en cada corte del 25."] },
+    { permisos: ["administracion"], titulo: "Administración", pasos: ["Mirá «Hoy» en el portal: tareas urgentes, pagos de referidos y fallas de mantenimiento.", "<b>Administración → Hoy</b>: tu trabajo del día calculado con los datos en vivo.", "<b>Cajas y cobros</b>: cajas abiertas, cobros por cajero y movimientos. <b>Molinetes e ingreso</b>: entradas manuales.", "<b>Cuentas por pagar</b>: cargá y pagá lo pendiente. <b>Comisiones ATC</b>: liquidá el mes.", "<b>Tareas →</b>: marcá lo hecho y lo que necesita decisión de Dirección."] },
+    { permisos: ["contabilidad"], titulo: "Contabilidad y fiscalización", pasos: ["<b>Hoy</b>: lo que hay que revisar.", "<b>Caja y banco</b>: que lo cobrado en caja coincida con el banco.", "<b>Precios y cajeros</b>: paquetes cobrados a otro precio, ventas a Bs 0 y de convenio.", "<b>Prórrogas</b>: quién da prórrogas y cuántas.", "Lo raro se avisa a Dirección con la sucursal, el cajero y la fecha."] },
+    { permisos: ["supervision"], titulo: "Supervisores", pasos: ["<b>Supervisores → Hoy</b>: tu trabajo del día.", "<b>Molinetes e ingreso</b> y <b>Asistencia</b>: sucursales que caen y horas flojas.", "En cada visita: <b>Calificación de entrenadores</b> (arriba) para el entrenador de esa clase.", "<b>Reemplazo de profesores</b>: registrá quién cubrió cada clase.", "<b>Mantenimiento →</b>: cargá el checklist de la sucursal si estás de visita."] },
+    { permisos: ["mantenimiento"], titulo: "Mantenimiento", pasos: ["Entrá a <b>Mantenimiento</b> y elegí la sucursal.", "Recorré el checklist: Bien, Falla o No aplica. En cada falla poné qué tan urgente es y una nota.", "Guardá: le llega a Administración. Si quieren, mandá el reporte por WhatsApp.", "Cuando arreglás algo, marcá la falla como arreglada."] },
+    { permisos: ["marketing"], titulo: "Marketing", pasos: ["<b>Marketing → Hoy</b>: lo que hay que mover esta semana.", "<b>Paquetes y sucursales</b> y <b>Horarios</b>: qué se vende y qué horas están vacías para promocionar.", "<b>Redes →</b>: respuestas automáticas de Instagram y Facebook; aprobá los casos delicados.", "<b>Estudio creativo →</b>: escribí qué pieza necesitás y producí imágenes, voz, música y el reel."] },
+    { permisos: ["rrhh"], titulo: "Recursos Humanos", pasos: ["<b>RRHH → Hoy</b>: tu trabajo del día y el equipo de gestión.", "<b>Entrenadores</b> y <b>Cajeros</b>: productividad y cumplimiento.", "<b>Denuncias →</b>: respondé a quien denunció (ve tu respuesta con su código) y dejá notas internas.", "<b>Sugerencias →</b>: lo que dicen los clientes desde la app."] },
+    { permisos: ["direccion"], titulo: "Dirección", pasos: ["Entrá y mirá «Hoy»: pagos por confirmar, tareas urgentes o que esperan tu decisión, denuncias y fallas.", "<b>Dirección General → Hoy</b>: semáforo por área y fiscalización.", "<b>Ingresos en vivo</b> y el <b>Asistente</b> para preguntar cifras por voz.", "<b>Módulos</b> (menú de arriba): qué tableros se ven en Bolivia y en Paraguay.", "Los permisos de cada persona se dan en el ERP (página /centro_mando)."] }
+  ];
   var s = null;
   try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
   if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
-  var t = s.tableros, todo = ["direccion", "muro", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "jefe_atc"].every(function (x) { return t.indexOf(x) >= 0; });
+  var t = s.tableros.concat(s.tableros_py || []), todo = ["direccion", "muro", "administracion", "contabilidad", "atencion", "supervision", "marketing", "rrhh", "reportes", "legal", "jefe_atc"].every(function (x) { return t.indexOf(x) >= 0; });
   document.getElementById("cm-quien").textContent = s.nombre || "";
   var mias = M.filter(function (m) { return !m.permisos || m.permisos.some(function (p) { return t.indexOf(p) >= 0; }); });
   var dir = t.indexOf("direccion") >= 0;
   var idx = document.getElementById("mn-indice"), cuerpo = document.getElementById("mn-cuerpo");
+  var guias = GUIAS.filter(function (g) { return g.permisos.some(function (p) { return t.indexOf(p) >= 0; }); });
+  if (guias.length) {
+    var gs = document.createElement("section"); gs.className = "mn-sec mn-rapida"; gs.id = "guia";
+    var gh = document.createElement("h2"); gh.textContent = guias.length === 1 ? "Tu guía rápida · " + guias[0].titulo : "Tu guía rápida"; gs.appendChild(gh);
+    guias.forEach(function (g, i) {
+      var box = document.createElement("details"); box.className = "mn-guia"; box.open = guias.length <= 2 || (dir ? g.titulo === "Dirección" : i === 0);
+      var su = document.createElement("summary"); su.textContent = g.titulo; box.appendChild(su);
+      var ol = document.createElement("ol"); g.pasos.forEach(function (x) { var li = document.createElement("li"); li.innerHTML = x; ol.appendChild(li); }); box.appendChild(ol);
+      gs.appendChild(box);
+    });
+    cuerpo.appendChild(gs);
+    var ag = document.createElement("a"); ag.href = "#guia"; ag.textContent = "Guía rápida"; idx.appendChild(ag);
+  }
   mias.forEach(function (m) {
     var a = document.createElement("a"); a.href = "#" + m.id; a.textContent = m.titulo; idx.appendChild(a);
     var sec = document.createElement("section"); sec.className = "mn-sec"; sec.id = m.id;
