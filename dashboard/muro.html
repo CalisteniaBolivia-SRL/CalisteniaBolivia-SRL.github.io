@@ -181,6 +181,7 @@
 .cb-tab b { color: var(--cb-red); }
 .cb-tab.is-on { background: var(--cb-red); border-color: var(--cb-red); color: #FFFFFF; }
 .cb-tab.is-on b { color: #FFFFFF; }
+.cb-tab-asistente { text-decoration: none; display: inline-flex; align-items: center; color: inherit; border-color: var(--cb-red); }
 .cb-btn, .cb-act { border-radius: 0; }
 .cb-act:hover, .cb-act:focus-visible, .cb-links a:hover { border-color: var(--cb-red); }
 .cb-card, .cb-kpi, .cb-task, .cb-links a { border-radius: 2px; }
@@ -212,7 +213,9 @@
       <button type="button" class="cb-tab" data-p="p8"><b>8</b>Retención</button>
       <button type="button" class="cb-tab" data-p="p9"><b>9</b>Caja y molinetes</button>
       <button type="button" class="cb-tab" data-p="p10"><b>0</b>Cámaras</button>
+      <a class="cb-tab cb-tab-asistente" id="tab-asistente" href="jarvis.html" title="Capital, el asistente de voz (tecla A)"><b>A</b>Asistente</a>
     </nav>
+    <script>(function () { var a = document.getElementById("tab-asistente"); if (/[?&]pais=paraguay\b/.test(location.search)) a.href = "jarvis.html?pais=paraguay"; })();</script>
     <div class="cb-clock">
       <span data-draw="reloj">—</span>
       <span class="cb-muted">Datos en vivo · cada 8 segundos</span>
@@ -598,7 +601,7 @@
     if (!ids.includes(id)) id = 'p1';
     window.CB_estado.actual = id;
     document.querySelectorAll('.cb-page').forEach((s) => { s.hidden = s.id !== id; });
-    document.querySelectorAll('.cb-tab').forEach((b) => {
+    document.querySelectorAll('.cb-tab[data-p]').forEach((b) => {
       const on = b.dataset.p === id;
       b.classList.toggle('is-on', on);
       if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -607,11 +610,12 @@
     if (id === 'p7' && window.CRM_tablero) window.CRM_tablero.montar(document.getElementById('crm-tablero'));
     if (id === 'p10' && window.CAM_muro) window.CAM_muro.montar(document.getElementById('cam-muro'));
   }
-  document.querySelectorAll('.cb-tab').forEach((b) => b.addEventListener('click', () => show(b.dataset.p)));
+  document.querySelectorAll('.cb-tab[data-p]').forEach((b) => b.addEventListener('click', () => show(b.dataset.p)));
   window.addEventListener('hashchange', () => show(location.hash.slice(1)));
   window.addEventListener('keydown', (e) => {
     if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
     if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) show(e.key === '0' ? 'p10' : 'p' + e.key);
+    if ((e.key === 'a' || e.key === 'A') && !e.ctrlKey && !e.metaKey && !e.altKey) location.href = document.getElementById('tab-asistente').href;
   });
   document.querySelectorAll('#pantalla-completa').forEach((b) => b.addEventListener('click', () => {
     const el = document.querySelector('.cb') || document.documentElement;
