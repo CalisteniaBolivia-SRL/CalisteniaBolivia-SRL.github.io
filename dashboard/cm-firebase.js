@@ -46,7 +46,27 @@
         if (!estado.configurado || !PUENTE) return Promise.reject(sinFirebase("Falta configurar Firebase."));
         return fetch(PUENTE, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario: usuario, password_md5: passwordMd5 }) })
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || !d.token) throw sinFirebase(d.error || "El puente de ingreso respondió " + r.status + "."); return d; }); })
-            .then(function (d) { return firebase.auth().signInWithCustomToken(d.token).then(function () { return d; }); });
+            .then(function (d) { return firebase.auth().signInWithCustomToken(d.token).then(function () { guardarPorRol(d); return d; }); });
+    }
+    /* ---------- lo que Dirección eligió para los roles del ERP del usuario (roles.html) ---------- */
+    var RENOVAR = window.CM_FIREBASE_RENOVAR || (PUENTE ? PUENTE.replace(/erpLogin$/, "cmRenovar") : null), K_ROL = "cm_por_rol";
+    function guardarPorRol(d) {
+        var u = firebase.auth().currentUser;
+        try { localStorage.setItem(K_ROL, JSON.stringify({ uid: u ? u.uid : "", tableros: d.rol_tableros || [], tableros_py: d.rol_tableros_py || [], modulos: d.modulos || {} })); } catch (e) {}
+    }
+    /* { tableros, tableros_py (solo los que dan sus roles), modulos: { bolivia: [ids] | null, paraguay: [ids] | null } } del usuario de esta sesión. */
+    function porRol() {
+        try { var s = JSON.parse(localStorage.getItem(K_ROL) || "null"); var u = estado.usuario || (window.firebase && firebase.apps.length && firebase.auth().currentUser);
+            return s && u && s.uid === u.uid ? s : null; } catch (e) { return null; }
+    }
+    /* Renueva la sesión de datos sin contraseña, con lo último que Dirección eligió para sus roles. */
+    function renovar() {
+        if (!RENOVAR || !estado.usuario || !(Number(estado.claims.vence) > Date.now())) return Promise.resolve(null);
+        return estado.usuario.getIdToken().then(function (idt) {
+            return fetch(RENOVAR, { method: "POST", headers: { "Authorization": "Bearer " + idt, "Content-Type": "application/json" }, body: "{}" });
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok || !d.token) throw sinFirebase(d.error || "renovar " + r.status); return d; }); })
+            .then(function (d) { return firebase.auth().signInWithCustomToken(d.token).then(function (c) { return c.user.getIdTokenResult(true); }).then(function (t) { estado.usuario = firebase.auth().currentUser; estado.claims = t.claims || {}; guardarPorRol(d); pintarBarra(); return d; }); })
+            .catch(function (e) { console.warn("Renovar sesión:", e.message); return null; });
     }
     function salir() { try { return window.firebase && firebase.apps.length ? firebase.auth().signOut() : Promise.resolve(); } catch (e) { return Promise.resolve(); } }
 
@@ -199,7 +219,7 @@
 
     window.CMFB = {
         listo: listo, estado: estado, tieneRol: tieneRol, tieneRolPais: tieneRolPais, usuarioKey: usuarioKey, nombre: nombre, sesionVigente: sesionVigente, permisosFaltantes: permisosFaltantes, otraPersona: otraPersona,
-        entrarConERP: entrarConERP, salir: salir,
+        entrarConERP: entrarConERP, salir: salir, renovar: renovar, porRol: porRol,
         registrar: function (nombreH, fn) { herramientas[nombreH] = fn; },
         util: { db: db, ahora: ahora, docs: docs, vigentes: vigentes, err: err, txt: txt, opcion: opcion, fecha: fecha, monto: monto, entero: entero, url: url, bool: bool, sucursales: sucursales }
     };

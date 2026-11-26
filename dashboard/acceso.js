@@ -151,15 +151,29 @@
         ["legal", "marketing"].forEach(function (t) { if (bo.indexOf(t) >= 0 && py.indexOf(t) < 0) py.push(t); });
         return py;
     }
+    /* Roles del ERP: lo que Dirección eligió para los roles del usuario (roles.html) se suma a sus permisos de
+       /centro_mando, y si alguno de sus roles está configurado, el portal muestra solo esos módulos. */
+    function unir(a, b) { var o = (a || []).slice(); (b || []).forEach(function (t) { if (o.indexOf(t) < 0) o.push(t); }); return o; }
+    function porRol() { return window.CMFB && CMFB.porRol ? CMFB.porRol() : null; }
+    /* Sesión del portal = permisos del ERP (erp_*) + los de sus roles. Guarda los del ERP aparte para recalcular. */
+    function conRol(ses) {
+        if (!ses) return ses;
+        if (!ses.erp_tableros) { ses.erp_tableros = (ses.tableros || []).slice(); ses.erp_tableros_py = (ses.tableros_py || []).slice(); }
+        var r = porRol();
+        ses.tableros = unir(ses.erp_tableros, r && r.tableros);
+        ses.tableros_py = unir(ses.erp_tableros_py, r && r.tableros_py);
+        return ses;
+    }
+    function modulosDe(pais) { var r = porRol(); return r && r.modulos && Array.isArray(r.modulos[pais]) ? r.modulos[pais] : null; }
     /* Muro y tableros de cada país salen del registro único de módulos (modulos.js) + el checklist de Dirección. */
     function pintarModulos(pais, cfg) {
         if (!window.CM_MODULOS) return { pantallas: 0, tableros: 0 };
-        var r = CM_MODULOS.pintar({ pais: pais, permisos: permisosDe(pais), cfg: cfg,
+        var r = CM_MODULOS.pintar({ pais: pais, permisos: permisosDe(pais), cfg: cfg, modulos: modulosDe(pais),
             pantallas: document.getElementById("pantallas-" + pais), tableros: document.getElementById("tableros-" + pais),
             bloqueMuro: document.getElementById(pais === "paraguay" ? "muro-py" : "muro"), bloqueTableros: document.getElementById(pais === "paraguay" ? "equipo-py" : "equipo"),
             cuentaMuro: document.getElementById("cuenta-" + pais) });
         if (pais === "paraguay") { var n = document.getElementById("py-sin"); if (n) n.hidden = r.pantallas + r.tableros > 0; var eq = document.getElementById("equipo-py"); if (eq) eq.hidden = false; }
-        var dir = permisosDe("bolivia").indexOf("direccion") >= 0, nm = document.getElementById("nav-modulos"); if (nm) nm.hidden = !dir;
+        var dir = permisosDe("bolivia").indexOf("direccion") >= 0, nm = document.getElementById("nav-modulos"); if (nm) nm.hidden = !dir; var nr = document.getElementById("nav-roles"); if (nr) nr.hidden = !dir;
         return r;
     }
     /* Cuando llega el checklist actualizado de la base, se vuelve a pintar el portal que está a la vista. */
@@ -189,8 +203,24 @@
 
     try {
         var s = JSON.parse(localStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now() && "tableros" in s) { entrar(s); actualizarPermisos(s); }
+        if (s && s.vence > Date.now() && "tableros" in s) { entrar(conRol(s)); actualizarPermisos(s); renovarRoles(); }
     } catch (e) {}
+    /* Cada vez que se abre el portal, la sesión de datos se renueva con lo último que Dirección eligió para los roles
+       del usuario: el cambio se ve sin volver a poner la contraseña. */
+    function renovarRoles() {
+        if (!window.CMFB || !CMFB.renovar) return;
+        CMFB.listo.then(function () { return CMFB.renovar(); }).then(function (d) {
+            if (!d || !sesionActual) return;
+            conRol(sesionActual);
+            try { localStorage.setItem(CLAVE, JSON.stringify(sesionActual)); } catch (e) {}
+            /* Sin nada del centro de mando (ni por el ERP ni por sus roles): su único módulo es «Mis referidos». */
+            if (!sesionActual.tableros.length && !permisosDe("paraguay").length) { location.href = "referidos.html"; return; }
+            var pPy = document.getElementById("portal-py");
+            if (!portal.hidden) mostrarPortal(sesionActual.nombre, sesionActual.usuario, sesionActual.tableros);
+            else if (pPy && !pPy.hidden) pintarModulos("paraguay");
+            else if (!document.getElementById("cc-pais").hidden) irPais();
+        });
+    }
 
     /* La sesión no vence mientras se use (cm-mcp.js la extiende), así que cada vez que se abre el portal se vuelven
        a leer los permisos del usuario en el ERP de Bolivia Y en el de Paraguay, sin pedirle la contraseña: si Dirección
@@ -209,13 +239,14 @@
             if (bo === null) return;   // no se pudieron leer: se deja lo que había
             var actual = JSON.parse(localStorage.getItem(CLAVE) || "null");
             if (!actual || actual.usuario !== ses.usuario) return;
-            var nuevoPy = py === null ? (actual.tableros_py || []) : py;
-            if (JSON.stringify(bo) === JSON.stringify(actual.tableros) && JSON.stringify(nuevoPy) === JSON.stringify(actual.tableros_py || [])) return;
-            actual.tableros = bo; actual.tableros_py = nuevoPy;
+            var nuevoPy = py === null ? (actual.erp_tableros_py || actual.tableros_py || []) : py;
+            var antes = JSON.stringify([actual.tableros, actual.tableros_py || []]);
+            actual.erp_tableros = bo; actual.erp_tableros_py = nuevoPy; conRol(actual);
+            if (JSON.stringify([actual.tableros, actual.tableros_py]) === antes) return;
             try { localStorage.setItem(CLAVE, JSON.stringify(actual)); } catch (e) {}
             sesionActual = actual;
             var pPy = document.getElementById("portal-py");
-            if (!portal.hidden) mostrarPortal(actual.nombre, actual.usuario, bo);
+            if (!portal.hidden) mostrarPortal(actual.nombre, actual.usuario, actual.tableros);
             else if (pPy && !pPy.hidden) { if (permisosDe("paraguay").length) pintarModulos("paraguay"); else irPais(); }
         }
         try { ws = new WebSocket(WS_URL); } catch (e) { return; }
@@ -410,10 +441,19 @@
                 : Promise.resolve();
             return pDatos.then(function () {
                 var dl2 = (r && r.data) || {};
+                /* Lo que dan sus roles del ERP (si Dirección los configuró) se suma a lo de /centro_mando. */
+                var ses = null;
+                try { ses = JSON.parse(localStorage.getItem(CLAVE) || "null"); } catch (e3) {}
+                if (ses && tableros !== null) {
+                    ses.erp_tableros = tableros.slice(); ses.erp_tableros_py = tablerosPy.slice(); conRol(ses);
+                    try { localStorage.setItem(CLAVE, JSON.stringify(ses)); } catch (e4) {}
+                    tableros = ses.tableros; tablerosPy = ses.tableros_py;
+                    hayAlgo = tableros.length || tablerosPy.length;
+                }
                 /* Sin tableros del centro de mando: su único módulo es «Mis referidos», va directo. */
                 if (!hayAlgo && tableros !== null) { location.href = "referidos.html"; return; }
                 if (!hayAlgo) mostrarPortal(nombre, usuario, tableros);   // no se pudieron leer los permisos: el aviso de siempre
-                else entrar({ nombre: nombre, usuario: usuario, key_usuario: dl2.key || dl2.key_usuario || null, tableros: tableros || [], tableros_py: tablerosPy });
+                else entrar(ses && tableros !== null ? ses : { nombre: nombre, usuario: usuario, key_usuario: dl2.key || dl2.key_usuario || null, tableros: tableros || [], tableros_py: tablerosPy });
                 /* En el mismo ingreso se conectan los datos de Calistenia, una sola vez: después quedan recordados. */
                 if (tableros && tableros.length && window.CM && !window.CM.conSesion()) {
                     boton.textContent = "Conectando los datos de Calistenia…";
