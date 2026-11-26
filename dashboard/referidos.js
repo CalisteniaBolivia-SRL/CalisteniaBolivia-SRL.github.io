@@ -360,6 +360,40 @@
                 .then(function (x) { if (x) { est.cfg = x.cfg; pintarResumen(); pintarPaquetes(); } }, function (er) { ok.textContent = er.message; }).then(function () { g.disabled = false; });
         };
         box.appendChild(f);
+        box.appendChild(seccionOferta());
+    }
+    /* Cobro a referidos: los datos de pago (texto y QR) y los paquetes con el descuento que ve el cliente al anotarse. */
+    function seccionOferta() {
+        var s = el("div", "rf-oferta-cfg"); s.appendChild(el("h2", "", "Cobro a referidos (venta en el momento)"));
+        s.appendChild(el("p", "rf-muted", "Al anotarse, el cliente elige su paquete con el descuento, paga por transferencia o QR y sube el comprobante. Cargá acá los datos de cobro de " + (PY ? "Paraguay" : "Bolivia") + " y tocá «Publicar». Los paquetes salen de la lista del ERP (se actualiza con «Actualizar ahora»)."));
+        var f = el("form", "rf-form rf-cfg");
+        var ld = el("label", "", "Descuento para el cliente (%) "), idd = el("input"); idd.type = "number"; idd.min = "0"; idd.max = "50"; idd.value = R.DESC_CLIENTE; ld.appendChild(idd); f.appendChild(ld);
+        var lt = el("label", "", "Datos para pagar (banco, cuenta, titular, CI/NIT, y a qué número mandar dudas)"), ta = el("textarea"); ta.rows = 5; ta.maxLength = 800; lt.appendChild(ta); f.appendChild(lt);
+        var lq = el("label", "", "QR de cobro (foto o captura, opcional) "), iq = el("input"); iq.type = "file"; iq.accept = "image/*"; lq.appendChild(iq); f.appendChild(lq);
+        var ver = el("img", "rf-qr-cobro"); ver.alt = "QR de cobro"; ver.hidden = true; f.appendChild(ver);
+        var quitar = el("button", "rf-btn rf-quitar", "Quitar QR"); quitar.type = "button"; quitar.hidden = true; f.appendChild(quitar);
+        var qr = "";
+        var mostrar = function () { ver.hidden = !qr; quitar.hidden = !qr; if (qr) ver.src = qr; };
+        quitar.onclick = function () { qr = ""; iq.value = ""; mostrar(); };
+        iq.onchange = function () {
+            var file = iq.files && iq.files[0]; if (!file) return;
+            var img = new Image(), url = URL.createObjectURL(file);
+            img.onload = function () { var k = Math.min(1, 900 / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); var x = c.getContext("2d"); x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); qr = c.toDataURL("image/png"); if (qr.length > 500000) qr = c.toDataURL("image/jpeg", 0.85); URL.revokeObjectURL(url); mostrar(); };
+            img.src = url;
+        };
+        var lista = el("p", "rf-muted", est.paquetes.length ? est.paquetes.length + " paquetes del ERP se van a publicar con el descuento." : "Todavía no hay lista de paquetes: tocá «Actualizar ahora» en Administración para traerla del ERP.");
+        f.appendChild(lista);
+        var g = el("button", "rf-btn is-fuerte", "Publicar"), ok = el("span", "rf-muted"); g.type = "submit"; f.appendChild(g); f.appendChild(ok);
+        D.oferta().then(function (o) { if (!o) return; if (o.desc != null) idd.value = o.desc; ta.value = o.pago_texto || ""; qr = o.pago_qr || ""; mostrar(); ok.textContent = "Publicado el " + fechaCorta(o.fecha_on) + "."; }, function () {});
+        f.onsubmit = function (e) {
+            e.preventDefault();
+            if (!ta.value.trim() && !qr) { ok.textContent = "Cargá los datos para pagar o el QR."; return; }
+            if (!est.paquetes.length) { ok.textContent = "Primero traé la lista de paquetes con «Actualizar ahora»."; return; }
+            g.disabled = true; ok.textContent = "Publicando…";
+            D.guardarOferta({ desc: idd.value, pago_texto: ta.value.trim(), pago_qr: qr }, est.paquetes).then(function () { ok.textContent = "Publicado: ya lo ven los clientes al anotarse."; }, function (er) { ok.textContent = er.message; }).then(function () { g.disabled = false; });
+        };
+        s.appendChild(f);
+        return s;
     }
 
     /* ---------- arranque ---------- */

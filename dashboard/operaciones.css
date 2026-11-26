@@ -209,3 +209,13 @@ a.op-btn { text-decoration: none; display: inline-block; }
 .cr-imgs.is-chicas img, .cr-imgs.is-chicas video { max-width: 170px; max-height: 300px; }
 .cr-img figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #A4A8AF; }
 .cr-marcas { display: flex; flex-direction: column; gap: 8px; border: 1px solid #D9AE5B; padding: 10px 12px; } .cr-marcas b { font-size: 13px; color: #D9AE5B; }
+/* Referidos nuevos (venta en el momento) */
+.rv-lista { display: flex; flex-direction: column; gap: 10px; }
+.rv-nombre { font-size: 16px; }
+.rv-card p, .rv-pago p { margin: 0; font-size: 14px; }
+.rv-pago { display: grid; grid-template-columns: 1fr 180px; gap: 14px; align-items: start; }
+.rv-pago-txt { display: flex; flex-direction: column; gap: 6px; }
+.rv-monto s { color: #8D9299; } .rv-monto b { font-size: 18px; }
+.rv-comp { width: 100%; max-height: 320px; object-fit: contain; border: 1px solid #2B2E33; background: #0D0E10; cursor: zoom-in; }
+.rv-ficha { margin: 0; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; background: #0D0E10; border: 1px solid #22252A; padding: 10px; color: #E6E7E9; }
+@media (max-width: 640px) { .rv-pago { grid-template-columns: 1fr; } }
