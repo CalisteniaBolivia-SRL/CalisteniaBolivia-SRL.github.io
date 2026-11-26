@@ -162,7 +162,7 @@
     function reabrirActuales() {
         return docs(db().collection(col("ref_cliente")).where("estado", "==", "rechazado").limit(200)).then(function (l) {
             return Promise.all(l.filter(function (c) { return c.motivo === "Tenía compras antes de anotarse."; })
-                .map(function (c) { return db().collection(col("ref_cliente")).doc(c.key).update({ estado: "valido", motivo: "", con_venta: false }); }));
+                .map(function (c) { return db().collection(col("ref_cliente")).doc(c.id).update({ estado: "valido", motivo: "", con_venta: false }); }));
         }).catch(function () { return null; });
     }
     function procesarInscripcion(ins, res) {
