@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="../index.css">
     <link rel="stylesheet" href="dasboard.css?v=9">
     <link rel="stylesheet" href="capital.css?v=4">
-<link rel="stylesheet" href="sobrio.css?v=6">
+<link rel="stylesheet" href="sobrio.css?v=7">
 </head>
 <body class="cc">
     <header class="nav">
@@ -28,7 +28,7 @@
         <nav class="nav__links nav__links--static" id="nav-portal" hidden>
             <span class="cc-ruta" id="cc-ruta" hidden></span>
             <a href="#muro" data-tablero="muro">Muro</a>
-            <a href="#equipo">Equipo</a>
+            <a href="referidos.html" id="nav-referidos">Mis referidos</a>
             <a href="manual.html">Manual</a>
             <a href="modulos.html" id="nav-modulos" hidden>Módulos</a>
             <span class="cm-hola" id="hola"></span>
@@ -100,22 +100,20 @@
         <section class="cm-hero">
             <p class="cm-eyebrow">Calistenia Company · Paraguay</p>
             <h1>Centro de <span class="red">mando</span></h1>
-            <p class="cm-lead">Los mismos módulos que Bolivia, con los datos del ERP de Calistenia Paraguay (guaraníes). Dirección elige en «Módulos» cuáles se ven.</p>
+            <p class="cm-lead">Elegí dónde trabajar. Datos de Calistenia Paraguay, en guaraníes.</p>
+        </section>
+        <section class="cm-block cm-hoy" id="hoy-paraguay" hidden></section>
+        <section class="cm-block" id="equipo-py">
+            <div class="cm-head"><h2>Tus <span class="red">áreas</span></h2></div>
+            <div id="tableros-paraguay"></div>
+            <p class="cm-nota" id="py-sin" hidden>Todavía no tenés áreas de Paraguay. Pedile a Dirección que te dé el permiso en el ERP de Calistenia Paraguay.</p>
         </section>
         <section class="cm-block" id="muro-py" hidden>
-            <div class="cm-head">
-                <h2>Muro de <span class="red" id="cuenta-paraguay">pantallas</span></h2>
-                <p>Abre cada pantalla en su monitor y presiona <b>Pantalla completa</b>. Se ajusta al monitor sin scroll y se actualiza cada 8 segundos.</p>
-            </div>
-            <ol class="cm-screens" id="pantallas-paraguay"></ol>
-        </section>
-        <section class="cm-block" id="equipo-py">
-            <div class="cm-head">
-                <h2>Tus <span class="red">tableros</span></h2>
-                <p>Cada tarjeta respeta los permisos de tu usuario en el ERP.</p>
-            </div>
-            <div class="cm-team" id="tableros-paraguay"></div>
-            <p class="cm-nota" id="py-sin" hidden>Tu usuario no tiene tableros de Paraguay visibles. Dirección asigna los permisos en /centro_mando del ERP de Calistenia Paraguay y elige en «Módulos» cuáles se ven.</p>
+            <details class="cm-muro">
+                <summary><span>Muro de <span class="red" id="cuenta-paraguay">pantallas</span></span><small>Para los monitores de la oficina · tocá para ver</small></summary>
+                <p class="cm-nota">Abrí cada pantalla en su monitor y tocá <b>Pantalla completa</b>. Se actualiza sola. Desactivá la suspensión y el protector de pantalla del monitor.</p>
+                <ol class="cm-screens" id="pantallas-paraguay"></ol>
+            </details>
         </section>
     </main>
 
@@ -123,16 +121,9 @@
         <section class="cm-hero">
             <p class="cm-eyebrow">Calistenia Company · Bolivia</p>
             <h1>Centro de <span class="red">mando</span></h1>
-            <p class="cm-lead">Pantallas y tableros con datos en vivo de las 11 sucursales. La primera vez que abras un tablero te pedirá entrar con tu usuario de Calistenia para leer los datos.</p>
+            <p class="cm-lead">Elegí dónde trabajar. Datos en vivo de las sucursales de Bolivia.</p>
         </section>
-
-        <section class="cm-block" id="muro" data-tablero="muro">
-            <div class="cm-head">
-                <h2>Muro de <span class="red" id="cuenta-bolivia">pantallas</span></h2>
-                <p>Abre cada pantalla en su monitor y presiona <b>Pantalla completa</b>. Se ajusta al monitor sin scroll y se actualiza cada 8 segundos.</p>
-            </div>
-            <ol class="cm-screens" id="pantallas-bolivia"></ol>
-                    </section>
+        <section class="cm-block cm-hoy" id="hoy-bolivia" hidden></section>
 
         <section class="cm-block cm-sinacceso" id="sin-acceso" hidden>
             <h2>Sin tableros <span class="red">asignados</span></h2>
@@ -141,19 +132,24 @@
         </section>
 
         <section class="cm-block" id="equipo">
-            <div class="cm-head">
-                <h2>Tus <span class="red">tableros</span></h2>
-                <p>Cada responsable tiene su tablero con indicadores, controles de fiscalización y su lista de trabajo del día.</p>
-            </div>
-            <div class="cm-team" id="tableros-bolivia"></div>
+            <div class="cm-head"><h2>Tus <span class="red">áreas</span></h2></div>
+            <div id="tableros-bolivia"></div>
+        </section>
+
+        <section class="cm-block" id="muro" data-tablero="muro">
+            <details class="cm-muro">
+                <summary><span>Muro de <span class="red" id="cuenta-bolivia">pantallas</span></span><small>Para los monitores de la oficina · tocá para ver</small></summary>
+                <p class="cm-nota">Abrí cada pantalla en su monitor y tocá <b>Pantalla completa</b>. Se actualiza sola. Desactivá la suspensión y el protector de pantalla del monitor.</p>
+                <ol class="cm-screens" id="pantallas-bolivia"></ol>
+            </details>
         </section>
 
         <section class="cm-block cm-help">
-            <h2>¿No carga?</h2>
+            <h2>¿Algo no anda?</h2>
             <ul>
-                <li>Al abrir un tablero por primera vez, entra con tu usuario y contraseña de Calistenia y aprueba el acceso de lectura.</li>
-                <li>Si un tablero dice «No se pudo cargar», a tu usuario le falta el rol <b>MCP Lectura</b> en Calistenia: pídeselo a Dirección.</li>
-                <li>En los monitores del muro, desactiva la suspensión y el protector de pantalla.</li>
+                <li>Tocá <b>Salir</b> y volvé a entrar con tu usuario y contraseña del ERP.</li>
+                <li>Si un tablero te pide entrar con tu usuario de Calistenia, hacelo una vez y queda guardado.</li>
+                <li>Si sigue sin andar, avisale a Dirección qué pantalla y qué mensaje te sale.</li>
             </ul>
         </section>
     </main>
@@ -167,7 +163,8 @@
     <script src="firebase-config.js?v=2"></script>
     <script>window.CM_FB_SIN_BARRA = true;</script>
     <script src="cm-firebase.js?v=14"></script>
-    <script src="modulos.js?v=15"></script>
+    <script src="modulos.js?v=16"></script>
     <script src="acceso.js?v=27"></script>
+    <script src="portal-hoy.js?v=1"></script>
 </body>
 </html>

@@ -81,6 +81,30 @@
     function tieneAlguno(m, permisos) { return m.todos || (permisos || []).indexOf("todo") >= 0 || m.permisos.some(function (p) { return (permisos || []).indexOf(p) >= 0; }); }
     function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
 
+    /* Áreas del portal: cada tablero va en el espacio de su área laboral, con una sola línea que dice para qué sirve. */
+    var AREAS = [
+        { id: "ventas", nombre: "Ventas y clientes" },
+        { id: "direccion", nombre: "Dirección" },
+        { id: "administracion", nombre: "Administración" },
+        { id: "operaciones", nombre: "Operaciones" },
+        { id: "marketing", nombre: "Marketing" },
+        { id: "personas", nombre: "Personas" }
+    ];
+    var AREA_DE = { ingresos: "direccion", asistente: "direccion", direccion: "direccion", reportes: "direccion",
+        atc: "ventas", jefe_atc: "ventas", ref_ventas: "ventas", referidos: "ventas",
+        marketing: "marketing", redes: "marketing", creativo: "marketing",
+        supervision: "operaciones", mantenimiento: "operaciones",
+        administracion: "administracion", tareas: "administracion", contabilidad: "administracion", legal: "administracion",
+        rrhh: "personas", denuncias: "personas", sugerencias: "personas" };
+    var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "administracion", "tareas", "contabilidad", "legal",
+        "supervision", "mantenimiento", "marketing", "redes", "creativo", "rrhh", "denuncias", "sugerencias"];
+    var CORTO = { ingresos: "Lo que entra, en vivo", asistente: "Preguntale lo que quieras, por voz", direccion: "Semáforo de todas las áreas", reportes: "Control y auditoría",
+        atc: "Tu lista para llamar y vender", jefe_atc: "Listas, equipo y comisiones de las ATC", ref_ventas: "Llamar y cobrar a los referidos", referidos: "Tu código y lo que ganás",
+        marketing: "Ventas, paquetes y campañas", redes: "Respuestas en Instagram y Facebook", creativo: "Piezas y videos con IA",
+        supervision: "Sucursales, entrenadores y reemplazos", mantenimiento: "Checklist de sucursales y fallas",
+        administracion: "Cajas, ingresos y comisiones", tareas: "Pendientes por prioridad", contabilidad: "Caja contra banco y fiscalización", legal: "Contratos, permisos y casos",
+        rrhh: "Entrenadores y cajeros", denuncias: "Lo que denuncia el personal", sugerencias: "Lo que dicen los clientes" };
+
     /* Arma en el portal la lista del muro y las tarjetas de tableros de ese país, según permisos y checklist. */
     function pintar(opc) {
         var pais = opc.pais, perms = opc.permisos || [], cfg = opc.cfg;
@@ -101,21 +125,32 @@
         }
         if (opc.tableros) {
             opc.tableros.textContent = "";
-            tabs.forEach(function (m) {
-                var a = el("a", "cm-card"); a.href = m.href(pais);
-                a.appendChild(el("span", "cm-area", m.nombre));
-                /* Quién lo usa (si se sabe en ese país) y para qué: sin repetir el mismo texto dos veces. */
-                var quien = m.quien && m.quien[pais];
-                a.appendChild(el("span", "cm-who", quien && quien.toLowerCase() !== String(m.rol).toLowerCase() ? quien : ""));   /* siempre la misma línea, para que todo quede alineado */
-                a.appendChild(el("span", "cm-role", m.rol));
-                a.appendChild(el("span", "cm-what", m.que));
-                if (pais === "paraguay" && !m.datosPY) a.appendChild(el("span", "cm-prox", "Falta conectar los datos de Paraguay"));
-                opc.tableros.appendChild(a);
+            /* «Mis referidos» es de todo el personal: va en el menú de arriba; acá solo si no hay otro tablero. */
+            var propios = tabs.filter(function (m) { return !m.todos; });
+            var lista = propios.length ? propios : tabs;
+            /* Dirección ve primero su área; dentro de cada área, primero lo de todos los días. */
+            var areas = perms.indexOf("direccion") >= 0 || perms.indexOf("todo") >= 0 ? [AREAS[1]].concat(AREAS.filter(function (a) { return a.id !== "direccion"; })) : AREAS;
+            var pos = function (m) { var i = ORDEN.indexOf(m.id); return i < 0 ? 99 : i; };
+            areas.forEach(function (ar) {
+                var deArea = lista.filter(function (m) { return (AREA_DE[m.id] || "direccion") === ar.id; }).sort(function (a, b) { return pos(a) - pos(b); });
+                if (!deArea.length) return;
+                var g = el("section", "cm-area-grupo");
+                if (propios.length > 3) g.appendChild(el("h3", "cm-area-tit", ar.nombre));
+                var grilla = el("div", "cm-team cm-team--corto");
+                deArea.forEach(function (m) {
+                    var a = el("a", "cm-card cm-card--corta"); a.href = m.href(pais); a.title = m.que || "";
+                    a.appendChild(el("span", "cm-area", m.nombre));
+                    a.appendChild(el("span", "cm-what", CORTO[m.id] || m.rol || ""));
+                    if (pais === "paraguay" && !m.datosPY) a.appendChild(el("span", "cm-prox", "Falta conectar los datos de Paraguay"));
+                    grilla.appendChild(a);
+                });
+                g.appendChild(grilla);
+                opc.tableros.appendChild(g);
             });
             if (opc.bloqueTableros) opc.bloqueTableros.hidden = !tabs.length;
         }
         return { pantallas: pant.length, tableros: tabs.length };
     }
 
-    window.CM_MODULOS = { PAISES: PAISES, lista: MODULOS, visible: visible, cargarConfig: cargarConfig, pintar: pintar, porDefecto: POR_DEFECTO, tieneAlguno: tieneAlguno };
+    window.CM_MODULOS = { AREAS: AREAS, AREA_DE: AREA_DE, PAISES: PAISES, lista: MODULOS, visible: visible, cargarConfig: cargarConfig, pintar: pintar, porDefecto: POR_DEFECTO, tieneAlguno: tieneAlguno };
 })();
