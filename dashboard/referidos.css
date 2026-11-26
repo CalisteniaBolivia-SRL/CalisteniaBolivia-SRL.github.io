@@ -76,3 +76,4 @@
 .rf-filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #8D9299; letter-spacing: .06em; text-transform: uppercase; }
 .rf-sinc { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; }
 .rf-login { max-width: 460px; }
+.rf-oferta { display: block; margin-top: 8px; padding: 8px 10px; border-left: 2px solid #E30613; font-size: 14px; line-height: 1.4; color: #F3F4F5; }

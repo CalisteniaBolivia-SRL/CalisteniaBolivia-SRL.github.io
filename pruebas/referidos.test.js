@@ -63,9 +63,11 @@ test("cobrado: solo pagos positivos (la transferencia +X/−X al banco no resta)
   assert.equal(R.cobrado([{ monto: 100 }, { monto: 50, anulado: true }]), 100);
 });
 
-test("comisión: 2,5 % de lo cobrado (con descuento se calcula sobre lo cobrado)", () => {
+test("comisión: 5 % de lo cobrado por defecto (con descuento se calcula sobre lo cobrado)", () => {
   assert.equal(R.calcularComision(199, 2.5), 4.98);
-  assert.equal(R.pctPara({}, "PLAN MENSUAL"), 2.5);
+  assert.equal(R.calcularComision(212.5, 5), 10.63);
+  assert.equal(R.pctPara({}, "PLAN MENSUAL"), 5);
+  assert.equal(R.DESC_CLIENTE, 15);
   assert.equal(R.pctPara({ pct: 3 }, "PLAN MENSUAL"), 3);
   assert.equal(R.pctPara({ pct: 3, pct_paquete: { "Plan Black - Acceso a todas las Sucursales": 4 } }, "plan black - acceso a todas las sucursales"), 4);
 });
@@ -81,7 +83,7 @@ test("venta sin pago → pendiente; al pagar → ganada y congelada", () => {
 
 test("pago directo en caja (sin pasar por pendiente) → ganada", () => {
   const g = R.actualizar(null, { anulada: false, cobrado: 250, paquete: "PLAN MENSUAL" }, {}, "2026-11-12T10:00:00Z");
-  assert.equal(g.estado, "ganada"); assert.equal(g.comision, 6.25);
+  assert.equal(g.estado, "ganada"); assert.equal(g.comision, 12.5);
 });
 
 test("anulación antes de liquidar → revertida sin saldo en contra", () => {
