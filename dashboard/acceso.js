@@ -201,10 +201,28 @@
         document.getElementById("acc-usuario").focus();
     }
 
-    try {
-        var s = JSON.parse(localStorage.getItem(CLAVE) || "null");
-        if (s && s.vence > Date.now() && "tableros" in s) { entrar(conRol(s)); actualizarPermisos(s); renovarRoles(); }
-    } catch (e) {}
+    /* Un solo ingreso: quien ya entró no vuelve a poner usuario y contraseña.
+       - Sesión del portal guardada → entra (y si no tiene ningún tablero, va directo a «Mis referidos»).
+       - Sin sesión del portal pero con la sesión de datos abierta (se borró una sola de las dos) → el portal se
+         rearma con los permisos de esa sesión, sin pedir la contraseña. */
+    function sinNadaQueVer(ses) { return !(ses.tableros || []).length && !(ses.tableros_py || []).length; }
+    var sesGuardada = null;
+    try { sesGuardada = JSON.parse(localStorage.getItem(CLAVE) || "null"); } catch (e) {}
+    if (sesGuardada && sesGuardada.vence > Date.now() && "tableros" in sesGuardada) {
+        conRol(sesGuardada);
+        if (sinNadaQueVer(sesGuardada) && window.CMFB) {
+            CMFB.listo.then(function () { if (firebase.auth().currentUser) location.replace("referidos.html"); else { entrar(sesGuardada); } });
+        } else { entrar(sesGuardada); actualizarPermisos(sesGuardada); renovarRoles(); }
+    } else if (window.CMFB) {
+        CMFB.listo.then(function () {
+            var u = window.firebase && firebase.apps.length && firebase.auth().currentUser, c = CMFB.estado.claims || {};
+            if (!u || !(Number(c.vence) > Date.now()) || sesionActual) return;
+            var ses = { nombre: String(c.nombre || "").split(" ")[0], usuario: c.usuario || "", key_usuario: u.uid, tableros: (c.tableros || []).slice(), tableros_py: (c.tableros_py || []).slice(), vence: Number(c.vence) };
+            try { localStorage.setItem(CLAVE, JSON.stringify(ses)); } catch (e) {}
+            if (sinNadaQueVer(ses) && !(CMFB.porRol && CMFB.porRol())) { location.replace("referidos.html"); return; }
+            entrar(conRol(ses)); actualizarPermisos(ses); renovarRoles();
+        });
+    }
     /* Cada vez que se abre el portal, la sesión de datos se renueva con lo último que Dirección eligió para los roles
        del usuario: el cambio se ve sin volver a poner la contraseña. */
     function renovarRoles() {
