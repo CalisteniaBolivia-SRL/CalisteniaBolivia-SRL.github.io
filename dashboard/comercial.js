@@ -252,7 +252,7 @@
     /* ================= Pintar ================= */
     /* Jefe de ATC: lo principal en pestañas; lo demás en «Más». */
     var TABS_MASTER = [["panel", "Panel"], ["verlista", "Ver una lista"], ["campanas", "Campañas"], ["comisiones", "Comisiones"], ["equipo", "Equipo"],
-        ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes antiguos"], ["tareas", "Tareas para las ATC"], ["guiones", "Guiones"], ["actividad", "Actividad"]];
+        ["resumen", "Resumen del mes"], ["reparto", "Reparto por sucursal"], ["clientes", "Clientes antiguos"], ["tareas", "Tareas para las ATC"], ["guiones", "Guiones"], ["actividad", "Actividad"], ["referidos", "Referidos"]];
     /* El Jefe de ATC tiene dos trabajos separados: dirigir al equipo (CRM de las ATC) y atender él mismo a los clientes
        (renovaciones, en riesgo y recuperación). Cada uno con sus pestañas. */
     var MI_TRABAJO = ["fidel", "atencion"];
@@ -262,7 +262,8 @@
     /* Temas del Jefe de ATC: lo del día, los clientes, el equipo y la plata. */
     var GRUPOS_CRM = [
         { id: "hoy", nombre: "Hoy", tabs: ["panel", "plan"] },
-        { id: "clientes", nombre: "Clientes", tabs: ["verlista", "campanas", "clientes"], link: "referidos-ventas.html", linkTxt: "Referidos nuevos →" },
+        { id: "clientes", nombre: "Clientes", tabs: ["verlista", "campanas", "clientes"] },
+        { id: "referidos", nombre: "Referidos", tabs: ["referidos"] },
         { id: "equipo", nombre: "Equipo", tabs: ["equipo", "tareas", "guiones", "actividad"] },
         { id: "plata", nombre: "Comisiones", tabs: ["comisiones", "resumen", "reparto"] }
     ];
@@ -292,6 +293,24 @@
         marco.addEventListener("load", ajustarMarco);
         cont.appendChild(marco);
     }
+    /* Referidos (Jefe de ATC): el tablero de referidos adentro, con su resumen, la gestión de contactos y los cambios. */
+    var marcoRef = null;
+    function mostrarReferidos(visible) {
+        var cont = $("#co-referidos");
+        if (!cont) { cont = el("section", { id: "co-referidos", role: "tabpanel", "aria-label": "Referidos" }); var c = $("#co-contenido"); c.parentNode.insertBefore(cont, c.nextSibling); }
+        cont.hidden = !visible;
+        if (!visible) return;
+        if (marcoRef) { try { marcoRef.contentWindow.location.reload(); } catch (e) {} return; }
+        marcoRef = el("iframe", { src: "referidos-ventas.html?embebido=1" + (window.CM_PAIS === "paraguay" ? "&pais=paraguay" : ""), title: "Referidos" });
+        marcoRef.style.cssText = "display:block;width:100%;min-height:80vh;border:0;background:transparent";
+        marcoRef.addEventListener("load", function () {
+            try {
+                var doc = marcoRef.contentDocument, medir = function () { var h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight) + "px"; if (marcoRef.style.height !== h) marcoRef.style.height = h; };
+                medir(); if (window.ResizeObserver) new ResizeObserver(medir).observe(doc.body); else setInterval(medir, 2000);
+            } catch (e) {}
+        });
+        cont.appendChild(marcoRef);
+    }
     function ajustarMarco() {
         try {
             var doc = marco.contentDocument;
@@ -316,7 +335,7 @@
         var nav = $("#co-tabs"); nav.textContent = "";
         nav.hidden = !MASTER;
         /* El encabezado grande (con el mes) solo hace falta en las secciones por mes; el Panel y la lista tienen el suyo. */
-        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", TAB_PLAN[0], TAB_ATENCION[0], TAB_FIDEL[0]].indexOf(S.tab) >= 0;
+        var top = raiz.querySelector(".co-top"); if (top) top.hidden = !MASTER || ["panel", "verlista", "referidos", TAB_PLAN[0], TAB_ATENCION[0], TAB_FIDEL[0]].indexOf(S.tab) >= 0;
         var ir = function (t) { if (S.tab !== t) { try { history.pushState(null, "", location.search + "#" + t); } catch (e) {} } S.tab = t; pintar(); };
         /* Dos áreas: «Equipo de ATC (CRM)» y «Mi atención directa»; arriba se elige el área y abajo sus pestañas. */
         var conAreas = MASTER && !SOLO_ATENCION && tabs.some(function (t) { return grupoDe(t[0]) === "mio"; });
@@ -374,10 +393,11 @@
             nav.appendChild(sel);
         }
         var c = $("#co-contenido"); c.textContent = "";
-        var enAtencion = S.tab === TAB_ATENCION[0];
-        c.hidden = enAtencion;
+        var enAtencion = S.tab === TAB_ATENCION[0], enReferidos = S.tab === "referidos";
+        c.hidden = enAtencion || enReferidos;
         mostrarAtencion(enAtencion);
-        if (enAtencion) return;
+        mostrarReferidos(enReferidos);
+        if (enAtencion || enReferidos) return;
         var banner = null;   // el Panel (jefe) y el encabezado de la lista (ATC) ya muestran avance y comisiones
         var ponerBanner = function () { if (banner) c.insertBefore(banner, c.firstChild); };
         if (S.tab === TAB_PLAN[0]) {
