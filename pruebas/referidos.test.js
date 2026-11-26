@@ -30,9 +30,9 @@ test("cliente registrado sin compras cuenta como nuevo", () => {
   assert.equal(v.ok, true);
 });
 
-test("cliente con compras previas → rechazado y alerta «existente»", () => {
+test("cliente actual (con compras previas) también vale", () => {
   const v = R.validarInscripcion(ins(), juan, { key_usuario: "c1", compras: 3, primera_compra: "2025-01-05" }, null);
-  assert.equal(v.ok, false); assert.equal(v.alertas[0].tipo, "existente");
+  assert.equal(v.ok, true); assert.equal(v.alertas.length, 0);
 });
 
 test("código propio (mismo carnet o celular) → rechazado y alerta «propio»", () => {
@@ -56,10 +56,12 @@ test("un cliente queda con el primer código que usó", () => {
   assert.equal(v.ok, false); assert.equal(v.alertas[0].tipo, "duplicado");
 });
 
-test("venta del referido: primera compra desde que se anotó; con compra previa no es nuevo", () => {
+test("venta del referido: primera compra desde que se anotó, también para clientes actuales", () => {
   const h = [{ key_paquete_venta: "v2", fecha_venta: "2026-11-12", anulada: false }, { key_paquete_venta: "v1", fecha_venta: "2026-11-10", anulada: true }];
   assert.equal(R.ventaDelReferido(h, "2026-11-10").venta.key_paquete_venta, "v2");
-  assert.equal(R.ventaDelReferido([{ fecha_venta: "2026-10-01", anulada: false }], "2026-11-10").existente, true);
+  const act = R.ventaDelReferido([{ key_paquete_venta: "v0", fecha_venta: "2026-10-01", anulada: false }, { key_paquete_venta: "v3", fecha_venta: "2026-11-15", anulada: false }], "2026-11-10");
+  assert.equal(act.existente, true); assert.equal(act.venta.key_paquete_venta, "v3");
+  assert.equal(R.ventaDelReferido([{ fecha_venta: "2026-10-01", anulada: false }], "2026-11-10").venta, null);
   assert.equal(R.ventaDelReferido([], "2026-11-10").venta, null);
 });
 

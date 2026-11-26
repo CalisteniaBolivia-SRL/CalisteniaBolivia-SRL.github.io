@@ -174,7 +174,7 @@
     function pintarCodigo() {
         var c = est.codigo.codigo, link = linkDe(c);
         $("rf-codigo").textContent = R.mostrarCodigo(c); $("rf-link").textContent = link.replace("https://", ""); $("rf-link").href = link;
-        var of = $("rf-oferta"); if (of) { of.textContent = ""; of.appendChild(document.createTextNode("Tus invitados tienen ")); of.appendChild(el("b", "", (R.DESC_CLIENTE || 15) + " % de descuento")); of.appendChild(document.createTextNode(" en su paquete (clientes nuevos y actuales). Contáselo: sale en tu link, en el QR y en el mensaje de WhatsApp. Tu comisión es por cada cliente nuevo que compra.")); }
+        var of = $("rf-oferta"); if (of) { of.textContent = ""; of.appendChild(document.createTextNode("Tus invitados tienen ")); of.appendChild(el("b", "", (R.DESC_CLIENTE || 15) + " % de descuento")); of.appendChild(document.createTextNode(" en su paquete (clientes nuevos y actuales). Contáselo: sale en tu link, en el QR y en el mensaje de WhatsApp. Tu comisión es por cada cliente que compra con tu código, nuevo o actual.")); }
         var texto = "¡Hola! 💪 Entrená calistenia en Calistenia Company con " + (R.DESC_CLIENTE || 15) + " % de descuento en tu paquete. Anotate con mi código " + R.mostrarCodigo(c) + " antes de pagar en caja: " + link;
         $("rf-wa").href = "https://wa.me/?text=" + encodeURIComponent(texto);
         $("rf-copiar").onclick = function () {
@@ -278,7 +278,7 @@
             return cargarAdmin();
         }, function (e) { t.textContent = "No se pudo actualizar: " + e.message; }).then(function () { b.disabled = false; b.textContent = "Actualizar ahora"; });
     }
-    var TIPO_ALERTA = { propio: "Código propio", familiar: "Familiar", existente: "Cliente que ya compraba", duplicado: "Ya tenía otro código", apellido: "Mismos apellidos" };
+    var TIPO_ALERTA = { propio: "Código propio", familiar: "Familiar", existente: "Cliente que ya compraba (aviso viejo)", duplicado: "Ya tenía otro código", apellido: "Mismos apellidos" };
     function pintarAlertas(lista) {
         var box = $("rf-alertas"); box.textContent = "";
         var nuevas = lista.filter(function (a) { return a.estado === "nueva"; });

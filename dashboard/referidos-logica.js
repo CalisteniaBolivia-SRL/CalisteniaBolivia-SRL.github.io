@@ -2,11 +2,11 @@
    Códigos de referido · reglas de negocio (sin interfaz ni datos: se prueban solas con Node).
    Bolivia y Paraguay usan exactamente estas reglas; solo cambia la moneda.
    - Código único por trabajador (JUAN; los viejos JUAN-CAL siguen valiendo), con link y QR. Cada uno puede elegirlo.
-   - Solo clientes nuevos (sin compras antes de anotarse). Un cliente queda con el primer código que usó.
+   - Vale para clientes nuevos y actuales (los que ya compraban también). Un cliente queda con el primer código que usó.
    - Anti-fraude: ni el propio código ni el de un familiar declarado (alerta, además, si comparte apellidos).
    - Comisión = % del monto realmente cobrado (5 % por defecto; configurable global y por paquete).
    - El cliente que se anota con un código tiene 15 % de descuento en su paquete, sea nuevo o actual (lo aplica Caja al cobrar).
-     La comisión del referidor sigue siendo solo por clientes nuevos.
+     La comisión del referidor también: por clientes nuevos y actuales (la primera compra desde que se anotó).
    - Se genera solo al pagar y queda congelada; si se anula la venta, «Revertida» (y saldo en contra si ya se pagó).
    - Estados: pendiente (venta sin pago) → ganada (pagada) → pagada (al trabajador) | revertida.
    ===================================================================================================== */
@@ -70,8 +70,6 @@
             if (yaAsociado.codigo === normCodigo(ins.codigo)) return r("Ya estaba anotado con este código.", null);
             return r("El cliente ya usó otro código (" + yaAsociado.codigo + "): vale el primero.", "duplicado", "Ya asociado a " + yaAsociado.codigo);
         }
-        if (clienteERP && esClienteExistente(clienteERP, ins.fecha))
-            return r("El cliente ya tenía compras antes de anotarse (no es cliente nuevo).", "existente", "Primera compra: " + (clienteERP.primera_compra || "—") + " · compras: " + (clienteERP.compras || 0));
         var ap = apellidos(trabajador.nombre), apc = apellidos(ins.nombre || (clienteERP && clienteERP.nombre));
         if (ap.length === 2 && apc.length === 2 && ap[0] === apc[0] && ap[1] === apc[1])
             alertas.push({ tipo: "apellido", detalle: "Comparte los dos apellidos con el trabajador: revisar si es familiar." });
@@ -87,13 +85,12 @@
     /* ---------- venta que genera la comisión ----------
        historial: compras del cliente [{ key_paquete_venta, fecha_venta, paquete, sucursal, precio, anulada }]
        → la primera compra (no anulada) desde el día en que se anotó; null si todavía no compró.
-       Si hubo una compra anterior (no anulada), el cliente no es nuevo: { existente: true }. */
+       Las compras de antes no importan: los clientes actuales también generan comisión. existente solo informa. */
     function ventaDelReferido(historial, fechaInscripcion) {
         var dia = String(fechaInscripcion || "").slice(0, 10);
         var filas = (historial || []).slice().sort(function (a, b) { return String(a.fecha_venta).localeCompare(String(b.fecha_venta)); });
         var previa = filas.filter(function (v) { return !v.anulada && String(v.fecha_venta).slice(0, 10) < dia; })[0];
-        if (previa) return { existente: true, venta: null };
-        return { existente: false, venta: filas.filter(function (v) { return !v.anulada && String(v.fecha_venta).slice(0, 10) >= dia; })[0] || null };
+        return { existente: !!previa, venta: filas.filter(function (v) { return !v.anulada && String(v.fecha_venta).slice(0, 10) >= dia; })[0] || null };
     }
 
     /* Lo realmente cobrado: suma de los pagos positivos no anulados del recibo (las transferencias aparecen
