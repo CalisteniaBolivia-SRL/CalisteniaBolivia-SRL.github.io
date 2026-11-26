@@ -4,7 +4,8 @@
    - Código único por trabajador (JUAN-CAL), con link y QR.
    - Solo clientes nuevos (sin compras antes de anotarse). Un cliente queda con el primer código que usó.
    - Anti-fraude: ni el propio código ni el de un familiar declarado (alerta, además, si comparte apellidos).
-   - Comisión = % del monto realmente cobrado (2,5 % por defecto; configurable global y por paquete).
+   - Comisión = % del monto realmente cobrado (5 % por defecto; configurable global y por paquete).
+   - El cliente que se anota con un código tiene 15 % de descuento en su primer paquete (lo aplica Caja al cobrar).
    - Se genera solo al pagar y queda congelada; si se anula la venta, «Revertida» (y saldo en contra si ya se pagó).
    - Estados: pendiente (venta sin pago) → ganada (pagada) → pagada (al trabajador) | revertida.
    ===================================================================================================== */
@@ -12,7 +13,8 @@
     "use strict";
 
     var ESTADOS = ["pendiente", "ganada", "pagada", "revertida"];
-    var PCT_DEFECTO = 2.5;
+    var PCT_DEFECTO = 5;          // comisión del equipo de referidos: 5 % de lo cobrado
+    var DESC_CLIENTE = 15;        // descuento del cliente que se anota con el código, en su primer paquete
 
     function sinAcentos(s) { return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, ""); }
     function redondear(n) { return Math.round(Number(((Number(n) || 0) * 100).toFixed(6))) / 100; }   /* 4,975 → 4,98 */
@@ -194,7 +196,7 @@
     }
 
     var API = {
-        ESTADOS: ESTADOS, PCT_DEFECTO: PCT_DEFECTO, normCodigo: normCodigo, generarCodigo: generarCodigo, normCI: normCI, normTel: normTel,
+        ESTADOS: ESTADOS, PCT_DEFECTO: PCT_DEFECTO, DESC_CLIENTE: DESC_CLIENTE, normCodigo: normCodigo, generarCodigo: generarCodigo, normCI: normCI, normTel: normTel,
         apellidos: apellidos, mismaPersona: mismaPersona, validarInscripcion: validarInscripcion, esClienteExistente: esClienteExistente,
         ventaDelReferido: ventaDelReferido, cobrado: cobrado, pctPara: pctPara, calcularComision: calcularComision, actualizar: actualizar,
         periodo: periodo, resumen: resumen, metaYBonos: metaYBonos, liquidacion: liquidacion, tablaPaquetes: tablaPaquetes, ranking: ranking, redondear: redondear

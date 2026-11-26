@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../dashboard/firebase-config.js?v=2"></script>
-<script src="../dashboard/referidos-logica.js?v=1"></script>
+<script src="../dashboard/referidos-logica.js?v=2"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -36,13 +36,19 @@
   .listo { border-left: 3px solid #7FB79A; padding: 14px 16px; background: #121315; display: flex; flex-direction: column; gap: 8px; }
   .listo b { font-size: 18px; color: #F3F4F5; }
   .pie { color: #5C6168; font-size: 12px; }
+  .oferta { border: 1px solid #E30613; padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+  .oferta b { font-size: 40px; line-height: 1; color: #FFFFFF; white-space: nowrap; }
+  .oferta > span { color: #F3F4F5; font-size: 15px; line-height: 1.35; }
+  .oferta small { display: block; color: #8D9299; font-size: 12px; margin-top: 4px; }
+  .caja { border: 1px dashed #C4C8CE; padding: 12px 14px; color: #F3F4F5; font-size: 15px; }
 </style>
 </head>
 <body>
 <main>
   <img class="logo" src="../images/132458707.png" alt="Calistenia Company">
   <h1>Entrená <span>calistenia</span></h1>
-  <p id="intro">Te invitaron a Calistenia Company. Anotate en 30 segundos y después pagás tu paquete en caja o en la app.</p>
+  <p id="intro">Te invitaron a Calistenia Company. Anotate en 30 segundos y después pagás tu paquete en caja.</p>
+  <div class="oferta" id="oferta" hidden><b><span id="desc-n">15</span>%</b><span>de descuento en tu primer paquete por venir con este código.<small>Para clientes nuevos. Se aplica en caja al pagar.</small></span></div>
   <div class="codigo" id="codigo-box" hidden><div><small>Código de</small><br><span id="codigo-de">—</span></div><b id="codigo">—</b></div>
   <form id="f" hidden>
     <label>Nombre y apellido <input type="text" name="nombre" required minlength="3" maxlength="80" autocomplete="name"></label>
@@ -54,7 +60,8 @@
   </form>
   <div class="listo" id="listo" hidden>
     <b>¡Listo, ya quedaste anotado! 💪</b>
-    <p>Acercate a cualquier sucursal con tu carnet (o comprá tu paquete en la app) y empezá a entrenar.</p>
+    <p>Acercate a cualquier sucursal con tu carnet y empezá a entrenar.</p>
+    <p class="caja" id="caja">Mostrá esta pantalla en caja: <b id="caja-desc">15 %</b> de descuento en tu primer paquete con el código <b id="caja-cod">—</b>.</p>
     <p id="listo-wa"></p>
   </div>
   <p class="pie">Calistenia Company · <span id="pais">Bolivia</span></p>
@@ -65,6 +72,8 @@
   var q = new URLSearchParams(location.search), R = window.REF_LOGICA;
   var py = q.get("p") === "py", pre = py ? "py_" : "", codigo = R.normCodigo(q.get("c") || "");
   var $ = function (id) { return document.getElementById(id); };
+  var DESC = R.DESC_CLIENTE || 15;
+  $("desc-n").textContent = DESC; $("caja-desc").textContent = DESC + " %"; $("caja-cod").textContent = codigo || "—";
   if (py) { $("pais").textContent = "Paraguay"; document.querySelector("label:nth-of-type(2)").firstChild.textContent = "Cédula de identidad "; }
   $("listo-wa").textContent = py ? "" : "Consultas: WhatsApp +591 77301118.";
   function error(t) { $("error").textContent = t; }
@@ -76,7 +85,7 @@
   db.collection(pre + "ref_codigo_idx").doc(codigo).get().then(function (d) {
     if (!d.exists || d.data().estado === 0) { $("intro").textContent = "El código " + codigo + " no existe o ya no está activo. Igual podés acercarte a cualquier sucursal."; return; }
     $("codigo").textContent = codigo; $("codigo-de").textContent = d.data().nombre || "tu invitador";
-    $("codigo-box").hidden = false; $("f").hidden = false;
+    $("codigo-box").hidden = false; $("f").hidden = false; $("oferta").hidden = false;
   }, function () { $("intro").textContent = "No se pudo verificar el código. Probá de nuevo en un momento."; });
   $("f").onsubmit = function (e) {
     e.preventDefault(); error("");

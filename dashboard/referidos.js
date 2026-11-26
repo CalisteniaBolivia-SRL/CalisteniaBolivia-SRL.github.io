@@ -161,7 +161,8 @@
     function pintarCodigo() {
         var c = est.codigo.codigo, link = linkDe(c);
         $("rf-codigo").textContent = c; $("rf-link").textContent = link.replace("https://", ""); $("rf-link").href = link;
-        var texto = "¡Hola! 💪 Entrená calistenia en Calistenia Company. Anotate con mi código " + c + " antes de inscribirte: " + link;
+        var of = $("rf-oferta"); if (of) { of.textContent = ""; of.appendChild(document.createTextNode("Tus invitados tienen ")); of.appendChild(el("b", "", (R.DESC_CLIENTE || 15) + " % de descuento")); of.appendChild(document.createTextNode(" en su primer paquete. Contáselo: sale en tu link, en el QR y en el mensaje de WhatsApp.")); }
+        var texto = "¡Hola! 💪 Entrená calistenia en Calistenia Company con " + (R.DESC_CLIENTE || 15) + " % de descuento en tu primer paquete. Anotate con mi código " + c + " antes de pagar en caja: " + link;
         $("rf-wa").href = "https://wa.me/?text=" + encodeURIComponent(texto);
         $("rf-copiar").onclick = function () {
             var hecho = function () { $("rf-copiar").textContent = "¡Copiado!"; setTimeout(function () { $("rf-copiar").textContent = "Copiar link"; }, 1800); };
@@ -334,6 +335,7 @@
         var c = est.cfg || {}, box = $("rf-config"); box.textContent = "";
         box.appendChild(el("h2", "", "Configuración"));
         box.appendChild(el("p", "rf-muted", "El porcentaje se aplica sobre lo cobrado. Los cambios valen para las ventas que se paguen desde ahora: lo ya ganado queda congelado. Los trabajadores ven solo montos, nunca el porcentaje."));
+        box.appendChild(el("p", "rf-muted", "Oferta para el cliente: " + (R.DESC_CLIENTE || 15) + " % de descuento en su primer paquete (sale en la página de inscripción y en el mensaje de WhatsApp; Caja lo aplica al cobrar). Comisión sugerida para el equipo: " + R.PCT_DEFECTO + " %."));
         var f = el("form", "rf-form rf-cfg");
         var pct = el("label", "", "Comisión global (%) "), ip = el("input"); ip.type = "number"; ip.step = "0.1"; ip.min = "0"; ip.max = "50"; ip.value = c.pct != null ? c.pct : R.PCT_DEFECTO; pct.appendChild(ip); f.appendChild(pct);
         var meta = el("label", "", "Meta de cierres por período "), im = el("input"); im.type = "number"; im.min = "0"; im.value = c.meta_cierres || 0; meta.appendChild(im); f.appendChild(meta);
