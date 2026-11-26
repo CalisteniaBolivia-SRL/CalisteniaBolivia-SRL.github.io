@@ -19,7 +19,7 @@
         try {
             var u = new URL(r), de = (u.pathname.split("/").pop() || "").replace(".html", ""), yo = (location.pathname.split("/").pop() || "").replace(".html", "");
             if (u.origin !== location.origin || !/\/dashboard\//.test(u.pathname) || !de || de === "index" || de === yo) return;
-            var n = de === "comercial" ? (/vista=jefe/.test(u.search) ? "Jefe de ATC" : "Atención al Cliente") : NOMBRES[de];
+            var n = de === "comercial" ? "Atención al Cliente" : NOMBRES[de];
             if (!n) return;
             var a = document.createElement("a"); a.className = "cm-volver"; a.href = r; a.textContent = "← " + n;
             var primero = barra.querySelector("a"); barra.insertBefore(a, primero ? primero.nextSibling : barra.firstChild);

@@ -215,3 +215,4 @@
 .co-grupo.is-on { color: #FFFFFF; border-bottom-color: #E30613; }
 .co-subtabs { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; padding-top: 8px; }
 .co-tab-link { text-decoration: none; border-style: dashed; display: inline-flex; align-items: center; }
+.co-grupo-que { margin: 8px 0 0; width: 100%; font-size: .86em; color: var(--color-fg-muted); }
