@@ -14,6 +14,19 @@ service cloud.firestore {
     function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
     function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
 
+    // ---------- Roles del ERP (roles.html) ----------
+    // La lista de roles de cada ERP y la ficha de cada usuario (permisos del ERP y sus roles) las escribe solo el
+    // puente de ingreso. Dirección las lee y elige qué módulos ve cada rol (cm_rol_cfg, una por rol).
+    match /cm_roles/{pais} { allow read: if permiso('direccion'); allow write: if false; }
+    match /cm_usuario/{uid} { allow read: if permiso('direccion') || (request.auth != null && yo() == uid); allow write: if false; }
+    match /cm_rol_cfg/{key} {
+      allow read: if permiso('direccion');
+      allow delete: if permiso('direccion');
+      allow create, update: if permiso('direccion') && soloCampos(['pais', 'rol', 'modulos', 'tableros', 'por', 'fecha'])
+        && request.resource.data.pais in ['bolivia', 'paraguay'] && request.resource.data.modulos is list && request.resource.data.modulos.size() <= 60
+        && request.resource.data.tableros is list && request.resource.data.tableros.size() <= 20 && texto('rol', 120) && texto('por', 120);
+    }
+
     // Lista de sucursales (la lee cualquiera con sesión; la edita Dirección).
     match /config/{doc} {
       allow read: if sesion();

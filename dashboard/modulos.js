@@ -111,8 +111,11 @@
     /* Arma en el portal la lista del muro y las tarjetas de tableros de ese país, según permisos y checklist. */
     function pintar(opc) {
         var pais = opc.pais, perms = opc.permisos || [], cfg = opc.cfg;
-        var pant = MODULOS.filter(function (m) { return m.tipo === "pantalla" && tieneAlguno(m, perms) && visible(m, pais, cfg); });
-        var tabs = MODULOS.filter(function (m) { return m.tipo === "tablero" && tieneAlguno(m, perms) && visible(m, pais, cfg); });
+        /* Si Dirección eligió los módulos de alguno de los roles del ERP de esta persona (roles.html), ve solo esos. */
+        var porRol = Array.isArray(opc.modulos) ? opc.modulos : null;
+        var deRol = function (m) { return !porRol || m.todos || porRol.indexOf(m.id) >= 0 || (m.alias && porRol.indexOf(m.alias) >= 0); };
+        var pant = MODULOS.filter(function (m) { return m.tipo === "pantalla" && tieneAlguno(m, perms) && visible(m, pais, cfg) && deRol(m); });
+        var tabs = MODULOS.filter(function (m) { return m.tipo === "tablero" && tieneAlguno(m, perms) && visible(m, pais, cfg) && deRol(m); });
         if (opc.pantallas) {
             opc.pantallas.textContent = "";
             pant.forEach(function (m, i) {
@@ -161,5 +164,5 @@
         return { pantallas: pant.length, tableros: tabs.length };
     }
 
-    window.CM_MODULOS = { AREAS: AREAS, AREA_DE: AREA_DE, PAISES: PAISES, lista: MODULOS, visible: visible, cargarConfig: cargarConfig, pintar: pintar, porDefecto: POR_DEFECTO, tieneAlguno: tieneAlguno };
+    window.CM_MODULOS = { AREAS: AREAS, AREA_DE: AREA_DE, ORDEN: ORDEN, CORTO: CORTO, PAISES: PAISES, lista: MODULOS, visible: visible, cargarConfig: cargarConfig, pintar: pintar, porDefecto: POR_DEFECTO, tieneAlguno: tieneAlguno };
 })();

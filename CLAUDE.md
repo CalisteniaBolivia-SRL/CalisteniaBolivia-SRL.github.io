@@ -4,6 +4,15 @@ Sitio estático (GitHub Pages) en `dashboard/`, con Firebase (proyecto `centro-d
 El acceso es SIEMPRE con el usuario y la contraseña del ERP (S-ERP de Servisofts) y los permisos de la página
 `/centro_mando` de cada ERP. No inventar otros mecanismos de acceso.
 
+## Qué ve cada persona: roles del ERP (roles.html)
+Pedido del director: los roles del ERP se traen solos al centro de mando y Dirección elige ahí qué módulos ve cada rol.
+- El puente `erpLogin` lee en cada ingreso los roles de las dos empresas (`roles_permisos/rol getAll`) y los del usuario
+  (`usuarioRol getAllByUsuarios`), y guarda `cm_roles/<pais>` y `cm_usuario/<uid>` (permisos del ERP + sus roles).
+- Dirección elige en `dashboard/roles.html` los módulos de cada rol (`cm_rol_cfg/<key_rol>`: modulos + tableros que
+  necesitan). Se suman a los permisos de /centro_mando; si un rol suyo está configurado, el portal muestra solo esos.
+- `cmRenovar` rehace la sesión sin contraseña cada vez que se abre el portal, así el cambio se ve enseguida.
+- Todo módulo nuevo aparece solo en roles.html (sale de `modulos.js`). El acceso sigue siendo con usuario del ERP.
+
 ## LEY: Bolivia y Paraguay son APPS GEMELAS
 Palabras del director: «Cuando yo modifique algo, tiene que modificarse en los dos lugares. No quiero estar configurando
 dos veces. Prácticamente siempre son apps gemelas.»

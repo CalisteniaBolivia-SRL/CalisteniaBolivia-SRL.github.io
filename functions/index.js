@@ -34,18 +34,51 @@ function fallo(ip) {
 
 function idUnico() { return require("crypto").randomUUID(); }
 
-/* Inicia sesión en el ERP y lee las páginas/permisos del usuario. */
+/* Inicia sesión en el ERP y lee, en el mismo socket y en orden: las páginas/permisos del usuario en Bolivia y en
+   Paraguay, y sus ROLES del ERP (con el nombre de cada rol de las dos empresas). Lo de Paraguay y los roles son
+   opcionales: si no responden a tiempo, el ingreso sigue sin ellos. */
 function loginERP(usuario, passwordMd5) {
     return new Promise((resolver, rechazar) => {
-        let ws, buffer = "", enviado = false, pidiendo = false, terminado = false, login = null;
-        const idLogin = idUnico(), idPermisos = idUnico(), idPermisosPY = idUnico();
-        let paginasBO = null;
+        let ws, buffer = "", terminado = false;
+        const esperando = [];
         const fin = () => { terminado = true; clearTimeout(reloj); try { ws.close(); } catch (e) {} };
         const fallar = (codigo) => { if (terminado) return; fin(); rechazar(Object.assign(new Error(codigo), { codigo })); };
-        let reloj = setTimeout(() => fallar("tiempo"), 40000);
+        let reloj = setTimeout(() => fallar("tiempo"), 45000);
+        /* La respuesta se reconoce por su _ssocket_promise; si el ERP no lo devuelve, por componente y tipo
+           (solo cuando hay un único pedido de ese tipo esperando). */
+        const pedir = (msg, ms) => new Promise((ok) => {
+            const id = idUnico();
+            const e = { id, component: msg.component, type: msg.type };
+            const quitar = () => { const i = esperando.indexOf(e); if (i >= 0) esperando.splice(i, 1); };
+            const t = setTimeout(() => { quitar(); ok(null); }, ms);
+            e.ok = (m) => { clearTimeout(t); quitar(); ok(m); };
+            esperando.push(e);
+            ws.send(JSON.stringify(Object.assign({ version: "1.0", estado: "cargando", _ssocket_promise: id }, msg)) + "\n");
+        });
+        const flujo = async () => {
+            const l = await pedir({ service: "usuario", component: "usuario", version: "2.0", type: "login", data: { usuario: usuario, password: passwordMd5 } }, 30000);
+            if (!l) return fallar("tiempo");
+            if (l.estado !== "exito") return fallar("credenciales");
+            const login = l.data || {};
+            const key = login.key || login.key_usuario;
+            if (!key) return fallar("credenciales");
+            const bo = await pedir({ service: "roles_permisos", component: "usuarioPage", type: "getAll", key_usuario: key, key_empresa: KEY_EMPRESA }, 15000);
+            if (!bo || bo.estado !== "exito") return fallar("permisos");
+            /* Paraguay y los roles (los de cada empresa, con su nombre, y los del usuario), a la vez. */
+            const [py, rolesBO, rolesPY, mios] = await Promise.all([
+                pedir({ service: "roles_permisos", component: "usuarioPage", type: "getAll", key_usuario: key, key_empresa: KEY_EMPRESA_PY }, 8000),
+                pedir({ service: "roles_permisos", component: "rol", type: "getAll", key_empresa: KEY_EMPRESA }, 6000),
+                pedir({ service: "roles_permisos", component: "rol", type: "getAll", key_empresa: KEY_EMPRESA_PY }, 6000),
+                pedir({ service: "roles_permisos", component: "usuarioRol", type: "getAllByUsuarios", keys: [key] }, 6000)
+            ]);
+            const ex = (m) => (m && m.estado === "exito" ? m.data : null);
+            fin();
+            resolver({ login, paginas: bo.data || {}, paginasPY: ex(py) || {}, roles: rolesDelERP(key, ex(rolesBO), ex(rolesPY), ex(mios)) });
+        };
         try { ws = new WebSocket(ERP_WS_URL); } catch (e) { return fallar("conexion"); }
         ws.on("error", () => fallar("conexion"));
         ws.on("close", () => { if (!terminado) fallar("conexion"); });
+        let arranco = false;
         ws.on("message", (datos) => {
             buffer += datos.toString();
             let i;
@@ -54,36 +87,39 @@ function loginERP(usuario, passwordMd5) {
                 buffer = buffer.slice(i + MARCA.length);
                 let m;
                 try { m = JSON.parse(crudo); } catch (e) { continue; }
-                if (!enviado && m.component === "servicio" && m.type === "init") {
-                    enviado = true;
-                    ws.send(JSON.stringify({ service: "usuario", component: "usuario", version: "2.0", type: "login", estado: "cargando",
-                        data: { usuario: usuario, password: passwordMd5 }, _ssocket_promise: idLogin }) + "\n");
-                } else if (enviado && !pidiendo && (m._ssocket_promise === idLogin || (m.component === "usuario" && m.type === "login"))) {
-                    if (m.estado === "error") return fallar("credenciales");
-                    if (m.estado !== "exito") continue;
-                    login = m.data || {};
-                    const key = login.key || login.key_usuario;
-                    if (!key) return fallar("credenciales");
-                    pidiendo = true;
-                    clearTimeout(reloj);
-                    reloj = setTimeout(() => fallar("permisos"), 15000);
-                    ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
-                        key_usuario: key, key_empresa: KEY_EMPRESA, _ssocket_promise: idPermisos }) + "\n");
-                } else if (pidiendo && paginasBO === null && (m._ssocket_promise === idPermisos || (m.component === "usuarioPage" && m.type === "getAll"))) {
-                    if (m.estado !== "exito") { fin(); return rechazar(Object.assign(new Error("permisos"), { codigo: "permisos" })); }
-                    paginasBO = m.data || {};
-                    /* Después, los permisos del mismo usuario en el ERP de Paraguay (si no responde, sigue sin ellos). */
-                    clearTimeout(reloj);
-                    reloj = setTimeout(() => { if (!terminado) { fin(); resolver({ login, paginas: paginasBO, paginasPY: {} }); } }, 8000);
-                    ws.send(JSON.stringify({ version: "1.0", service: "roles_permisos", component: "usuarioPage", type: "getAll", estado: "cargando",
-                        key_usuario: login.key || login.key_usuario, key_empresa: KEY_EMPRESA_PY, _ssocket_promise: idPermisosPY }) + "\n");
-                } else if (pidiendo && paginasBO !== null && (m._ssocket_promise === idPermisosPY || (m.component === "usuarioPage" && m.type === "getAll"))) {
-                    fin();
-                    resolver({ login, paginas: paginasBO, paginasPY: m.estado === "exito" ? (m.data || {}) : {} });
-                }
+                if (!arranco && m.component === "servicio" && m.type === "init") { arranco = true; flujo().catch(() => fallar("conexion")); continue; }
+                let e = esperando.find((x) => x.id === m._ssocket_promise);
+                if (!e) { const mismos = esperando.filter((x) => x.component === m.component && x.type === m.type); if (mismos.length === 1) e = mismos[0]; }
+                if (e) e.ok(m);
             }
         });
     });
+}
+
+/* Lista de filas de una respuesta del ERP (objeto por key, lista, o anidado un nivel). */
+function filas(d) {
+    const out = [];
+    const ver = (x, prof) => {
+        if (!x || typeof x !== "object" || prof > 3) return;
+        if (Array.isArray(x)) return x.forEach((y) => ver(y, prof + 1));
+        if (x.key_rol || x.descripcion || x.key) { if (typeof x.key === "string" || x.key_rol) out.push(x); }
+        if (!x.key_rol && !(typeof x.key === "string" && x.descripcion)) Object.keys(x).forEach((k) => { if (x[k] && typeof x[k] === "object") ver(x[k], prof + 1); });
+    };
+    ver(d, 0);
+    return out;
+}
+const vigente = (x) => x.estado == null || Number(x.estado) > 0;
+/* Roles del ERP: todos los de cada empresa ({key: nombre}) y los del usuario en cada una. */
+function rolesDelERP(keyUsuario, dataBO, dataPY, dataMios) {
+    const lista = (d) => { const r = {}; filas(d).forEach((x) => { if (typeof x.key === "string" && x.descripcion && !x.key_rol && vigente(x)) r[x.key] = String(x.descripcion).slice(0, 80); }); return r; };
+    const bolivia = lista(dataBO), paraguay = lista(dataPY);
+    const mios = filas(dataMios).filter((x) => x.key_rol && vigente(x) && (!x.key_usuario || x.key_usuario === keyUsuario)).map((x) => x.key_rol);
+    return {
+        bolivia, paraguay,
+        mios_bo: [...new Set(mios.filter((k) => bolivia[k]))],
+        mios_py: [...new Set(mios.filter((k) => paraguay[k]))],
+        leidos: dataBO != null && dataMios != null
+    };
 }
 
 /* Misma regla que el portal: tableros con permiso en /centro_mando; "todo" equivale a todos. */
@@ -103,21 +139,60 @@ function nombreDe(d, usuario) {
     return (n || usuario).slice(0, 120);
 }
 
+/* Lo que cada rol del ERP puede ver lo elige Dirección en roles.html (colección cm_rol_cfg, una por rol):
+   módulos visibles y los permisos de datos que esos módulos necesitan. Se suma a los permisos de /centro_mando. */
+async function porRoles(rolesBO, rolesPY) {
+    const db = admin.firestore();
+    const leer = async (keys) => {
+        if (!keys || !keys.length) return null;
+        const docs = await Promise.all(keys.map((k) => db.collection("cm_rol_cfg").doc(k).get().catch(() => null)));
+        const con = docs.filter((d) => d && d.exists && Array.isArray(d.data().modulos));
+        if (!con.length) return null;   // ningún rol suyo configurado: sigue con los permisos del ERP
+        const modulos = new Set(), tableros = new Set();
+        con.forEach((d) => { (d.data().modulos || []).forEach((m) => modulos.add(String(m))); (d.data().tableros || []).forEach((t) => { if (TABLEROS.indexOf(t) >= 0) tableros.add(t); }); });
+        return { modulos: [...modulos], tableros: [...tableros] };
+    };
+    const [bo, py] = await Promise.all([leer(rolesBO), leer(rolesPY)]);
+    return { bolivia: bo, paraguay: py };
+}
+const unir = (a, b) => [...new Set((a || []).concat(b || []))];
+
+/* Arma el token de la sesión con los permisos del ERP guardados al ingresar + lo que Dirección eligió para sus roles. */
+async function sesionDe(uid, vence) {
+    const u = await admin.firestore().collection("cm_usuario").doc(uid).get();
+    if (!u.exists) return null;
+    const d = u.data();
+    const r = await porRoles(d.roles_bo, d.roles_py);
+    const tableros = unir(d.erp_bo, r.bolivia && r.bolivia.tableros);
+    const tableros_py = unir(d.erp_py, r.paraguay && r.paraguay.tableros);
+    const cm = tableros.length || tableros_py.length ? 1 : 0;
+    const token = await admin.auth().createCustomToken(uid, { cm, ref: 1, tableros, tableros_py, nombre: d.nombre, usuario: d.usuario, vence });
+    return { token, uid, nombre: d.nombre, tableros, tableros_py, vence,
+        rol_tableros: (r.bolivia && r.bolivia.tableros) || [], rol_tableros_py: (r.paraguay && r.paraguay.tableros) || [],
+        modulos: { bolivia: r.bolivia ? r.bolivia.modulos : null, paraguay: r.paraguay ? r.paraguay.modulos : null } };
+}
+
 async function ingresar(usuario, passwordMd5) {
     const r = await loginERP(usuario, passwordMd5);
     const uid = String(r.login.key || r.login.key_usuario);
-    const tableros = permisosERP(r.paginas);
-    const tableros_py = permisosERP(r.paginasPY || {});
     const nombre = nombreDe(r.login, usuario);
-    const vence = Date.now() + DIAS_SESION * 86400000;
-    /* cm: sesión del centro de mando (solo con permisos en /centro_mando). ref: cualquier usuario del ERP, para su
-       panel de «Mis referidos» (las reglas de Firestore no le dan nada más). */
-    const cm = tableros.length || tableros_py.length ? 1 : 0;
+    const db = admin.firestore();
     /* Crea el usuario de Firebase del lado del servidor (así se puede cerrar el registro libre de cuentas).
        Si falla, no corta el ingreso: solo lo deja anotado. */
     await admin.auth().getUser(uid).catch((e) => e.code === "auth/user-not-found" ? admin.auth().createUser({ uid }) : null).catch((e) => console.warn("erpLogin crear usuario", e.code || e.message));
-    const token = await admin.auth().createCustomToken(uid, { cm, ref: 1, tableros, tableros_py, nombre, usuario: usuario.slice(0, 80), vence });
-    return { token, uid, nombre, tableros, tableros_py, vence };
+    /* Lo que trae el ERP queda guardado (sin contraseña) para poder renovar la sesión cuando Dirección cambia un rol. */
+    const ficha = { nombre, usuario: usuario.slice(0, 80), erp_bo: permisosERP(r.paginas), erp_py: permisosERP(r.paginasPY || {}), visto: new Date().toISOString() };
+    const ro = r.roles;
+    if (ro.leidos) { ficha.roles_bo = ro.mios_bo; ficha.roles_py = ro.mios_py; }
+    await db.collection("cm_usuario").doc(uid).set(ficha, { merge: true });
+    /* Lista de roles de cada ERP, para que Dirección elija qué ve cada uno (solo se escribe si cambió). */
+    if (ro.leidos) await Promise.all([["bolivia", ro.bolivia], ["paraguay", ro.paraguay]].map(async ([pais, roles]) => {
+        if (!Object.keys(roles).length) return;
+        const ref = db.collection("cm_roles").doc(pais), ant = await ref.get().catch(() => null);
+        if (ant && ant.exists && JSON.stringify(ant.data().roles || {}) === JSON.stringify(roles)) return;
+        await ref.set({ roles, actualizado: new Date().toISOString() });
+    })).catch((e) => console.warn("erpLogin roles", e.message));
+    return sesionDe(uid, Date.now() + DIAS_SESION * 86400000);
 }
 
 exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, maxInstances: 5, timeoutSeconds: 60, memory: "256MiB" }, async (req, res) => {
@@ -131,7 +206,7 @@ exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, max
     try {
         const r = await ingresar(usuario, md5);
         /* Sin permisos en /centro_mando igual entra, solo a su panel de referidos (ref). */
-        return res.json({ token: r.token, nombre: r.nombre, tableros: r.tableros, tableros_py: r.tableros_py, vence: r.vence, solo_referidos: !r.tableros.length && !r.tableros_py.length });
+        return res.json({ token: r.token, nombre: r.nombre, tableros: r.tableros, tableros_py: r.tableros_py, rol_tableros: r.rol_tableros, rol_tableros_py: r.rol_tableros_py, modulos: r.modulos, vence: r.vence, solo_referidos: !r.tableros.length && !r.tableros_py.length });
     } catch (e) {
         if (e.codigo === "credenciales") { fallo(ip); return res.status(401).json({ error: "Usuario o contraseña incorrectos." }); }
         if (e.codigo === "permisos") return res.status(502).json({ error: "No se pudieron leer los permisos del ERP." });
@@ -140,7 +215,24 @@ exports.erpLogin = onRequest({ region: "southamerica-east1", cors: ORIGENES, max
     }
 });
 
-exports._internos = { loginERP, permisosERP, ingresar };
+/* Renueva la sesión sin pedir la contraseña: con el token vigente del usuario, vuelve a calcular sus permisos con lo
+   último que Dirección eligió para sus roles. El portal la llama cada vez que se abre. */
+exports.cmRenovar = onRequest({ region: "southamerica-east1", cors: ORIGENES, maxInstances: 5, timeoutSeconds: 30, memory: "256MiB" }, async (req, res) => {
+    if (req.method !== "POST") return res.status(405).json({ error: "Solo POST." });
+    const m = /^Bearer (.+)$/.exec(String(req.headers.authorization || ""));
+    if (!m) return res.status(401).json({ error: "Falta la sesión." });
+    try {
+        const t = await admin.auth().verifyIdToken(m[1]);
+        if (!(Number(t.vence) > Date.now())) return res.status(401).json({ error: "La sesión venció." });
+        const r = await sesionDe(t.uid, Number(t.vence));
+        if (!r) return res.status(404).json({ error: "Volvé a ingresar con tu usuario del ERP." });
+        return res.json({ token: r.token, tableros: r.tableros, tableros_py: r.tableros_py, rol_tableros: r.rol_tableros, rol_tableros_py: r.rol_tableros_py, modulos: r.modulos, vence: r.vence });
+    } catch (e) {
+        return res.status(401).json({ error: "Sesión no válida." });
+    }
+});
+
+exports._internos = { loginERP, permisosERP, ingresar, rolesDelERP, filas, sesionDe };
 
 /* Redes sociales: respuestas automáticas a comentarios (redes.js). */
 const redes = require("./redes");

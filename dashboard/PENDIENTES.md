@@ -52,3 +52,5 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 ## Buzón de sugerencias
 - Publicar `firestore.rules` para que la app pueda enviar y RRHH leer.
 - App de clientes de Paraguay: cuando exista en el repositorio, sumar la misma pantalla enviando a `py_rh_sugerencia` (el buzón de Paraguay ya está listo).
+
+- Roles del ERP (roles.html): confirmar con el primer ingreso real que llega la lista de roles (cm_roles/bolivia y cm_roles/paraguay). Si queda vacía, revisar la forma de la respuesta de `rol getAll` / `usuarioRol getAllByUsuarios` en functions/index.js (rolesDelERP).
