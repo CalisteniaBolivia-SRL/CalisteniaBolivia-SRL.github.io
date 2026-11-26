@@ -180,3 +180,20 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .cb-secciones { position: sticky; top: 0; z-index: 6; background: var(--s-negro); padding: 10px 0; border-bottom: 1px solid var(--s-linea); }
 .cb-secciones .cb-tab { text-decoration: none; }
 .cb-secciones .cb-tab-link { border-style: dashed !important; }
+
+/* ---------- Etapa 3: un solo diseño para todos los tableros ---------- */
+/* Encabezado: sin el logo repetido (ya está en la barra), mismo título que los módulos nuevos. */
+.cb-logo { display: none !important; }
+.cb-top { border-bottom: 1px solid var(--s-linea) !important; padding-bottom: 14px !important; }
+.cb-title, .op-titulo { font-family: var(--s-letra) !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .03em !important; font-size: clamp(24px, 4vw, 34px) !important; line-height: 1.1 !important; }
+/* Pestañas de tema: subrayado rojo en todos los tableros (como Mantenimiento, Tareas o Denuncias). */
+.cb-secciones { display: flex !important; flex-wrap: wrap; gap: 0 !important; padding: 0 !important; }
+.cb-secciones .cb-tab { background: none !important; border: 0 !important; border-bottom: 2px solid transparent !important; border-radius: 0 !important; margin-bottom: -1px; padding: 12px 14px !important; font-size: 13px !important; font-weight: 600 !important; letter-spacing: .04em; color: var(--s-plata-2) !important; }
+.cb-secciones .cb-tab:hover { color: var(--s-blanco) !important; }
+.cb-secciones .cb-tab.is-on { color: var(--s-blanco) !important; border-bottom-color: #E30613 !important; background: none !important; }
+.cb-secciones .cb-tab-link { border-style: none !important; color: var(--s-plata-3) !important; }
+.op-tabs button.is-on, .co-grupo.is-on { border-bottom-color: #E30613 !important; }
+/* Recuadros y tarjetas: el mismo fondo y borde en módulos viejos y nuevos. */
+.op-card, .op-kpi, .op-cli { background: var(--s-panel) !important; border-color: var(--s-linea) !important; }
+.op input, .op select, .op textarea { background: var(--s-negro) !important; border-color: var(--s-linea-2) !important; }
+.cb-secciones ~ .cb-page .cb-head .cb-h2 { display: none !important; }   /* el título ya está arriba */
