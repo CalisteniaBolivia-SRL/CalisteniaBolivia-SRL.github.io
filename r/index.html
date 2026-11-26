@@ -41,6 +41,20 @@
   .oferta > span { color: #F3F4F5; font-size: 15px; line-height: 1.35; }
   .oferta small { display: block; color: #8D9299; font-size: 12px; margin-top: 4px; }
   .caja { border: 1px dashed #C4C8CE; padding: 12px 14px; color: #F3F4F5; font-size: 15px; }
+  .paso { display: flex; flex-direction: column; gap: 10px; }
+  .paso h2 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: .04em; }
+  .paqs { display: flex; flex-direction: column; gap: 8px; }
+  .paq { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #34373C; background: #121315; color: #F3F4F5; font: inherit; font-size: 15px; text-align: left; text-transform: none; letter-spacing: 0; font-weight: 400; cursor: pointer; }
+  .paq:hover, .paq.is-on { border-color: #F3F4F5; }
+  .paq s { color: #8D9299; font-size: 13px; margin-right: 6px; }
+  .paq b { font-size: 17px; white-space: nowrap; }
+  .pagar { border: 1px solid #34373C; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: #121315; }
+  .pagar .total { font-size: 22px; font-weight: 700; color: #FFFFFF; }
+  .pagar img { width: 100%; max-width: 280px; align-self: center; background: #FFFFFF; padding: 8px; }
+  .pagar pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 14px; color: #E6E7E9; }
+  .sec { background: none; border: 1px solid #34373C; color: #F3F4F5; font-size: 14px; padding: 12px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+  .foto { font-size: 14px; color: #C4C8CE; }
+  .mini { width: 120px; border: 1px solid #34373C; }
 </style>
 </head>
 <body>
@@ -60,9 +74,29 @@
   </form>
   <div class="listo" id="listo" hidden>
     <b>¡Listo, ya quedaste anotado! 💪</b>
-    <p>Acercate a cualquier sucursal con tu carnet y empezá a entrenar.</p>
+    <p>Acercate a cualquier sucursal con tu carnet y empezá a entrenar. Un asesor te va a escribir para ayudarte.</p>
     <p class="caja" id="caja">Mostrá esta pantalla en caja: <b id="caja-desc">15 %</b> de descuento en tu primer paquete con el código <b id="caja-cod">—</b>.</p>
     <p id="listo-wa"></p>
+  </div>
+  <section class="paso" id="elegir" hidden>
+    <h2>¿Querés dejarlo listo ahora?</h2>
+    <p>Elegí tu paquete, pagá por transferencia o QR y mandanos el comprobante. Ya tiene tu <b id="elegir-desc">15 %</b> de descuento.</p>
+    <div class="paqs" id="paqs"></div>
+    <div class="pagar" id="pagar" hidden>
+      <span>Vas a pagar por <b id="pagar-paq">—</b>:</span>
+      <span class="total" id="pagar-total">—</span>
+      <img id="pagar-qr" alt="QR para pagar" hidden>
+      <pre id="pagar-datos"></pre>
+      <label class="foto">Foto o captura del comprobante <input type="file" id="comp" accept="image/*"></label>
+      <img class="mini" id="comp-ver" alt="" hidden>
+      <button type="button" id="enviar-comp">Enviar comprobante</button>
+      <p class="error" id="error-pago" role="alert"></p>
+    </div>
+    <button type="button" class="sec" id="llamenme">Prefiero que me llamen o pagar en caja</button>
+  </section>
+  <div class="listo" id="pago-ok" hidden>
+    <b>¡Recibimos tu comprobante! ✅</b>
+    <p>Lo confirmamos y te escribimos por WhatsApp. Después pasá por la sucursal con tu carnet y empezá a entrenar.</p>
   </div>
   <p class="pie">Calistenia Company · <span id="pais">Bolivia</span></p>
 </main>
@@ -95,8 +129,67 @@
     b.disabled = true; b.textContent = "Anotando…";
     db.collection(pre + "ref_inscripcion").add({ codigo: codigo, ci: f.ci.value.trim().slice(0, 20), telefono: f.telefono.value.trim().slice(0, 20),
       nombre: f.nombre.value.trim().slice(0, 80), fecha_on: new Date().toISOString(), estado: "nueva" })
-      .then(function () { f.hidden = true; $("listo").hidden = false; }, function () { error("No se pudo anotar. Probá de nuevo."); b.disabled = false; b.textContent = "Anotarme"; });
+      .then(function (ref) { insc = { id: ref.id, nombre: f.nombre.value.trim().slice(0, 80), ci: f.ci.value.trim().slice(0, 20), telefono: f.telefono.value.trim().slice(0, 20) }; f.hidden = true; $("listo").hidden = false; ofrecerPago(); },
+        function () { error("No se pudo anotar. Probá de nuevo."); b.disabled = false; b.textContent = "Anotarme"; });
   };
+  /* ---------- Venta en el momento: paquete con descuento, pago por transferencia/QR y comprobante ---------- */
+  var insc = null, oferta = null, elegido = null, foto = null;
+  var MON = py ? "Gs" : "Bs";
+  function plata(n) { return MON + " " + (py ? Math.round(n).toLocaleString("es-PY") : (Math.round(n * 100) / 100).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })); }
+  function conDesc(p) { var d = Number((oferta && oferta.desc) || DESC); var v = p * (100 - d) / 100; return py ? Math.floor(v / 1000) * 1000 : Math.floor(v); }
+  function ofrecerPago() {
+    db.collection(pre + "ref_publico").doc("oferta").get().then(function (d) {
+      oferta = d.exists ? d.data() : null;
+      var paqs = (oferta && oferta.paquetes) || [];
+      if (!paqs.length || !(oferta.pago_texto || oferta.pago_qr)) return;   // sin datos de cobro cargados: solo «mostrá en caja»
+      $("elegir-desc").textContent = (oferta.desc || DESC) + " %";
+      var cont = $("paqs"); cont.textContent = "";
+      paqs.forEach(function (p) {
+        var b = document.createElement("button"); b.type = "button"; b.className = "paq";
+        var n = document.createElement("span"); n.textContent = p.nombre;
+        var pr = document.createElement("span"); var s = document.createElement("s"); s.textContent = plata(p.precio); var f = document.createElement("b"); f.textContent = plata(conDesc(p.precio));
+        pr.appendChild(s); pr.appendChild(f); b.appendChild(n); b.appendChild(pr);
+        b.onclick = function () { Array.prototype.forEach.call(cont.children, function (x) { x.classList.remove("is-on"); }); b.classList.add("is-on"); elegir(p); };
+        cont.appendChild(b);
+      });
+      $("elegir").hidden = false;
+    }, function () {});
+  }
+  function elegir(p) {
+    elegido = p; $("pagar").hidden = false;
+    $("pagar-paq").textContent = p.nombre; $("pagar-total").textContent = plata(conDesc(p.precio));
+    if (oferta.pago_qr) { $("pagar-qr").src = oferta.pago_qr; $("pagar-qr").hidden = false; }
+    $("pagar-datos").textContent = oferta.pago_texto || "";
+    $("pagar").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  /* El comprobante se achica en el teléfono (máx. 1280 px, JPEG) antes de enviarlo. */
+  $("comp").onchange = function (e) {
+    var file = e.target.files && e.target.files[0]; foto = null; $("comp-ver").hidden = true;
+    if (!file) return;
+    var img = new Image(), url = URL.createObjectURL(file);
+    img.onload = function () {
+      var max = 1280, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+      var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      var q = 0.75, d = c.toDataURL("image/jpeg", q);
+      while (d.length > 900000 && q > 0.3) { q -= 0.15; d = c.toDataURL("image/jpeg", q); }
+      foto = d; $("comp-ver").src = d; $("comp-ver").hidden = false; URL.revokeObjectURL(url);
+    };
+    img.onerror = function () { $("error-pago").textContent = "No se pudo leer esa imagen. Probá con otra foto o captura."; };
+    img.src = url;
+  };
+  $("enviar-comp").onclick = function () {
+    var b = $("enviar-comp"); $("error-pago").textContent = "";
+    if (!elegido) return;
+    if (!foto) { $("error-pago").textContent = "Subí la foto o captura del comprobante."; return; }
+    b.disabled = true; b.textContent = "Enviando…";
+    db.collection(pre + "ref_pago").add({ inscripcion: insc ? insc.id : "", codigo: codigo, nombre: insc ? insc.nombre : "", ci: insc ? insc.ci : "", telefono: insc ? insc.telefono : "",
+      paquete: String(elegido.nombre).slice(0, 120), precio_lista: Number(elegido.precio) || 0, precio_final: conDesc(elegido.precio), desc: Number((oferta && oferta.desc) || DESC),
+      comprobante: foto, estado: "por_confirmar", fecha_on: new Date().toISOString() })
+      .then(function () { $("elegir").hidden = true; $("pago-ok").hidden = false; $("pago-ok").scrollIntoView({ behavior: "smooth" }); },
+        function () { $("error-pago").textContent = "No se pudo enviar. Probá de nuevo."; b.disabled = false; b.textContent = "Enviar comprobante"; });
+  };
+  $("llamenme").onclick = function () { $("elegir").hidden = true; $("listo").scrollIntoView({ behavior: "smooth" }); };
 })();
 </script>
 </body>

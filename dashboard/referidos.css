@@ -77,3 +77,4 @@
 .rf-sinc { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; }
 .rf-login { max-width: 460px; }
 .rf-oferta { display: block; margin-top: 8px; padding: 8px 10px; border-left: 2px solid #E30613; font-size: 14px; line-height: 1.4; color: #F3F4F5; }
+.rf-oferta-cfg { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; } .rf-oferta-cfg textarea { font: inherit; width: 100%; box-sizing: border-box; background: #121315; color: #F3F4F5; border: 1px solid #34373C; padding: 8px; } .rf-qr-cobro { max-width: 220px; background: #FFFFFF; padding: 6px; }

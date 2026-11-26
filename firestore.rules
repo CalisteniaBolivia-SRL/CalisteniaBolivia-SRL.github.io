@@ -347,7 +347,9 @@ service cloud.firestore {
         && request.resource.data.ci is string && request.resource.data.ci.size() <= 20 && request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20
         && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
         && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
-      allow read, update: if refAdmin();
+      allow read: if refAdmin() || equipoATC();
+      allow update: if refAdmin() || (equipoATC() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento'])
+        && request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'] && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120));
       allow delete: if false;
     }
     match /ref_cliente/{id} { allow read, write: if refAdmin(); }
@@ -390,7 +392,9 @@ service cloud.firestore {
         && request.resource.data.ci is string && request.resource.data.ci.size() <= 20 && request.resource.data.telefono is string && request.resource.data.telefono.size() <= 20
         && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
         && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
-      allow read, update: if refAdminPY();
+      allow read: if refAdminPY() || equipoATCPY();
+      allow update: if refAdminPY() || (equipoATCPY() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seguimiento', 'tomado_por', 'tomado_nombre', 'fecha_seguimiento', 'nota_seguimiento'])
+        && request.resource.data.seguimiento in ['tomado', 'vendido', 'no_interesado', 'no_contesta'] && texto('nota_seguimiento', 300) && texto('tomado_nombre', 120));
       allow delete: if false;
     }
     match /py_ref_cliente/{id} { allow read, write: if refAdminPY(); }
@@ -730,6 +734,42 @@ service cloud.firestore {
       allow read: if (resource.data.pais == 'bolivia' && (permiso('marketing') || permiso('direccion')))
         || (resource.data.pais == 'paraguay' && (permisoPY('marketing') || permisoPY('direccion')));
       allow write: if false;
+    }
+
+    // ---------- Referidos: venta en el momento (Bolivia) ----------
+    // Oferta pública (paquetes con su precio, % de descuento y datos de cobro): la lee la página de inscripción sin sesión.
+    match /ref_publico/{d} { allow read: if true; allow write: if refAdmin(); }
+    // Pago del referido: el cliente (sin sesión) sube su comprobante; lo confirman Administración, Dirección o Jefe de ATC.
+    match /ref_pago/{id} {
+      allow create: if soloCampos(['inscripcion', 'codigo', 'nombre', 'ci', 'telefono', 'paquete', 'precio_lista', 'precio_final', 'desc', 'comprobante', 'estado', 'fecha_on'])
+        && request.resource.data.estado == 'por_confirmar' && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 80 && texto('ci', 20) && texto('telefono', 20)
+        && request.resource.data.paquete is string && request.resource.data.paquete.size() <= 120
+        && request.resource.data.precio_final is number && request.resource.data.precio_lista is number && request.resource.data.desc is number
+        && request.resource.data.comprobante is string && request.resource.data.comprobante.size() <= 950000 && texto('inscripcion', 40)
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read: if refAdmin() || central();
+      allow update: if (refAdmin() || central()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'confirmado_por', 'confirmado_nombre', 'fecha_confirmacion', 'nota'])
+        && request.resource.data.estado in ['confirmado', 'rechazado', 'por_confirmar'] && texto('nota', 500);
+      allow delete: if false;
+    }
+
+    // ---------- Referidos: venta en el momento (Paraguay) ----------
+    // Oferta pública (paquetes con su precio, % de descuento y datos de cobro): la lee la página de inscripción sin sesión.
+    match /py_ref_publico/{d} { allow read: if true; allow write: if refAdminPY(); }
+    // Pago del referido: el cliente (sin sesión) sube su comprobante; lo confirman Administración, Dirección o Jefe de ATC.
+    match /py_ref_pago/{id} {
+      allow create: if soloCampos(['inscripcion', 'codigo', 'nombre', 'ci', 'telefono', 'paquete', 'precio_lista', 'precio_final', 'desc', 'comprobante', 'estado', 'fecha_on'])
+        && request.resource.data.estado == 'por_confirmar' && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 80 && texto('ci', 20) && texto('telefono', 20)
+        && request.resource.data.paquete is string && request.resource.data.paquete.size() <= 120
+        && request.resource.data.precio_final is number && request.resource.data.precio_lista is number && request.resource.data.desc is number
+        && request.resource.data.comprobante is string && request.resource.data.comprobante.size() <= 950000 && texto('inscripcion', 40)
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read: if refAdminPY() || centralPY();
+      allow update: if (refAdminPY() || centralPY()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'confirmado_por', 'confirmado_nombre', 'fecha_confirmacion', 'nota'])
+        && request.resource.data.estado in ['confirmado', 'rechazado', 'por_confirmar'] && texto('nota', 500);
+      allow delete: if false;
     }
   }
 }

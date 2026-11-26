@@ -236,7 +236,21 @@
         }).catch(function () { return null; });
     }
 
+    /* Oferta pública para la venta en el momento (la lee la página de inscripción sin sesión). */
+    function oferta() { return uno(db().collection(col("ref_publico")).doc("oferta")); }
+    function guardarOferta(o, paquetes) {
+        var lista = (paquetes || []).filter(function (p) { return p && p.nombre && Number(p.precio) > 0; }).slice(0, 60).map(function (p) { return { nombre: String(p.nombre).slice(0, 120), precio: Number(p.precio) }; });
+        var desc = Number(o.desc); if (!(desc >= 0 && desc <= 50)) return Promise.reject(new Error("El descuento debe estar entre 0 y 50 %."));
+        if (o.pago_qr && o.pago_qr.length > 600000) return Promise.reject(new Error("La imagen del QR es muy pesada. Probá con una captura más chica."));
+        return db().collection(col("ref_publico")).doc("oferta").set({ desc: desc, paquetes: lista, pago_texto: String(o.pago_texto || "").slice(0, 800), pago_qr: o.pago_qr || "", fecha_on: ahora(), editado_por: uid() });
+    }
+    /* Seguimiento: inscripciones de los últimos días y pagos por confirmar. */
+    function inscripcionesRecientes(dias) { var d = new Date(Date.now() - (dias || 14) * 864e5).toISOString(); return docs(db().collection(col("ref_inscripcion")).where("fecha_on", ">=", d)); }
+    function pagos(estado) { return docs(db().collection(col("ref_pago")).where("estado", "==", estado || "por_confirmar")); }
+    function seguir(id, cambio) { return db().collection(col("ref_inscripcion")).doc(id).update(Object.assign({ fecha_seguimiento: ahora() }, cambio)); }
+    function resolverPago(id, estado, nombre, nota) { return db().collection(col("ref_pago")).doc(id).update({ estado: estado, confirmado_por: uid(), confirmado_nombre: String(nombre || "").slice(0, 120), fecha_confirmacion: ahora(), nota: String(nota || "").slice(0, 500) }); }
     window.REF_DATOS = {
+        oferta: oferta, guardarOferta: guardarOferta, inscripcionesRecientes: inscripcionesRecientes, pagos: pagos, seguir: seguir, resolverPago: resolverPago,
         PY: PY, col: col, miCodigo: miCodigo, crearCodigo: crearCodigo, guardarFamiliares: guardarFamiliares, misComisiones: misComisiones, misLiquidaciones: misLiquidaciones,
         config: config, rankingPeriodo: rankingPeriodo, codigoPublico: codigoPublico, inscribir: inscribir,
         guardarConfig: guardarConfig, listar: listar, comisionesTodas: comisionesTodas, codigosTodos: codigosTodos, liquidacionesTodas: liquidacionesTodas,
