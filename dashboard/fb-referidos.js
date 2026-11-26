@@ -131,8 +131,13 @@
         var res = { inscripciones: 0, validas: 0, rechazadas: 0, comisiones_nuevas: 0, cambios: 0, errores: [] };
         var cfgP = config();
         return cfgP.then(function (C) {
-            /* 1) inscripciones nuevas */
-            return docs(db().collection(col("ref_inscripcion")).where("estado", "==", "nueva").limit(100)).then(function (lista) {
+            /* 0) antes la comisión era solo por clientes nuevos: los rechazados por ser clientes actuales vuelven a valer */
+            return reabrirActuales().then(function () {
+            /* 1) inscripciones nuevas (y las que se rechazaron solo por ser clientes actuales) */
+            return Promise.all([docs(db().collection(col("ref_inscripcion")).where("estado", "==", "nueva").limit(100)),
+                docs(db().collection(col("ref_inscripcion")).where("estado", "==", "rechazada").limit(200)).then(function (l) { return l.filter(function (x) { return /^El cliente ya tenía compras/.test(x.motivo || ""); }); })])
+                .then(function (a) { return a[0].concat(a[1]); });
+            }).then(function (lista) {
                 avance("Revisando " + lista.length + " inscripciones nuevas…");
                 return lista.reduce(function (p, ins) { return p.then(function () { return procesarInscripcion(ins, res); }); }, Promise.resolve());
             }).then(function () {
@@ -152,6 +157,13 @@
             }).then(function () { avance("Actualizando ranking y paquetes…"); return Promise.all([actualizarRanking(), actualizarPaquetes()]); })
               .then(function () { return res; });
         });
+    }
+    /* Referidos que se habían rechazado al buscar su compra por «tenía compras antes de anotarse»: vuelven a valer. */
+    function reabrirActuales() {
+        return docs(db().collection(col("ref_cliente")).where("estado", "==", "rechazado").limit(200)).then(function (l) {
+            return Promise.all(l.filter(function (c) { return c.motivo === "Tenía compras antes de anotarse."; })
+                .map(function (c) { return db().collection(col("ref_cliente")).doc(c.id).update({ estado: "valido", motivo: "", con_venta: false }); }));
+        }).catch(function () { return null; });
     }
     function procesarInscripcion(ins, res) {
         res.inscripciones++;
@@ -183,11 +195,6 @@
             return erp("historial_paquetes_cliente", { key_usuario: k, limite: 50 }).then(function (h) {
                 var r = R.ventaDelReferido((h && h.filas) || [], cli.fecha_inscripcion);
                 var refCli = db().collection(col("ref_cliente")).doc(cli.id);
-                if (r.existente) {
-                    res.rechazadas++;
-                    return Promise.all([refCli.update({ estado: "rechazado", motivo: "Tenía compras antes de anotarse.", key_cliente: k }),
-                        alerta("existente", "Al buscar su compra se vio que ya era cliente antes de anotarse.", cli, { key_usuario: cli.key_trabajador, nombre: cli.trabajador })]);
-                }
                 if (!r.venta) return cli.key_cliente ? null : refCli.update({ key_cliente: k });
                 return erp("ver_venta", { key_paquete_venta: r.venta.key_paquete_venta }).then(function (vv) {
                     var v = (vv && vv.venta) || {};
