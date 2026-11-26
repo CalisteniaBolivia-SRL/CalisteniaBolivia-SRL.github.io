@@ -208,3 +208,10 @@
 .co-area:hover { border-color: #5C6168; }
 .co-area.is-on { background: #18191C; border-color: #C4C8CE; color: #C4C8CE; }
 .co-area.is-on b { color: #F3F4F5; }
+/* Jefe de ATC: temas (Hoy · Clientes · Equipo · Comisiones) y sus secciones */
+.co-grupos { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--color-border-line); width: 100%; }
+.co-grupo { font: inherit; font-size: .95em; font-weight: 600; letter-spacing: .04em; padding: 10px 18px; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--color-fg-muted); cursor: pointer; }
+.co-grupo:hover { color: #FFFFFF; }
+.co-grupo.is-on { color: #FFFFFF; border-bottom-color: #E30613; }
+.co-subtabs { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; padding-top: 8px; }
+.co-tab-link { text-decoration: none; border-style: dashed; display: inline-flex; align-items: center; }

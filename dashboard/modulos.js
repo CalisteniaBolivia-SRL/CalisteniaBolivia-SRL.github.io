@@ -96,6 +96,9 @@
         supervision: "operaciones", mantenimiento: "operaciones",
         administracion: "administracion", tareas: "administracion", contabilidad: "administracion", legal: "administracion",
         rrhh: "personas", denuncias: "personas", sugerencias: "personas" };
+    /* Módulos que se abren como pestaña dentro de otro: Tareas en Administración (y Dirección), Denuncias y Sugerencias
+       en Recursos Humanos, Referidos nuevos en Jefe de ATC. */
+    var DENTRO = { tareas: "administracion", denuncias: "rrhh", sugerencias: "rrhh", ref_ventas: "jefe_atc" };
     var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "administracion", "tareas", "contabilidad", "legal",
         "supervision", "mantenimiento", "marketing", "redes", "creativo", "rrhh", "denuncias", "sugerencias"];
     var CORTO = { ingresos: "Lo que entra, en vivo", asistente: "Preguntale lo que quieras, por voz", direccion: "Semáforo de todas las áreas", reportes: "Control y auditoría",
@@ -126,7 +129,13 @@
         if (opc.tableros) {
             opc.tableros.textContent = "";
             /* «Mis referidos» es de todo el personal: va en el menú de arriba; acá solo si no hay otro tablero. */
-            var propios = tabs.filter(function (m) { return !m.todos; });
+            /* Lo que ya está adentro de otro tablero (como pestaña) no se repite como tarjeta, si ese tablero está a la vista. */
+            var porId = {}; tabs.forEach(function (m) { porId[m.id] = m; });
+            var propios = tabs.filter(function (m) {
+                if (m.todos) return false;
+                var padre = porId[DENTRO[m.id]];
+                return !(padre && (pais !== "paraguay" || padre.datosPY));
+            });
             var lista = propios.length ? propios : tabs;
             /* Dirección ve primero su área; dentro de cada área, primero lo de todos los días. */
             var areas = perms.indexOf("direccion") >= 0 || perms.indexOf("todo") >= 0 ? [AREAS[1]].concat(AREAS.filter(function (a) { return a.id !== "direccion"; })) : AREAS;
