@@ -14,6 +14,38 @@ service cloud.firestore {
     function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
     function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
 
+    // ---------- Hoja de ruta de supervisores (ruta.html) ----------
+    // Ven la ruta Supervisión, Dirección y Administración. Cada supervisor se anota solo (su propia ficha) y registra
+    // sus visitas; arman la ruta y configuran Supervisión y Dirección.
+    function veRuta() { return permiso('supervision') || permiso('direccion') || permiso('administracion'); }
+    function veRutaPY() { return permisoPY('supervision') || permisoPY('direccion') || permisoPY('administracion'); }
+    match /sup_supervisor/{uid} {
+      allow read: if veRuta();
+      allow create: if permiso('supervision') && uid == yo() && soloCampos(['nombre', 'activo', 'fecha_on']) && texto('nombre', 120);
+      allow update: if (permiso('direccion') || (permiso('supervision') && uid == yo())) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activo']);
+      allow delete: if permiso('direccion');
+    }
+    match /sup_config/{d} { allow read: if veRuta(); allow write: if permiso('supervision') || permiso('direccion'); }
+    match /sup_ruta/{semana} { allow read: if veRuta(); allow write: if permiso('supervision') || permiso('direccion'); }
+    match /sup_visita/{id} {
+      allow read: if veRuta();
+      allow create, update: if permiso('supervision') && request.resource.data.key_supervisor == yo() && texto('nota', 300);
+      allow delete: if permiso('direccion');
+    }
+    match /py_sup_supervisor/{uid} {
+      allow read: if veRutaPY();
+      allow create: if permisoPY('supervision') && uid == yo() && soloCampos(['nombre', 'activo', 'fecha_on']) && texto('nombre', 120);
+      allow update: if (permisoPY('direccion') || (permisoPY('supervision') && uid == yo())) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activo']);
+      allow delete: if permisoPY('direccion');
+    }
+    match /py_sup_config/{d} { allow read: if veRutaPY(); allow write: if permisoPY('supervision') || permisoPY('direccion'); }
+    match /py_sup_ruta/{semana} { allow read: if veRutaPY(); allow write: if permisoPY('supervision') || permisoPY('direccion'); }
+    match /py_sup_visita/{id} {
+      allow read: if veRutaPY();
+      allow create, update: if permisoPY('supervision') && request.resource.data.key_supervisor == yo() && texto('nota', 300);
+      allow delete: if permisoPY('direccion');
+    }
+
     // ---------- Cobros QR (cobros-qr.html): un solo lugar para todos los QR de cobro ----------
     // Los lee cualquiera (la caja, la pantalla de caja, la página del referido y la app los muestran sin sesión);
     // los cargan Administración y Dirección de cada país.

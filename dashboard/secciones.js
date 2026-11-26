@@ -56,6 +56,7 @@
             { id: "asistencia", nombre: "Asistencia", t: ["Asistencia por sucursal", "Horas buenas", "Personas por sucursal", "¿Cuántos días"] },
             { id: "entrenadores", nombre: "Entrenadores", t: ["Todos los entrenadores", "Promedio de alumnos"] },
             { id: "riesgo", nombre: "Clientes en riesgo", t: ["Clientes en riesgo", "En riesgo"] },
+            { id: "ruta", nombre: "Hoja de ruta →", link: "ruta.html" },
             { id: "mant", nombre: "Mantenimiento →", link: "mantenimiento.html" }
         ]
     };
