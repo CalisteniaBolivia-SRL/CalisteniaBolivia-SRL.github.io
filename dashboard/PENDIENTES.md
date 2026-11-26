@@ -54,3 +54,17 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 - App de clientes de Paraguay: cuando exista en el repositorio, sumar la misma pantalla enviando a `py_rh_sugerencia` (el buzón de Paraguay ya está listo).
 
 - Roles del ERP (roles.html): confirmar con el primer ingreso real que llega la lista de roles (cm_roles/bolivia y cm_roles/paraguay). Si queda vacía, revisar la forma de la respuesta de `rol getAll` / `usuarioRol getAllByUsuarios` en functions/index.js (rolesDelERP).
+
+## Cobros QR (para retomar)
+- **Caja de Bolivia (app-administracion):** el botón «QR» ya está en `main` (PR #30), pero no se publicó. El workflow `web.yml` usa `ubuntu-20.04`, que GitHub retiró, y queda en cola. Cambiar a `ubuntu-22.04` con el OK del director.
+- **Cargar el QR general** (y los de cada sucursal que cobre con otra cuenta) en `dashboard/cobros-qr.html`.
+- **Pagos QR por verificar:** tablero que cruce los cobros por QR del día (número de transacción y monto) con los movimientos del banco y marque «Llegó / Por verificar»; Administración acepta a mano los dudosos. Falta revisar la forma de los datos con el MCP.
+- **Servisofts:** pedidos en `docs/pedidos-servisofts.md`:
+  1. QR en la venta del S-ERP.
+  2. Un solo ingreso al MCP.
+
+  El director ya habló con ellos.
+
+## Un solo ingreso (en curso)
+- Hoy el MCP de Calistenia (`calistenia.servisofts.com/mcp/authorize`) pide usuario y contraseña después del portal. Es de Servisofts (pedido 2 en `docs/pedidos-servisofts.md`).
+- Alternativa propia: un puente en Firebase que lea el MCP con un usuario de Calistenia solo lectura, guardado como secreto, y entregue a cada persona solo lo de sus permisos. Así nadie vuelve a ingresar. Necesita que Dirección cree ese usuario y lo autorice una vez.
