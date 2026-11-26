@@ -22,15 +22,30 @@ const API = "https://generativelanguage.googleapis.com/v1beta";
    (Bolivia: sistema de Calistenia; Paraguay: ERP de Paraguay). Nunca ven más de lo que ve el usuario. */
 function herramientas() {
     const fecha = { type: "STRING", description: "Fecha AAAA-MM-DD" };
+    const rango = { desde: fecha, hasta: fecha };
     return [{ functionDeclarations: [
-        { name: "ventas", description: "Ingresos por venta de paquetes cobrados en un rango de fechas. Agrupa por día, mes, sucursal, paquete, tipo de pago o cajero. Úsala para cualquier pregunta de ventas, ingresos, facturación o comparación entre períodos o sucursales.",
+        { name: "resumen", description: "Panorama del día en una sola consulta: ventas de hoy, ventas del mes contra el mismo tramo del mes anterior, visitas de hoy contra el mismo día de la semana pasada y clientes activos. Úsala para «¿cómo vamos?», «¿qué tal el día?», «dame un resumen».",
+          parameters: { type: "OBJECT", properties: {} } },
+        { name: "ventas", description: "Ingresos por venta de paquetes cobrados en un rango de fechas. Agrupa por día, mes, sucursal, paquete, tipo de pago o cajero. Úsala para cualquier pregunta de ventas, ingresos, facturación, mejor sucursal o paquete, o comparación entre períodos (llamala una vez por período).",
           parameters: { type: "OBJECT", properties: { desde: fecha, hasta: fecha, agrupar_por: { type: "STRING", enum: ["dia", "mes", "sucursal", "paquete", "tipo_pago", "cajero"] } }, required: ["desde", "hasta", "agrupar_por"] } },
-        { name: "asistencia_hoy", description: "Visitas de hoy: cuántas personas entraron, por sucursal y por hora, comparado con un día igual.",
+        { name: "asistencia_hoy", description: "Visitas de hoy: cuántas personas entraron, por sucursal, comparado con el mismo día de la semana pasada.",
+          parameters: { type: "OBJECT", properties: {} } },
+        { name: "asistencia", description: "Visitas en un rango de fechas, por día o por sucursal.",
+          parameters: { type: "OBJECT", properties: Object.assign({ agrupar_por: { type: "STRING", enum: ["dia", "sucursal"] } }, rango), required: ["desde", "hasta", "agrupar_por"] } },
+        { name: "horarios", description: "Ocupación por horario en un rango: qué horas se llenan y cuáles están vacías.",
+          parameters: { type: "OBJECT", properties: rango, required: ["desde", "hasta"] } },
+        { name: "clientes_activos", description: "Cuántos clientes tienen el plan vigente hoy, en total y por sucursal.",
           parameters: { type: "OBJECT", properties: {} } },
         { name: "clientes_por_vencer", description: "Clientes cuyo plan vence en los próximos N días y todavía no renovaron.",
           parameters: { type: "OBJECT", properties: { dias: { type: "INTEGER", description: "Días hacia adelante (1 a 30)" } }, required: ["dias"] } },
         { name: "clientes_vencidos", description: "Clientes cuyo plan venció en los últimos N días y no renovaron (para recuperar).",
-          parameters: { type: "OBJECT", properties: { dias: { type: "INTEGER", description: "Días hacia atrás (1 a 180)" } }, required: ["dias"] } }
+          parameters: { type: "OBJECT", properties: { dias: { type: "INTEGER", description: "Días hacia atrás (1 a 180)" } }, required: ["dias"] } },
+        { name: "cajas_abiertas", description: "Cajas abiertas ahora: sucursal, cajero, desde qué hora y cuánto tienen.",
+          parameters: { type: "OBJECT", properties: {} } },
+        { name: "pendientes", description: "Lo que el equipo tiene pendiente en el centro de mando: tareas urgentes, tareas que esperan a Dirección, fallas de mantenimiento abiertas, pagos de referidos por confirmar, referidos sin asignar, denuncias y sugerencias sin responder.",
+          parameters: { type: "OBJECT", properties: {} } },
+        { name: "referidos", description: "Programa de referidos del mes: cuántos se anotaron, cuántos se vendieron, pagos por confirmar y los referidores que más traen.",
+          parameters: { type: "OBJECT", properties: {} } }
     ] }];
 }
 
@@ -42,6 +57,10 @@ function instrucciones(o) {
         "Escuchas con paciencia: si la persona hace una pausa, esperas; si te interrumpe, te callas y atiendes lo nuevo. Si no entendiste, pides que lo repita en pocas palabras.",
         "Respuestas breves: primero la respuesta en una frase; el detalle solo si lo piden. Nunca inventes cifras: para datos de la empresa usa SIEMPRE las herramientas, y si una herramienta no tiene el dato, dilo con naturalidad.",
         "Al saludar, solo saluda y ofrece ayuda; no des datos que nadie pidió.",
+        "Lo que consultas con las herramientas aparece solo en la pantalla como tarjeta. Por eso di solo lo importante (el total, el mejor y el peor, la diferencia) y, si hay más detalle, di «lo tiene en pantalla». Nunca leas listas largas.",
+        "Si una herramienta responde sin_datos_paraguay, explica que ese dato todavía no está conectado en Paraguay.",
+        "Para comparar períodos, consulta cada período y di la diferencia en porcentaje. «Este mes» va del día 1 a hoy; «el mes pasado», el mes calendario anterior.",
+        "Puedes encadenar consultas sin pedir permiso. Si la pregunta es ambigua, elige lo más razonable y dilo.",
         "Montos " + (py ? "en guaraníes, redondeados («unos treinta y dos millones de guaraníes»)" : "en bolivianos, redondeados («unos cuarenta y dos mil bolivianos»)") + "; porcentajes enteros.",
         "País de esta sesión: " + (py ? "Paraguay (una sucursal en Asunción)" : "Bolivia (sucursales en Santa Cruz de la Sierra)") + ". Hoy es " + o.hoy + " (zona " + (py ? "America/Asuncion" : "America/La_Paz") + ").",
         o.nombre ? "Usuario conectado: " + o.nombre + "." : ""

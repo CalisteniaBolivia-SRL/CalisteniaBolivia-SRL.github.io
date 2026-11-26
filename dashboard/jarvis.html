@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Capital · Asistente de voz</title>
+<title>Capital · Asistente</title>
 <link rel="icon" href="../images/132458707.png">
 <script src="pais.js?v=10"></script>
 <script src="cm-mcp.js?v=3"></script>
@@ -28,46 +28,87 @@
 })();
 </script>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --rojo: #E30613; --linea: #25272B; --gris: #8D9299; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { margin: 0; height: 100%; background: #050506; color: #F3F4F5; font-family: "Saira", "Segoe UI", Roboto, Arial, sans-serif; }
-  .jv { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; padding: clamp(14px, 2.4vw, 40px); gap: 12px; }
+  html, body { margin: 0; min-height: 100%; background: #050506; color: #F3F4F5; font-family: "Saira", "Segoe UI", Roboto, Arial, sans-serif; }
+  .jv { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; padding: clamp(14px, 2.2vw, 36px); gap: 14px; }
   .jv-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .jv-top img { height: clamp(26px, 3.6vh, 46px); width: auto; }
-  .jv-top a { color: #8D9299; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
+  .jv-top .jv-marca { display: flex; align-items: center; gap: 14px; }
+  .jv-top .jv-pais { font-size: 12px; letter-spacing: .24em; text-transform: uppercase; color: var(--gris); border-left: 1px solid var(--linea); padding-left: 14px; }
+  .jv-top a { color: var(--gris); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; text-decoration: none; }
   .jv-top a:hover { color: #F3F4F5; }
-  .jv-centro { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, 1fr); gap: clamp(16px, 3vw, 48px); align-items: center; min-height: 0; }
-  .jv-voz { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-  .jv-esfera { width: min(52vh, 40vw); aspect-ratio: 1; }
+  .jv-centro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 1.1fr); gap: clamp(16px, 3vw, 48px); align-items: stretch; min-height: 0; }
+  .jv-voz { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  .jv-esfera { width: min(48vh, 36vw); aspect-ratio: 1; }
   .jv-esfera canvas { width: 100%; height: 100%; display: block; }
   .jv-estado { font-size: clamp(12px, 1vw, 16px); letter-spacing: .34em; text-transform: uppercase; color: #C4C8CE; }
   body[data-estado=hablando] .jv-estado { color: #FFFFFF; }
   body[data-estado=error] .jv-estado { color: #C76A62; }
-  .jv-nota { margin: 0; color: #8D9299; font-size: 14px; text-align: center; max-width: 46ch; min-height: 1.4em; }
-  .jv-log { max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px; border-left: 1px solid #25272B; padding-left: clamp(14px, 2vw, 28px); }
-  .jv-l { margin: 0; line-height: 1.45; font-size: clamp(15px, 1.15vw, 20px); font-weight: 300; }
+  .jv-nota { margin: 0; color: var(--gris); font-size: 14px; text-align: center; max-width: 46ch; min-height: 1.4em; }
+  .jv-lado { display: flex; flex-direction: column; gap: 14px; min-height: 0; max-height: 74vh; border-left: 1px solid var(--linea); padding-left: clamp(14px, 2vw, 28px); }
+  .jv-cards { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex: 0 1 auto; max-height: 52%; }
+  .jv-card { background: #0E0F11; border: 1px solid var(--linea); border-top: 2px solid var(--rojo); padding: 14px 16px; animation: entra .35s ease-out; }
+  .jv-card + .jv-card { opacity: .55; border-top-color: var(--linea); }
+  .jv-card h3 { margin: 0; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: #C4C8CE; font-weight: 600; }
+  .jv-card-sub { margin: 2px 0 0; color: var(--gris); font-size: 13px; }
+  .jv-grande { margin: 8px 0 4px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .jv-grande b { font-size: clamp(30px, 3.2vw, 48px); font-weight: 600; letter-spacing: -.01em; }
+  .jv-cambio, .jv-kpi small { font-size: 14px; color: var(--gris); }
+  .is-sube { color: #6FBF95 !important; } .is-baja { color: #E5736B !important; }
+  .jv-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .jv-kpi { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--linea); }
+  .jv-kpi span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gris); }
+  .jv-kpi b { font-size: clamp(18px, 1.6vw, 24px); font-weight: 600; }
+  .jv-barras, .jv-lista { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .jv-barras li { display: grid; grid-template-columns: minmax(80px, 34%) 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+  .jv-b-et { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #C4C8CE; }
+  .jv-b-pista { height: 8px; background: #17181B; }
+  .jv-b-pista i { display: block; height: 100%; background: #C4C8CE; }
+  .jv-barras li:first-child .jv-b-pista i { background: var(--rojo); }
+  .jv-b-v { font-variant-numeric: tabular-nums; color: #F3F4F5; }
+  .jv-b-mas { color: var(--gris); font-size: 12px; display: block !important; }
+  .jv-lista li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px solid #17181B; padding-bottom: 6px; }
+  .jv-lista li span { color: #C4C8CE; }
+  .jv-log { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px; flex: 1 1 auto; min-height: 120px; }
+  .jv-l { margin: 0; line-height: 1.45; font-size: clamp(15px, 1.1vw, 19px); font-weight: 300; }
   .jv-l b { display: block; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #5C6168; font-weight: 600; margin-bottom: 2px; }
-  .jv-l.is-yo span { color: #8D9299; }
-  .jv-pie { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .jv-l.is-yo span { color: var(--gris); }
+  .jv-vacio { color: #5C6168; font-size: 14px; margin: 0; }
+  .jv-rapidas { display: flex; flex-wrap: wrap; gap: 6px; }
+  .jv-rapidas button { font: inherit; font-size: 13px; color: #C4C8CE; background: none; border: 1px solid var(--linea); padding: 6px 10px; cursor: pointer; border-radius: 0; }
+  .jv-rapidas button:hover, .jv-rapidas button:focus-visible { border-color: #C4C8CE; color: #FFFFFF; outline: none; }
+  .jv-pie { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .jv-form { display: flex; width: min(720px, 100%); border: 1px solid #34373C; }
+  .jv-form input { flex: 1; font: inherit; font-size: 15px; color: #F3F4F5; background: #0B0C0E; border: 0; padding: 12px 14px; min-width: 0; }
+  .jv-form input:focus { outline: none; }
+  .jv-form:focus-within { border-color: #C4C8CE; }
+  .jv-form button { font: inherit; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #050506; background: #F3F4F5; border: 0; padding: 0 18px; cursor: pointer; }
+  .jv-botones { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
   .jv-btn { font: inherit; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: #F3F4F5; background: none; border: 1px solid #34373C; padding: 12px 22px; cursor: pointer; border-radius: 0; }
   .jv-btn:hover, .jv-btn:focus-visible { border-color: #C4C8CE; outline: none; }
   .jv-btn.is-fuerte { background: #F3F4F5; color: #050506; border-color: #F3F4F5; min-width: 180px; }
-  .jv-btn.is-fuerte.is-on { background: none; color: #F3F4F5; }
-  .jv-aviso { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #121315; border: 1px solid #C76A62; padding: 10px 16px; margin: 0; max-width: min(92vw, 640px); }
-  @media (max-width: 820px) {
+  .jv-btn.is-fuerte.is-on { background: var(--rojo); color: #FFFFFF; border-color: var(--rojo); }
+  .jv-btn.is-on:not(.is-fuerte) { border-color: var(--rojo); }
+  .jv-aviso { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #121315; border: 1px solid #C76A62; padding: 10px 16px; margin: 0; max-width: min(92vw, 640px); z-index: 5; }
+  @keyframes entra { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 900px) {
     .jv-centro { grid-template-columns: 1fr; }
-    .jv-esfera { width: min(78vw, 360px); }
-    .jv-log { border-left: 0; border-top: 1px solid #25272B; padding: 12px 0 0; max-height: 34vh; }
+    .jv-esfera { width: min(64vw, 300px); }
+    .jv-lado { border-left: 0; border-top: 1px solid var(--linea); padding: 12px 0 0; max-height: none; }
+    .jv-cards { max-height: none; }
+    .jv-log { max-height: 40vh; }
   }
+  @media (prefers-reduced-motion: reduce) { .jv-card { animation: none; } }
 </style>
 <link rel="stylesheet" href="sobrio.css?v=9">
 </head>
 <body data-estado="espera">
 <main class="jv">
   <header class="jv-top">
-    <img src="../images/capital-corp-logo.png" alt="Capital Corp">
-    <nav><a href="./">← Centro de mando</a> · <a href="asistente.html">Modo clásico</a></nav>
+    <div class="jv-marca"><img src="../images/capital-corp-logo.png" alt="Capital Corp"><span class="jv-pais" id="jv-pais">Bolivia</span></div>
+    <nav><a href="./" id="jv-volver">← Centro de mando</a></nav>
   </header>
   <section class="jv-centro">
     <div class="jv-voz">
@@ -75,15 +116,32 @@
       <div class="jv-estado" id="jv-estado" role="status" aria-live="polite">En espera</div>
       <p class="jv-nota" id="jv-nota"></p>
     </div>
-    <div class="jv-log" id="jv-log" aria-live="polite" aria-label="Conversación"></div>
+    <div class="jv-lado">
+      <div class="jv-cards" id="jv-cards" aria-live="polite" aria-label="Datos consultados" hidden></div>
+      <div class="jv-log" id="jv-log" aria-live="polite" aria-label="Conversación"><p class="jv-vacio">Pregúntele por voz o por escrito: ventas, visitas, clientes por vencer, cajas abiertas, pendientes del equipo, referidos…</p></div>
+      <div class="jv-rapidas" aria-label="Preguntas rápidas">
+        <button type="button" data-pregunta="¿Cómo vamos hoy?">¿Cómo vamos hoy?</button>
+        <button type="button" data-pregunta="Ventas del mes por sucursal">Ventas del mes por sucursal</button>
+        <button type="button" data-pregunta="¿Cuántos clientes vencen esta semana?">Vencen esta semana</button>
+        <button type="button" data-pregunta="¿Qué tiene pendiente el equipo?">Pendientes del equipo</button>
+        <button type="button" data-pregunta="¿Cómo van los referidos este mes?">Referidos del mes</button>
+      </div>
+    </div>
   </section>
   <footer class="jv-pie">
-    <button type="button" class="jv-btn is-fuerte" id="jv-boton">Conversar</button>
-    <button type="button" class="jv-btn" id="jv-mudo">Silenciar micrófono</button>
-    <button type="button" class="jv-btn" id="jv-full">Pantalla completa</button>
+    <form class="jv-form" id="jv-form" autocomplete="off">
+      <input type="text" id="jv-texto" maxlength="400" placeholder="Escríbale a Capital…" aria-label="Escribir una pregunta">
+      <button type="submit">Enviar</button>
+    </form>
+    <div class="jv-botones">
+      <button type="button" class="jv-btn is-fuerte" id="jv-boton">Conversar</button>
+      <button type="button" class="jv-btn" id="jv-mudo">Silenciar micrófono</button>
+      <button type="button" class="jv-btn" id="jv-full">Pantalla completa</button>
+    </div>
   </footer>
 </main>
 <p class="jv-aviso" id="jv-aviso" role="alert" hidden></p>
-<script src="jarvis.js?v=2"></script>
+<script>(function(){var a=document.getElementById("jv-volver");if(/[?&]pais=paraguay\b/.test(location.search))a.href="./?pais=paraguay";})();</script>
+<script src="jarvis.js?v=3"></script>
 </body>
 </html>
