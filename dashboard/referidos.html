@@ -7,7 +7,7 @@
 <title>Mis referidos · Calistenia Company</title>
 <link rel="icon" href="../images/132458707.png">
 <link rel="stylesheet" href="tablero-base.css?v=1">
-<link rel="stylesheet" href="referidos.css?v=3">
+<link rel="stylesheet" href="referidos.css?v=4">
 <script src="pais.js?v=10"></script>
 <script src="cm-mcp.js?v=3"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -16,8 +16,8 @@
 <script src="firebase-config.js?v=2"></script>
 <script>window.CM_FB_SIN_BARRA = true;</script>
 <script src="cm-firebase.js?v=14"></script>
-<script src="referidos-logica.js?v=2"></script>
-<script src="fb-referidos.js?v=2"></script>
+<script src="referidos-logica.js?v=3"></script>
+<script src="fb-referidos.js?v=4"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <link rel="stylesheet" href="sobrio.css?v=9">
 </head>
@@ -47,9 +47,10 @@
   <!-- Primera vez: crear el código -->
   <section class="rf-card" id="rf-alta" hidden>
     <h2>Creá tu código</h2>
-    <p class="rf-muted">Se arma con tu nombre (por ejemplo, JUAN-CAL) y no cambia. Tus datos y los de tu familia sirven para que nadie use el código con un familiar: no se le muestran a nadie.</p>
+    <p class="rf-muted">Elegí tu código (por ejemplo, JUAN o JUANFIT) o dejalo vacío y se arma con tu nombre. Después no cambia. Tus datos y los de tu familia sirven para que nadie use el código con un familiar: no se le muestran a nadie.</p>
     <form id="rf-form-alta" class="rf-form">
       <label>Tu nombre completo <input name="nombre" required maxlength="120"></label>
+      <label>Tu código (opcional: 3 a 14 letras o números) <input name="codigo" maxlength="14" autocomplete="off" placeholder="Ej.: JUAN" style="text-transform:uppercase"></label>
       <div class="rf-fila2">
         <label>Tu carnet (CI) <input name="ci" required maxlength="20" inputmode="text"></label>
         <label>Tu celular <input name="telefono" maxlength="20" inputmode="tel"></label>
@@ -76,7 +77,7 @@
         <span class="rf-label">Tu código</span>
         <strong class="rf-codigo-grande" id="rf-codigo">—</strong>
         <a class="rf-link" id="rf-link" href="#" target="_blank" rel="noopener">—</a>
-        <span class="rf-oferta" id="rf-oferta">Tus invitados tienen <b>15 % de descuento</b> en su primer paquete. Contáselo: sale en tu link, en el QR y en el mensaje de WhatsApp.</span>
+        <span class="rf-oferta" id="rf-oferta">Tus invitados tienen <b>15 % de descuento</b> en su paquete. Contáselo: sale en tu link, en el QR y en el mensaje de WhatsApp.</span>
         <div class="rf-acciones">
           <a class="rf-btn is-fuerte rf-wa" id="rf-wa" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 14.9L2 22l5.2-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3.1.8.8-3-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg>Compartir por WhatsApp</a>
           <button type="button" class="rf-btn" id="rf-copiar">Copiar link</button>
@@ -92,6 +93,7 @@
       <section class="rf-card"><h2>Ranking del período</h2><p class="rf-muted" id="rf-rank-per"></p><div id="rf-ranking"></div></section>
       <section class="rf-card"><h2>Si vendés este paquete, ganás</h2><p class="rf-muted">A un cliente nuevo que se anotó con tu código.</p><div class="rf-scroll" id="rf-paquetes"></div></section>
     </div>
+    <section class="rf-card"><h2>Quiénes se anotaron con tu código</h2><div id="rf-anotados"></div></section>
     <section class="rf-card"><h2>Tus ventas</h2><div class="rf-scroll" id="rf-ventas"></div></section>
     <section class="rf-card"><h2>Tus pagos</h2><div class="rf-scroll" id="rf-pagos"></div></section>
     <section class="rf-card"><h2>Tus familiares</h2><p class="rf-muted">Si se suma alguien de tu familia, agregalo acá.</p><div id="rf-fam-edit"></div></section>
@@ -118,6 +120,6 @@
     <section class="rf-card"><h2>Códigos</h2><div class="rf-scroll" id="rf-a-codigos"></div></section>
   </div>
 </main>
-<script src="referidos.js?v=3"></script>
+<script src="referidos.js?v=4"></script>
 </body>
 </html>

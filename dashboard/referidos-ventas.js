@@ -97,7 +97,7 @@
     /* ---------- para llamar ---------- */
     function mensaje(i) {
         var n = String(i.nombre || "").split(" ")[0];
-        return "¡Hola " + n + "! Te escribo de Calistenia Company 💪 Te anotaste con el código " + i.codigo + ", así que tenés " + DESC + " % de descuento en tu primer paquete. ¿Te ayudo a elegirlo y dejarlo listo hoy?";
+        return "¡Hola " + n + "! Te escribo de Calistenia Company 💪 Te anotaste con el código " + i.codigo + ", así que tenés " + DESC + " % de descuento en tu paquete. ¿Te ayudo a elegirlo y dejarlo listo hoy?";
     }
     function marcar(i, seg, nota, asignar, texto) {
         var quien = asignar || { key: M.uid, nombre: M.nombre };
@@ -130,7 +130,7 @@
             wrap.appendChild(el("article", { class: "op-card rv-card" + (!i.seguimiento ? " is-rojo" : "") }, [
                 el("div", { class: "op-acc" }, [el("b", { class: "rv-nombre", text: i.nombre || "Cliente" }), el("span", { class: "op-muted", text: hace(i.fecha_on) }),
                     s ? chip(s[0] + (i.tomado_nombre ? " · " + String(i.tomado_nombre).split(" ")[0] : ""), s[1]) : chip("Nuevo", "bad"), pago ? chip("Mandó comprobante", "ok") : null]),
-                el("p", { class: "op-muted", text: "Código " + (i.codigo || "—") + " · " + (PY ? "Cédula " : "CI ") + (i.ci || "—") + " · " + (i.telefono || "sin celular") + (i.nota_seguimiento ? " · " + i.nota_seguimiento : "") }),
+                el("p", { class: "op-muted", text: "Código " + String(i.codigo || "—").replace(/-CAL$/, "") + " · " + (PY ? "Cédula " : "CI ") + (i.ci || "—") + " · " + (i.telefono || "sin celular") + (i.nota_seguimiento ? " · " + i.nota_seguimiento : "") }),
                 el("div", { class: "op-acc" }, [
                     t ? el("a", { class: "op-btn is-fuerte", href: "tel:+" + t, onclick: function () { if (!i.seguimiento) marcar(i, "tomado"); } , text: "Llamar" }) : chip("Celular no válido", "warn"),
                     t ? el("a", { class: "op-btn", href: "https://wa.me/" + t + "?text=" + encodeURIComponent(mensaje(i)), target: "_blank", rel: "noopener", onclick: function () { if (!i.seguimiento) marcar(i, "tomado"); }, text: "WhatsApp" }) : null,
@@ -159,7 +159,7 @@
         var sin = l.filter(function (i) { return !i.seguimiento; }).length, noInt = l.filter(function (i) { return i.seguimiento === "no_interesado"; }).length;
         var sel = el("select", { "aria-label": "Período" }, [["mes", "Este mes"], ["30", "Últimos 30 días"], ["ant", "Mes anterior"]].map(function (o) { return el("option", { value: o[0], text: o[1], selected: M.periodo === o[0] }); }));
         sel.addEventListener("change", function () { M.periodo = sel.value; pintar(); });
-        wrap.appendChild(el("div", { class: "op-acc" }, [el("label", { class: "op-campo" }, ["Período", sel]), el("span", { class: "op-muted", text: "Quienes se anotaron con un código de referido (15 % de descuento en su primer paquete)." })]));
+        wrap.appendChild(el("div", { class: "op-acc" }, [el("label", { class: "op-campo" }, ["Período", sel]), el("span", { class: "op-muted", text: "Quienes se anotaron con un código de referido (15 % de descuento en su paquete)." })]));
         wrap.appendChild(el("div", { class: "op-kpis" }, [
             el("div", { class: "op-kpi" }, [el("span", { text: "Se anotaron" }), el("b", { text: String(l.length) })]),
             el("div", { class: "op-kpi" + (sin ? " is-warn" : " is-ok") }, [el("span", { text: "Sin contactar" }), el("b", { text: String(sin) }), el("small", { text: sin ? "Llamalos o asignalos en «Para llamar»" : "Todos contactados" })]),
@@ -175,7 +175,7 @@
         });
         var tabla = function (cab, filas, vacio) { return filas.length ? el("div", { class: "op-scroll" }, [el("table", { class: "op-tabla" }, [el("thead", {}, [el("tr", {}, cab.map(function (h, k) { return el("th", { class: k ? "is-n" : "", text: h }); }))]), el("tbody", {}, filas.map(function (f) { return el("tr", {}, f.map(function (v, k) { return el("td", { class: k ? "is-n" : "", text: v }); })); }))])]) : el("p", { class: "op-vacio", text: vacio }); };
         wrap.appendChild(el("section", { class: "op-card" }, [el("h2", { text: "Por referidor" }), tabla(["Quién invitó (código)", "Anotados", "Compraron", "Conversión"],
-            Object.keys(porCod).sort(function (a, b) { return porCod[b].anot - porCod[a].anot; }).map(function (k) { var c = porCod[k], n = M.nombresCod[k]; return [(n && n !== k ? n + " · " : "") + k, c.anot, c.vend, pct(c.vend, c.anot)]; }), "Nadie se anotó en este período.")]));
+            Object.keys(porCod).sort(function (a, b) { return porCod[b].anot - porCod[a].anot; }).map(function (k) { var c = porCod[k], n = M.nombresCod[k]; return [(n && n !== k ? n + " · " : "") + k.replace(/-CAL$/, ""), c.anot, c.vend, pct(c.vend, c.anot)]; }), "Nadie se anotó en este período.")]));
         wrap.appendChild(el("section", { class: "op-card" }, [el("h2", { text: "Por ATC" }), tabla(["ATC", "Atendidos", "Compraron", "No contestan", "No les interesó"],
             Object.keys(porAtc).sort(function (a, b) { return porAtc[b].vend - porAtc[a].vend; }).map(function (k) { var a = porAtc[k]; return [k, a.tom, a.vend, a.noc, a.noi]; }), "Todavía nadie tomó un referido en este período.")]));
         var cambios = [];
@@ -192,7 +192,7 @@
             var s2 = SEG[i.seguimiento];
             wrap.appendChild(el("article", { class: "op-card rv-card" }, [
                 el("div", { class: "op-acc" }, [el("b", { class: "rv-nombre", text: i.nombre || "Cliente" }), chip(s2 ? s2[0] : i.seguimiento, s2 ? s2[1] : ""), el("span", { class: "op-muted", text: (i.tomado_nombre ? "por " + i.tomado_nombre + " · " : "") + hace(i.fecha_seguimiento || i.fecha_on) })]),
-                el("p", { class: "op-muted", text: "Código " + (i.codigo || "—") + " · " + (i.telefono || "") + (i.nota_seguimiento ? " · " + i.nota_seguimiento : "") }),
+                el("p", { class: "op-muted", text: "Código " + String(i.codigo || "—").replace(/-CAL$/, "") + " · " + (i.telefono || "") + (i.nota_seguimiento ? " · " + i.nota_seguimiento : "") }),
                 el("div", { class: "op-acc" }, [el("button", { type: "button", class: "op-btn", text: "Reabrir", onclick: function () { var n = prompt("¿Por qué se reabre? (queda en los cambios)", ""); if (n === null) return; marcar(i, "tomado", n || null, null, "Reabierto" + (n ? ": " + n : "")); } }), asignador(i)]),
                 historial(i)
             ]));

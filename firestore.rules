@@ -327,7 +327,7 @@ service cloud.firestore {
     match /ref_config/{d} { allow read: if refSesion(); allow write: if refAdmin(); }
     match /ref_codigo_idx/{codigo} {
       allow read: if true;   // la página pública muestra a quién pertenece el código (solo el primer nombre)
-      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{1,14}-CAL$')
+      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{3,14}$')
         && soloCampos(['key_usuario', 'nombre', 'estado', 'fecha_on']) && texto('nombre', 40);
       allow update, delete: if refAdmin();
     }
@@ -340,6 +340,16 @@ service cloud.firestore {
       allow update: if (refSesion() && uid == yo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'familiares', 'fecha_edicion'])
         && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30) || refAdmin();
       allow delete: if false;
+    }
+    // Quiénes se anotaron con cada código: solo nombre y fecha. Lo crea la página de inscripción (sin sesión);
+    // cada referidor ve solo los de su propio código.
+    match /ref_anotado/{id} {
+      allow create: if soloCampos(['codigo', 'nombre', 'fecha_on']) && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read: if refAdmin() || (refSesion() && exists(/databases/$(database)/documents/ref_codigo/$(yo()))
+        && resource.data.codigo == get(/databases/$(database)/documents/ref_codigo/$(yo())).data.codigo);
+      allow update, delete: if false;
     }
     match /ref_inscripcion/{id} {
       allow create: if soloCampos(['codigo', 'ci', 'telefono', 'nombre', 'fecha_on', 'estado'])
@@ -374,7 +384,7 @@ service cloud.firestore {
     match /py_ref_config/{d} { allow read: if refSesion(); allow write: if refAdminPY(); }
     match /py_ref_codigo_idx/{codigo} {
       allow read: if true;   // la página pública muestra a quién pertenece el código (solo el primer nombre)
-      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{1,14}-CAL$')
+      allow create: if refSesion() && request.resource.data.key_usuario == yo() && codigo.matches('^[A-Z0-9]{3,14}$')
         && soloCampos(['key_usuario', 'nombre', 'estado', 'fecha_on']) && texto('nombre', 40);
       allow update, delete: if refAdminPY();
     }
@@ -387,6 +397,16 @@ service cloud.firestore {
       allow update: if (refSesion() && uid == yo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['telefono', 'familiares', 'fecha_edicion'])
         && request.resource.data.familiares is list && request.resource.data.familiares.size() <= 30) || refAdminPY();
       allow delete: if false;
+    }
+    // Quiénes se anotaron con cada código: solo nombre y fecha. Lo crea la página de inscripción (sin sesión);
+    // cada referidor ve solo los de su propio código.
+    match /py_ref_anotado/{id} {
+      allow create: if soloCampos(['codigo', 'nombre', 'fecha_on']) && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 20
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() >= 3 && request.resource.data.nombre.size() <= 80
+        && request.resource.data.fecha_on is string && request.resource.data.fecha_on.size() <= 30;
+      allow read: if refAdminPY() || (refSesion() && exists(/databases/$(database)/documents/py_ref_codigo/$(yo()))
+        && resource.data.codigo == get(/databases/$(database)/documents/py_ref_codigo/$(yo())).data.codigo);
+      allow update, delete: if false;
     }
     match /py_ref_inscripcion/{id} {
       allow create: if soloCampos(['codigo', 'ci', 'telefono', 'nombre', 'fecha_on', 'estado'])

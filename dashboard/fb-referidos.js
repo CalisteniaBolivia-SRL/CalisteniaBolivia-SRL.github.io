@@ -28,18 +28,21 @@
         if (!yo) return Promise.reject(new Error("Sin sesión."));
         if (!R.normCI(datos.ci)) return Promise.reject(new Error("Escribí tu carnet de identidad."));
         var fam = limpiarFamiliares(datos.familiares);
+        var propio = R.normCodigo(datos.codigo || "").replace(/-/g, "");
+        if (propio && !R.codigoValido(propio)) return Promise.reject(new Error("El código debe tener de 3 a 14 letras o números, sin espacios."));
         var intento = function (n) {
-            var codigo = R.generarCodigo(nombre, function () { return false; });
-            if (n > 1) codigo = codigo.replace("-CAL", n + "-CAL");
-            var idx = db().collection(col("ref_codigo_idx")).doc(codigo), mio = db().collection(col("ref_codigo")).doc(yo);
+            var codigo = propio || R.generarCodigo(nombre, function () { return false; });
+            if (!propio && n > 1) codigo = codigo + n;
+            /* No puede repetirse ni con un código viejo «-CAL» (se muestran igual). */
+            var idx = db().collection(col("ref_codigo_idx")).doc(codigo), viejo = db().collection(col("ref_codigo_idx")).doc(codigo + "-CAL"), mio = db().collection(col("ref_codigo")).doc(yo);
             return db().runTransaction(function (tx) {
-                return tx.get(idx).then(function (d) {
-                    if (d.exists) throw Object.assign(new Error("ocupado"), { ocupado: true });
+                return Promise.all([tx.get(idx), tx.get(viejo)]).then(function (a) {
+                    var d = a[0]; if (d.exists || a[1].exists) throw Object.assign(new Error("ocupado"), { ocupado: true });
                     tx.set(idx, { key_usuario: yo, nombre: nombre.split(/\s+/)[0].slice(0, 40), estado: 1, fecha_on: ahora() });
                     tx.set(mio, { codigo: codigo, key_usuario: yo, nombre: nombre.slice(0, 120), ci: String(datos.ci).trim().slice(0, 20),
                         telefono: String(datos.telefono || "").trim().slice(0, 20), familiares: fam, estado: 1, fecha_on: ahora() });
                 });
-            }).then(function () { return codigo; }, function (e) { if (e && e.ocupado && n < 50) return intento(n + 1); throw e; });
+            }).then(function () { return codigo; }, function (e) { if (e && e.ocupado && propio) throw new Error("El código «" + propio + "» ya lo tiene otra persona. Probá con otro."); if (e && e.ocupado && n < 50) return intento(n + 1); throw e; });
         };
         return intento(1);
     }
@@ -249,7 +252,10 @@
     function pagos(estado) { return docs(db().collection(col("ref_pago")).where("estado", "==", estado || "por_confirmar")); }
     function seguir(id, cambio) { return db().collection(col("ref_inscripcion")).doc(id).update(Object.assign({ fecha_seguimiento: ahora() }, cambio)); }
     function resolverPago(id, estado, nombre, nota) { return db().collection(col("ref_pago")).doc(id).update({ estado: estado, confirmado_por: uid(), confirmado_nombre: String(nombre || "").slice(0, 120), fecha_confirmacion: ahora(), nota: String(nota || "").slice(0, 500) }); }
+    /* Quiénes se anotaron con mi código: solo el nombre y la fecha (ref_anotado; los datos completos no se le muestran). */
+    function misAnotados(codigo) { return docs(db().collection(col("ref_anotado")).where("codigo", "==", codigo)).then(function (l) { return l.sort(function (a, b) { return String(b.fecha_on).localeCompare(String(a.fecha_on)); }); }); }
     window.REF_DATOS = {
+        misAnotados: misAnotados,
         oferta: oferta, guardarOferta: guardarOferta, inscripcionesRecientes: inscripcionesRecientes, pagos: pagos, seguir: seguir, resolverPago: resolverPago,
         PY: PY, col: col, miCodigo: miCodigo, crearCodigo: crearCodigo, guardarFamiliares: guardarFamiliares, misComisiones: misComisiones, misLiquidaciones: misLiquidaciones,
         config: config, rankingPeriodo: rankingPeriodo, codigoPublico: codigoPublico, inscribir: inscribir,
