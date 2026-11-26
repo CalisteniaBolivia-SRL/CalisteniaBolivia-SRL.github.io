@@ -112,8 +112,10 @@
 
     function prepararSalida() {
         if (J.outCtx) return;
-        J.outCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-        J.outGain = J.outCtx.createGain(); J.analizador = J.outCtx.createAnalyser(); J.analizador.fftSize = 256;
+        /* Contexto a la frecuencia propia del equipo (sin forzar 24 kHz): el navegador remuestrea cada pedazo una sola
+           vez y con buena calidad. «playback» pide búferes más grandes: menos chasquidos si la computadora está ocupada. */
+        J.outCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "playback" });
+        J.outGain = J.outCtx.createGain(); J.outGain.gain.value = 0.9; J.analizador = J.outCtx.createAnalyser(); J.analizador.fftSize = 256;
         J.outGain.connect(J.analizador);
         /* La voz sale por un elemento <audio>: así el cancelador de eco del navegador la reconoce y la resta del micrófono.
            Si el navegador no lo permite, sale directo por los parlantes. */
@@ -130,7 +132,11 @@
         var buf = J.outCtx.createBuffer(1, f.length, 24000); buf.copyToChannel(f, 0);
         J.cortado = false;
         var src = J.outCtx.createBufferSource(); src.buffer = buf; src.connect(J.outGain);
-        var t = Math.max(J.outCtx.currentTime + 0.03, J.proxima);
+        /* Colchón: al empezar a hablar se deja ~0,2 s de margen, y si un pedazo llegó tarde se vuelve a dejar margen,
+           así la voz sale pareja en vez de entrecortada. Los pedazos que llegan a tiempo van pegados, sin huecos. */
+        var ahora = J.outCtx.currentTime;
+        if (J.proxima < ahora + 0.02) J.proxima = ahora + (J.fuentes.length ? 0.12 : 0.2);
+        var t = J.proxima;
         src.start(t); J.proxima = t + buf.duration;
         J.fuentes.push(src); src.onended = function () { J.fuentes = J.fuentes.filter(function (x) { return x !== src; }); if (!J.fuentes.length) { if (!J.cortado) J.colaHasta = Date.now() + 450; if (J.estado === "hablando") estado("escuchando"); } };
         if (J.estado !== "hablando") estado("hablando");
@@ -519,7 +525,7 @@
     /* Isologo de Capital Corp en el centro de la esfera: late con la voz. */
     var ISO = new Image(); ISO.src = "../images/capital-corp-simbolo.png";
     function dibujar() {
-        var c = $("jv-esfera"), x = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
+        var c = $("jv-esfera"), x = c.getContext("2d"), dpr = Math.min(1.5, window.devicePixelRatio || 1);
         var w = c.clientWidth * dpr, h = c.clientHeight * dpr; if (c.width !== w) { c.width = w; c.height = h; }
         var t = performance.now() / 1000, r0 = Math.min(w, h) * 0.28, nivel = 0;
         if (J.analizador && J.fuentes.length) { var a = new Uint8Array(J.analizador.frequencyBinCount); J.analizador.getByteFrequencyData(a); var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; nivel = s / a.length / 255; }
@@ -545,7 +551,6 @@
         if (ISO.complete && ISO.naturalWidth) {
             var lado = r0 * (0.95 + suave * 0.18), alto = lado * ISO.naturalHeight / ISO.naturalWidth;
             x.save(); x.globalAlpha = J.abierto ? 0.95 : 0.75;
-            if (habla) { x.shadowColor = "rgba(227,6,19,.85)"; x.shadowBlur = (18 + suave * 40) * dpr; }
             x.drawImage(ISO, w / 2 - lado / 2, h / 2 - alto / 2, lado, alto); x.restore();
         }
         if (piensa) { x.beginPath(); x.arc(w / 2, h / 2, r0 * 0.78, t * 4, t * 4 + Math.PI * 0.6); x.strokeStyle = "rgba(232,236,240,.8)"; x.lineWidth = 2 * dpr; x.stroke(); }
