@@ -256,6 +256,17 @@
     }
     function vaciarPendientes() { var l = J.pendiente; J.pendiente = []; l.forEach(enviarTexto); }
 
+    /* Cierre por voz: espera a que termine la despedida (o 6 s como máximo) y cierra como el botón Terminar. */
+    var CIERRE = /(gracias|muchas gracias)[\s,.!]*(capital)|capital[\s,.!]*(gracias)|\beso es todo\b|\bnada m[aá]s\b|\bhasta luego\b|\bchau\b|\badi[oó]s\b|\bya est[aá],? capital\b|\blisto,? capital\b/i;
+    function cerrarAlTerminar() {
+        if (J.cerrandoPorVoz) return;
+        J.cerrandoPorVoz = true; var desde = Date.now();
+        var mirar = setInterval(function () {
+            if (!J.abierto) { clearInterval(mirar); J.cerrandoPorVoz = false; return; }
+            var listo = J.turnoTerminado && !hablandoAhora();
+            if (listo || Date.now() - desde > 6000) { clearInterval(mirar); J.cerrandoPorVoz = false; terminar("Hasta luego. Diga «Capital» o toque Conversar cuando lo necesite."); }
+        }, 200);
+    }
     function atender(m) {
         J.ultimo = Date.now();
         if (m.sessionResumptionUpdate && m.sessionResumptionUpdate.resumable && m.sessionResumptionUpdate.newHandle) J.handle = m.sessionResumptionUpdate.newHandle;
@@ -263,10 +274,15 @@
         var sc = m.serverContent;
         if (sc) {
             if (sc.interrupted) { callar(); cerrarLinea(); }
-            if (sc.inputTranscription && sc.inputTranscription.text) linea("yo", sc.inputTranscription.text);
+            if (sc.inputTranscription && sc.inputTranscription.text) {
+                linea("yo", sc.inputTranscription.text); J.turnoTerminado = false;
+                J.dichoTurno = ((J.dichoTurno || "") + " " + sc.inputTranscription.text).slice(-200);
+                if (CIERRE.test(J.dichoTurno)) cerrarAlTerminar();
+            }
+            if (sc.modelTurn || sc.outputTranscription) J.turnoTerminado = false;
             if (sc.outputTranscription && sc.outputTranscription.text) linea("capital", sc.outputTranscription.text);
             ((sc.modelTurn && sc.modelTurn.parts) || []).forEach(function (p) { if (p.inlineData && p.inlineData.data) reproducir(p.inlineData.data); });
-            if (sc.turnComplete) cerrarLinea();
+            if (sc.turnComplete) { cerrarLinea(); J.turnoTerminado = true; J.dichoTurno = ""; }
         }
         if (m.toolCall && m.toolCall.functionCalls) {
             estado("pensando", "");
@@ -397,6 +413,8 @@
             });
         },
         pendientes: function () { return pendientes(); },
+        /* «Gracias, Capital», «eso es todo»…: se despide y cierra como el botón Terminar. */
+        terminar_conversacion: function () { cerrarAlTerminar(); return Promise.resolve({ ok: true }); },
         /* Lectura libre de todo el sistema (lo que el usuario puede ver con su sesión). */
         consultar_sistema: function (a) {
             var t = String(a.herramienta || ""), args = {};
@@ -477,7 +495,7 @@
     function abrir(opc) {
         opc = opc || {};
         if (J.abierto) return Promise.resolve();
-        J.abierto = true; J.cerrando = false; J.ultimo = Date.now(); J.reintentos = 0;
+        J.abierto = true; J.cerrando = false; J.ultimo = Date.now(); J.reintentos = 0; J.dichoTurno = ""; J.turnoTerminado = true; J.cerrandoPorVoz = false;
         pararPalabra();
         prepararSalida(); if (J.outCtx.state === "suspended") J.outCtx.resume();
         aviso("");
@@ -486,13 +504,13 @@
         });
         return mic.then(conectar).then(function () {
             estado("escuchando", "Hable con naturalidad. Si lo interrumpe, Capital se calla y lo escucha.");
-            if (opc.saludo !== false) enviarTexto("(La persona acaba de abrir la conversación. Saludá brevemente según la hora y preguntá en qué podés ayudar.)");
+            if (opc.saludo !== false) enviarTexto("(La persona acaba de abrir la conversación. Saludá en una sola frase corta según la hora, por ejemplo «Buenas tardes, señor.», sin preguntar nada ni ofrecer ayuda, y esperá en silencio.)");
             clearInterval(J.reloj);
             J.reloj = setInterval(function () { if (J.abierto && !J.fuentes.length && J.estado !== "pensando" && Date.now() - J.ultimo > INACTIVO_MS) terminar("Conversación en pausa por inactividad. Diga «Capital» o toque Conversar."); }, 5000);
         }).catch(function (e) { if (e && e.reintentar) { J.abierto = false; return abrir(opc); } fallo(e); });
     }
     function terminar(nota) {
-        J.abierto = false; J.cerrando = true;
+        J.abierto = false; J.cerrando = true; J.noDespertarHasta = Date.now() + 5000;
         clearInterval(J.reloj);
         try { if (J.ws) J.ws.close(); } catch (e) {}
         J.ws = null; J.listo = false; callar(); cerrarMicrofono();
@@ -512,7 +530,8 @@
         if (!SR || J.despertador || J.abierto) return;
         var r = new SR(); r.lang = PY ? "es-PY" : "es-BO"; r.continuous = true; r.interimResults = true;
         r.onresult = function (ev) {
-            for (var i = ev.resultIndex; i < ev.results.length; i++) if (/capital/i.test(ev.results[i][0].transcript)) { pararPalabra(); abrir(); return; }
+            if (Date.now() < (J.noDespertarHasta || 0)) return;   // recién cerrado con «gracias, Capital»: no se reabre solo
+            for (var i = ev.resultIndex; i < ev.results.length; i++) if (/capital/i.test(ev.results[i][0].transcript) && !/gracias/i.test(ev.results[i][0].transcript)) { pararPalabra(); abrir(); return; }
         };
         r.onend = function () { if (J.despertador === r) { J.despertador = null; setTimeout(escucharPalabra, 600); } };
         r.onerror = function () {};

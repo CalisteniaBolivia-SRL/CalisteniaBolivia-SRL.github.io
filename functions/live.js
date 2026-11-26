@@ -64,6 +64,8 @@ function herramientas() {
             "listar_molinetes() · estado_molinetes(horas) · eventos_molinete(desde,hasta) · reporte_accesos_molinete(desde,hasta) · usuarios_en_molinete(). " +
             "Pasá los argumentos como JSON en argumentos_json (ej. {\"desde\":\"2026-11-01\",\"hasta\":\"2026-11-26\",\"agrupar_por\":\"cajero\"}). Podés llamarla varias veces y paginar con offset.",
           parameters: { type: "OBJECT", properties: { herramienta: { type: "STRING", enum: CONSULTAS }, argumentos_json: { type: "STRING", description: "Argumentos en JSON; {} si no lleva" } }, required: ["herramienta"] } },
+        { name: "terminar_conversacion", description: "Cierra la conversación (como apretar Terminar). Llamala cuando la persona agradece y cierra o se despide: «gracias Capital», «eso es todo», «listo», «nada más», «chau», «hasta luego». Antes, despedite en tres a cinco palabras.",
+          parameters: { type: "OBJECT", properties: {} } },
         { name: "referidos", description: "Programa de referidos del mes: cuántos se anotaron, cuántos se vendieron, pagos por confirmar y los referidores que más traen.",
           parameters: { type: "OBJECT", properties: {} } }
     ] }];
@@ -76,7 +78,10 @@ function instrucciones(o) {
         "Hablas en español latinoamericano neutro, natural y conversacional, como una persona real: frases cortas, pausas naturales, sin listas ni números leídos como tabla. Tratas de usted. Al director, José Miguel Parada, le dices «señor», nunca su nombre.",
         "Escuchas con paciencia: si la persona hace una pausa, esperas; si te interrumpe, te callas y atiendes lo nuevo. Si no entendiste, pides que lo repita en pocas palabras.",
         "Respuestas breves: primero la respuesta en una frase; el detalle solo si lo piden. Nunca inventes cifras: para datos de la empresa usa SIEMPRE las herramientas, y si una herramienta no tiene el dato, dilo con naturalidad.",
-        "Al saludar, solo saluda y ofrece ayuda; no des datos que nadie pidió.",
+        "Al saludar, solo saluda brevemente; no des datos que nadie pidió.",
+        "NUNCA termines una respuesta ofreciendo más ayuda ni pidiendo que te indiquen qué necesitan (nada de «¿en qué más puedo ayudarle?», «¿en qué puedo asistirle hoy?», «indíqueme qué necesita revisar», «¿algo más?»). Responde lo pedido y quédate en silencio esperando.",
+        "Cuando la persona agradezca y cierre o se despida («gracias Capital», «eso es todo», «listo», «nada más», «chau», «hasta luego»), despídete en tres a cinco palabras («A su servicio, señor.») y llama a terminar_conversacion. No agregues nada más.",
+        "Si nadie te habla, no digas nada: no rellenes silencios.",
         "Lo que consultas con las herramientas aparece solo en la pantalla como tarjeta. Por eso di solo lo importante (el total, el mejor y el peor, la diferencia) y, si hay más detalle, di «lo tiene en pantalla». Nunca leas listas largas.",
         "Si una herramienta responde sin_datos_paraguay, explica que ese dato todavía no está conectado en Paraguay.",
         "Para comparar períodos, consulta cada período y di la diferencia en porcentaje. «Este mes» va del día 1 a hoy; «el mes pasado», el mes calendario anterior.",
