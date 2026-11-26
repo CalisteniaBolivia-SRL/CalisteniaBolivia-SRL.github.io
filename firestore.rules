@@ -14,6 +14,28 @@ service cloud.firestore {
     function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
     function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
 
+    // ---------- Cobros QR (cobros-qr.html): un solo lugar para todos los QR de cobro ----------
+    // Los lee cualquiera (la caja, la pantalla de caja, la página del referido y la app los muestran sin sesión);
+    // los cargan Administración y Dirección de cada país.
+    function qrValido() {
+      return soloCampos(['uso', 'nombre', 'key_sucursal', 'imagen', 'banco', 'cuenta', 'titular', 'nit', 'nota', 'activo', 'fecha_mod', 'por'])
+        && request.resource.data.uso in ['general', 'referidos', 'atc', 'sucursal']
+        && request.resource.data.imagen is string && request.resource.data.imagen.size() <= 800000
+        && request.resource.data.activo is bool && texto('nombre', 120) && texto('banco', 80) && texto('cuenta', 80)
+        && texto('titular', 80) && texto('nit', 80) && texto('nota', 200) && texto('por', 120) && texto('key_sucursal', 80);
+    }
+    match /cobro_qr/{id} {
+      allow read: if true;
+      // La Jefa de ATC carga los de su área: Referidos y Atención al Cliente.
+      allow create, update: if (permiso('administracion') || permiso('direccion') || (central() && id in ['referidos', 'atc'])) && qrValido();
+      allow delete: if permiso('direccion');
+    }
+    match /py_cobro_qr/{id} {
+      allow read: if true;
+      allow create, update: if (permisoPY('administracion') || permisoPY('direccion') || (centralPY() && id in ['referidos', 'atc'])) && qrValido();
+      allow delete: if permisoPY('direccion');
+    }
+
     // ---------- Roles del ERP (roles.html) ----------
     // La lista de roles de cada ERP y la ficha de cada usuario (permisos del ERP y sus roles) las escribe solo el
     // puente de ingreso. Dirección las lee y elige qué módulos ve cada rol (cm_rol_cfg, una por rol).

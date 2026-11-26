@@ -33,6 +33,7 @@
         { id: "contabilidad", tipo: "tablero", nombre: "Contabilidad y Fiscalización", quien: { bolivia: "Rodrigo Gomucio" }, rol: "Contabilidad", que: "Caja contra banco, precios, NIT, convenios y prórrogas", permisos: ["contabilidad"], href: function (p) { return url("contabilidad.html", p); } },
         { id: "supervision", alias: "reemplazos", tipo: "tablero", datosPY: true, nombre: "Supervisores", quien: { bolivia: "Michell Riobo · Marco Paz" }, rol: "Sucursales, entrenadores, calificaciones y reemplazos", que: "Sucursales, molinetes, horas buenas y bajas, calificación de entrenadores en cada visita y el registro de reemplazos de profesores", permisos: ["supervision", "direccion", "rrhh", "administracion"], href: function (p) { return url(p === "paraguay" ? "calificaciones.html" : "supervision.html", p); } },
         { id: "tareas", tipo: "tablero", datosPY: true, nombre: "Tareas de Administración", quien: { bolivia: "Administración · Dirección", paraguay: "Administración · Dirección" }, rol: "Qué hay por hacer y qué ya se hizo", que: "Tareas por prioridad (urgente, alta, media, baja), con su checklist, responsable, fecha límite y las decisiones de Dirección", permisos: ["administracion", "direccion"], href: function (p) { return url("tareas.html", p); } },
+        { id: "cobros_qr", tipo: "tablero", datosPY: true, nombre: "Cobros QR", quien: { bolivia: "Administración · Dirección", paraguay: "Administración · Dirección" }, rol: "Los QR de cobro de cada sucursal y canal", que: "Un solo lugar para los QR: caja, pantalla de caja, referidos y Atención al Cliente los toman de acá", permisos: ["administracion", "direccion"], href: function (p) { return url("cobros-qr.html", p); } },
         { id: "mantenimiento", tipo: "tablero", datosPY: true, nombre: "Mantenimiento", quien: { bolivia: "Mantenimiento · Administración", paraguay: "Mantenimiento · Administración" }, rol: "Checklist de cada sucursal", que: "Revisión con checklist (bien o falla), reporte al administrador por WhatsApp y fallas pendientes hasta que se arreglan", permisos: ["mantenimiento", "administracion", "supervision", "direccion"], href: function (p) { return url("mantenimiento.html", p); } },
         { id: "marketing", tipo: "tablero", nombre: "Marketing y Ventas", quien: { bolivia: "Michell Riobo · Marco Paz" }, rol: "Marketing", que: "Proyección, paquetes, campañas y horas vacías", permisos: ["marketing"], href: function (p) { return url("marketing.html", p); } },
         { id: "redes", tipo: "tablero", nombre: "Redes sociales", quien: { bolivia: "Marketing · Bolivia", paraguay: "Marketing · Paraguay" }, rol: "Respuestas automáticas a comentarios", que: "Facebook e Instagram responden solos; casos delicados por aprobar; borradores para TikTok", permisos: ["marketing"], datosPY: true, href: function (p) { return "redes.html?pais=" + (p || "bolivia"); } },
@@ -94,18 +95,18 @@
         atc: "ventas", jefe_atc: "ventas", ref_ventas: "ventas", referidos: "ventas",
         marketing: "marketing", redes: "marketing", creativo: "marketing",
         supervision: "operaciones", mantenimiento: "operaciones",
-        administracion: "administracion", tareas: "administracion", contabilidad: "administracion", legal: "administracion",
+        administracion: "administracion", tareas: "administracion", cobros_qr: "administracion", contabilidad: "administracion", legal: "administracion",
         rrhh: "personas", denuncias: "personas", sugerencias: "personas" };
     /* Módulos que se abren como pestaña dentro de otro: Tareas en Administración (y Dirección), Denuncias y Sugerencias
        en Recursos Humanos, Referidos nuevos en Jefe de ATC. */
     var DENTRO = { atc: "jefe_atc", tareas: "administracion", denuncias: "rrhh", sugerencias: "rrhh", ref_ventas: "jefe_atc" };
-    var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "administracion", "tareas", "contabilidad", "legal",
+    var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "administracion", "tareas", "cobros_qr", "contabilidad", "legal",
         "supervision", "mantenimiento", "marketing", "redes", "creativo", "rrhh", "denuncias", "sugerencias"];
     var CORTO = { ingresos: "Lo que entra, en vivo", asistente: "Preguntale lo que quieras, por voz", direccion: "Semáforo de todas las áreas", reportes: "Control y auditoría",
         atc: "Tu lista para llamar y vender", jefe_atc: "Tu equipo, tus clientes, referidos y comisiones", ref_ventas: "Llamar y cobrar a los referidos", referidos: "Tu código y lo que ganás",
         marketing: "Ventas, paquetes y campañas", redes: "Respuestas en Instagram y Facebook", creativo: "Piezas y videos con IA",
         supervision: "Sucursales, entrenadores y reemplazos", mantenimiento: "Checklist de sucursales y fallas",
-        administracion: "Cajas, ingresos y comisiones", tareas: "Pendientes por prioridad", contabilidad: "Caja contra banco y fiscalización", legal: "Contratos, permisos y casos",
+        administracion: "Cajas, ingresos y comisiones", tareas: "Pendientes por prioridad", cobros_qr: "Los QR de cada sucursal", contabilidad: "Caja contra banco y fiscalización", legal: "Contratos, permisos y casos",
         rrhh: "Entrenadores y cajeros", denuncias: "Lo que denuncia el personal", sugerencias: "Lo que dicen los clientes" };
 
     /* Arma en el portal la lista del muro y las tarjetas de tableros de ese país, según permisos y checklist. */

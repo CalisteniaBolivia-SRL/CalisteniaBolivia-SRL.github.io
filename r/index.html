@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../dashboard/firebase-config.js?v=2"></script>
 <script src="../dashboard/referidos-logica.js?v=4"></script>
+<script src="../dashboard/cobro-qr.js?v=2"></script>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -142,8 +143,12 @@
   function plata(n) { return MON + " " + (py ? Math.round(n).toLocaleString("es-PY") : (Math.round(n * 100) / 100).toLocaleString("es-BO", { minimumFractionDigits: 0, maximumFractionDigits: 2 })); }
   function conDesc(p) { var d = Number((oferta && oferta.desc) || DESC); var v = p * (100 - d) / 100; return py ? Math.floor(v / 1000) * 1000 : Math.floor(v); }
   function ofrecerPago() {
-    db.collection(pre + "ref_publico").doc("oferta").get().then(function (d) {
+    /* El QR sale de «Cobros QR» (el de Referidos o el general); si todavía no hay, el que estaba en la oferta. */
+    var qr = window.COBRO_QR ? COBRO_QR.buscar(db, py ? "paraguay" : "bolivia", { canal: "referidos" }).catch(function () { return null; }) : Promise.resolve(null);
+    Promise.all([db.collection(pre + "ref_publico").doc("oferta").get(), qr]).then(function (a) {
+      var d = a[0], q = a[1];
       oferta = d.exists ? d.data() : null;
+      if (oferta && q) { oferta.pago_qr = q.imagen; oferta.pago_texto = COBRO_QR.datosTexto(q); }
       var paqs = (oferta && oferta.paquetes) || [];
       if (!paqs.length || !(oferta.pago_texto || oferta.pago_qr)) return;   // sin datos de cobro cargados: solo «mostrá en caja»
       $("elegir-desc").textContent = (oferta.desc || DESC) + " %";

@@ -19,6 +19,7 @@
             { id: "pagar", nombre: "Cuentas por pagar", s: ["a-cxp"] },
             { id: "comisiones", nombre: "Comisiones ATC", s: ["a-comisiones"] },
             { id: "tareas", nombre: "Tareas →", link: "tareas.html" },
+            { id: "qr", nombre: "Cobros QR →", link: "cobros-qr.html" },
             { id: "mant", nombre: "Mantenimiento →", link: "mantenimiento.html" }
         ],
         contabilidad: [

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Pagá con QR · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../dashboard/firebase-config.js?v=2"></script>
+<script src="../dashboard/cobro-qr.js?v=2"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: #09090A; color: #F3F4F5; font-family: "Saira", "Segoe UI", Roboto, Arial, sans-serif; }
+  main { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2vh; padding: 3vh 16px; text-align: center; }
+  .logo { width: clamp(44px, 7vh, 72px); }
+  h1 { margin: 0; font-size: clamp(22px, 4.2vh, 44px); text-transform: uppercase; letter-spacing: .04em; }
+  h1 span { color: #E30613; }
+  .suc { color: #8D9299; font-size: clamp(13px, 2vh, 20px); letter-spacing: .2em; text-transform: uppercase; }
+  .qr { background: #FFFFFF; padding: clamp(10px, 2vh, 22px); width: min(78vw, 62vh); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .qr img { max-width: 100%; max-height: 100%; display: block; }
+  .monto { font-size: clamp(26px, 5.5vh, 60px); font-weight: 700; }
+  .datos { color: #C4C8CE; font-size: clamp(13px, 2vh, 20px); max-width: 60ch; line-height: 1.45; }
+  .aviso { color: #8D9299; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="../images/132458707.png" alt="Calistenia Company">
+  <h1>Pagá con <span>QR</span></h1>
+  <div class="suc" id="suc"></div>
+  <div class="qr" id="qr" hidden><img id="img" alt="Código QR para pagar"></div>
+  <div class="monto" id="monto" hidden></div>
+  <p class="datos" id="datos"></p>
+  <p class="aviso" id="aviso">Cargando…</p>
+</main>
+<script>
+/* Pantalla de caja: muestra el QR de cobro que corresponde a la sucursal (?s=key) o al canal (?c=referidos|atc|app),
+   con el monto si viene (?m=250). Paraguay: &p=py. Se actualiza sola cada minuto (si cambian el QR, cambia acá). */
+(function () {
+  "use strict";
+  var q = new URLSearchParams(location.search), $ = function (id) { return document.getElementById(id); };
+  var pais = q.get("p") === "py" ? "paraguay" : "bolivia", monto = Number(q.get("m")) || 0;
+  if (monto > 0) { $("monto").textContent = (pais === "paraguay" ? "Gs " + Math.round(monto).toLocaleString("es-PY") : "Bs " + monto.toLocaleString("es-BO")); $("monto").hidden = false; }
+  if (!window.CM_FIREBASE_CONFIG) { $("aviso").textContent = "Falta la configuración."; return; }
+  if (!firebase.apps.length) firebase.initializeApp(window.CM_FIREBASE_CONFIG);
+  var emu = window.CM_FIREBASE_EMULADOR; if (emu) { var h = emu.firestore.split(":"); firebase.firestore().useEmulator(h[0], +h[1]); }
+  var db = firebase.firestore();
+  function mostrar() {
+    COBRO_QR.buscar(db, pais, { sucursal: q.get("s"), canal: q.get("c") }).then(function (r) {
+      if (!r) { $("qr").hidden = true; $("aviso").textContent = "Todavía no hay un QR cargado. Pedilo en caja."; return; }
+      $("img").src = r.imagen; $("qr").hidden = false;
+      $("suc").textContent = r.uso === "sucursal" ? (r.nombre || "") : "";
+      $("datos").textContent = COBRO_QR.datosTexto(r);
+      $("aviso").textContent = "Escaneá con la app de tu banco" + (monto > 0 ? " y pagá el monto exacto." : ".");
+    }, function () { $("aviso").textContent = "Sin conexión. Reintentando…"; });
+  }
+  mostrar(); setInterval(mostrar, 60000);
+})();
+</script>
+</body>
+</html>
