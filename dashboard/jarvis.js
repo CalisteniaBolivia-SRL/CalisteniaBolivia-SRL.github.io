@@ -83,6 +83,25 @@
         while (cont.children.length > 2) cont.removeChild(cont.lastChild);
         cont.hidden = false;
     }
+    /* Tarjeta para cualquier consulta: total si lo hay y las primeras filas con su número principal. */
+    var NOMBRES = { reporte_ventas: "Ventas", listar_ventas: "Ventas detalle", ver_venta: "Venta", listar_paquetes: "Paquetes", listar_sucursales: "Sucursales", buscar_cliente: "Clientes encontrados", ver_cliente: "Cliente",
+        historial_paquetes_cliente: "Paquetes del cliente", clientes_sin_asistir: "Clientes sin venir", clientes_cumpleanos: "Cumpleaños", reporte_asistencia: "Visitas", comparar_asistencia: "Comparación de visitas",
+        frecuencia_asistencia: "Frecuencia de visitas", asistencia_por_instructor: "Por instructor", listar_cajas: "Cajas", reporte_movimientos_caja: "Movimientos de caja", movimientos_banco: "Movimientos de banco",
+        listar_facturas: "Facturas", listar_prorrogas: "Prórrogas", reporte_traspasos: "Traspasos", reporte_paquetes_eliminados: "Paquetes eliminados", reporte_cambios_fecha: "Cambios de fecha",
+        reporte_convenios: "Convenios", estado_molinetes: "Molinetes", listar_pagos_qr: "Pagos QR", ver_horarios: "Horarios" };
+    function tarjetaGenerica(t, args, r) {
+        var titulo = NOMBRES[t] || t.replace(/_/g, " ");
+        var sub = args.desde ? rangoTxt(args.desde, args.hasta || args.desde) : "";
+        var f = Array.isArray(r) ? r : (r && (r.filas || r.clientes || r.result || r.items)) || [];
+        var tot = r && (r.total != null ? r.total : r.totales && r.totales.total);
+        var etq = function (x) { return String(x.grupo || x.cliente || x.nombre || x.descripcion || x.paquete || x.sucursal || x.instructor || x.entrenador || x.cajero || x.fecha || x.fecha_venta || "—").trim(); };
+        var val = function (x) { var v = x.total != null ? x.total : x.monto != null ? x.monto : x.precio != null ? x.precio : x.visitas != null ? x.visitas : x.asistentes != null ? x.asistentes : x.cantidad; return Number(v) || 0; };
+        var hayVal = f.some(function (x) { return val(x) > 0; }), plataQ = f.some(function (x) { return x.total != null || x.monto != null || x.precio != null; });
+        tarjeta({ titulo: titulo, sub: sub, grande: tot != null ? (r.moneda || (r.totales && plataQ) ? plata(tot) : num(tot)) : (f.length ? num(f.length) : null),
+            barras: f.length > 1 && hayVal ? barras(f, val, etq, plataQ ? plata : num) : null,
+            lista: f.length && !hayVal ? f.slice(0, 8).map(function (x) { return [etq(x), String(x.sucursal || x.estado || x.fecha_fin || "")]; }) : null,
+            nota: !f.length && tot == null ? "Consulta hecha; la respuesta está en la voz." : null });
+    }
     var SIN_PY = { titulo: "Paraguay", sub: "Este dato todavía no está conectado en el ERP de Paraguay." };
 
     /* ---------- utilidades de audio ---------- */
@@ -267,7 +286,14 @@
         var p = function (n) { return (n < 10 ? "0" : "") + n; };
         return { desde: ym + "-" + p(mm) + "-01", hasta: ym + "-" + p(mm) + "-" + p(Math.min(d, ult)) };
     }
-    function recortar(o) { var s = JSON.stringify(o); return s.length > 7000 ? JSON.parse(JSON.stringify(o, function (k, v) { return Array.isArray(v) ? v.slice(0, 25) : v; })) : o; }
+    /* Sin recortes salvo lo enorme (más de ~120 mil caracteres, que Google no acepta en una respuesta): ahí se
+       acortan las listas y se avisa para que pida la página siguiente. */
+    function recortar(o) {
+        var s = JSON.stringify(o); if (s.length <= 120000) return o;
+        var r = JSON.parse(JSON.stringify(o, function (k, v) { return Array.isArray(v) ? v.slice(0, 400) : v; }));
+        if (r && typeof r === "object" && !Array.isArray(r)) r.aviso = "Resultado muy largo: se muestran las primeras 400 filas de cada lista; pedí la página siguiente con offset si hace falta.";
+        return r;
+    }
     function llamar(t, a) {
         if (!window.CM || !CM.llamar) return Promise.reject(new Error("Falta la conexión con los datos de Calistenia."));
         return CM.llamar(t, a).then(function (r) { if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) {} } return r || {}; });
@@ -366,11 +392,22 @@
             });
         },
         pendientes: function () { return pendientes(); },
+        /* Lectura libre de todo el sistema (lo que el usuario puede ver con su sesión). */
+        consultar_sistema: function (a) {
+            var t = String(a.herramienta || ""), args = {};
+            if (!/^(reporte_|listar_|ver_|buscar_|historial_|asistencia|asistencias_|progreso_|clientes_|comparar_|detalle_|frecuencia_|ocupacion_|cajas_|movimientos_|estado_|eventos_|usuarios_en_)/.test(t)) return Promise.reject(new Error("Esa consulta no es de lectura."));
+            try { args = a.argumentos_json ? JSON.parse(a.argumentos_json) : {}; } catch (e) { return Promise.reject(new Error("Los argumentos no son un JSON válido.")); }
+            return llamar(t, args).then(function (r) {
+                if (sinPY(r)) { tarjeta(SIN_PY); return r; }
+                tarjetaGenerica(t, args, r);
+                return recortar(r);
+            });
+        },
         referidos: function (a, hoy) { return referidos(hoy); }
     };
     function vencimientos(nombre, a) {
-        var d = Math.max(1, Math.min(nombre === "clientes_vencidos" ? 180 : 30, parseInt(a.dias, 10) || 7));
-        return llamar(nombre, { dias: d, limite: 50 }).then(function (r) {
+        var d = Math.max(1, Math.min(nombre === "clientes_vencidos" ? 365 : 90, parseInt(a.dias, 10) || 7));
+        return llamar(nombre, { dias: d, limite: 200 }).then(function (r) {
             if (sinPY(r)) { tarjeta(SIN_PY); return r; }
             var f = filasDe(r), total = (r && r.total) || f.length;
             var porSuc = {}; f.forEach(function (c) { var s = String(c.sucursal || "—").trim(); porSuc[s] = (porSuc[s] || 0) + 1; });
@@ -378,7 +415,7 @@
             tarjeta({ titulo: nombre === "clientes_vencidos" ? "Vencidos sin renovar" : "Por vencer", sub: nombre === "clientes_vencidos" ? "Últimos " + d + " días" : "Próximos " + d + " días", grande: num(total),
                 barras: suc.length > 1 ? barras(suc, function (x) { return x.n; }, function (x) { return x.nombre; }, num) : null,
                 nota: total > f.length ? "Por sucursal, sobre los primeros " + f.length + "." : null });
-            return recortar({ total: total, por_sucursal: suc, ejemplos: f.slice(0, 10).map(function (c) { return { cliente: c.cliente || c.nombre, sucursal: c.sucursal, vence: c.fecha_fin, paquete: c.paquete }; }) });
+            return recortar({ total: total, por_sucursal: suc, clientes: f.map(function (c) { return { cliente: c.cliente || c.nombre, sucursal: c.sucursal, vence: c.fecha_fin, paquete: c.paquete, telefono: c.telefono }; }) });
         });
     }
     HERR.clientes_por_vencer = function (a) { return vencimientos("clientes_por_vencer", a); };
@@ -481,6 +518,8 @@
 
     /* ---------- esfera ---------- */
     var suave = 0;
+    /* Isologo de Capital Corp en el centro de la esfera: late con la voz. */
+    var ISO = new Image(); ISO.src = "../images/capital-corp-simbolo.png";
     function dibujar() {
         var c = $("jv-esfera"), x = c.getContext("2d"), dpr = window.devicePixelRatio || 1;
         var w = c.clientWidth * dpr, h = c.clientHeight * dpr; if (c.width !== w) { c.width = w; c.height = h; }
@@ -505,7 +544,13 @@
             }
             x.closePath(); x.strokeStyle = "rgba(" + col + "," + (0.7 - k * 0.15) + ")"; x.lineWidth = (2.2 - k * .45) * dpr; x.stroke();
         }
-        if (piensa) { x.beginPath(); x.arc(w / 2, h / 2, r0 * 0.55, t * 4, t * 4 + Math.PI * 0.6); x.strokeStyle = "rgba(232,236,240,.8)"; x.lineWidth = 2 * dpr; x.stroke(); }
+        if (ISO.complete && ISO.naturalWidth) {
+            var lado = r0 * (0.95 + suave * 0.18), alto = lado * ISO.naturalHeight / ISO.naturalWidth;
+            x.save(); x.globalAlpha = J.abierto ? 0.95 : 0.75;
+            if (habla) { x.shadowColor = "rgba(227,6,19,.85)"; x.shadowBlur = (18 + suave * 40) * dpr; }
+            x.drawImage(ISO, w / 2 - lado / 2, h / 2 - alto / 2, lado, alto); x.restore();
+        }
+        if (piensa) { x.beginPath(); x.arc(w / 2, h / 2, r0 * 0.78, t * 4, t * 4 + Math.PI * 0.6); x.strokeStyle = "rgba(232,236,240,.8)"; x.lineWidth = 2 * dpr; x.stroke(); }
         requestAnimationFrame(dibujar);
     }
 
