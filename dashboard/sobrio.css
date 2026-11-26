@@ -176,3 +176,7 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 .cm-hoy-item i { font-style: normal; color: var(--s-plata-2); }
 .cm-hoy-item.is-urgente { border-left: 3px solid var(--s-rojo); }
 .cm-hoy-item:hover { border-color: var(--s-plata-3); }
+/* Pestañas por tema en los tableros de una sola página */
+.cb-secciones { position: sticky; top: 0; z-index: 6; background: var(--s-negro); padding: 10px 0; border-bottom: 1px solid var(--s-linea); }
+.cb-secciones .cb-tab { text-decoration: none; }
+.cb-secciones .cb-tab-link { border-style: dashed !important; }

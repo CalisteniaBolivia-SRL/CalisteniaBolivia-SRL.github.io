@@ -259,6 +259,14 @@
     function grupoDe(t) { return MI_TRABAJO.indexOf(t) >= 0 ? "mio" : "crm"; }
     var ULTIMA = { crm: null, mio: null };
     var PRINCIPALES = 5;   // Panel, Plan de hoy, Ver una lista, Campañas, Comisiones
+    /* Temas del Jefe de ATC: lo del día, los clientes, el equipo y la plata. */
+    var GRUPOS_CRM = [
+        { id: "hoy", nombre: "Hoy", tabs: ["panel", "plan"] },
+        { id: "clientes", nombre: "Clientes", tabs: ["verlista", "campanas", "clientes"], link: "referidos-ventas.html", linkTxt: "Referidos nuevos →" },
+        { id: "equipo", nombre: "Equipo", tabs: ["equipo", "tareas", "guiones", "actividad"] },
+        { id: "plata", nombre: "Comisiones", tabs: ["comisiones", "resumen", "reparto"] }
+    ];
+    var ULTIMA_G = {};
     var TABS_EJ = [["hoy", "Mi día"], ["clientes", "Mis clientes"], ["tareas", "Tareas"], ["guiones", "Guiones"], ["comisiones", "Mis comisiones"]];
     if (window.ATC_milista) TABS_EJ.unshift(["lista", "Mi lista"]);
     function pestanas() {
@@ -328,6 +336,31 @@
             ]));
             tabs = tabs.filter(function (t) { return grupoDe(t[0]) === g; });
             if (tabs.length === 1) tabs = [];   // un área con una sola sección no necesita pestaña
+        }
+        /* Jefe de ATC (equipo): las secciones agrupadas en 4 temas; arriba el tema, abajo sus secciones. */
+        var gruposCrm = MASTER && !SOLO_ATENCION && grupoDe(S.tab) === "crm" && tabs.length > PRINCIPALES;
+        if (gruposCrm) {
+            var deTab = {}; tabs.forEach(function (t) { deTab[t[0]] = t; });
+            var gActual = GRUPOS_CRM.filter(function (g) { return g.tabs.indexOf(S.tab) >= 0; })[0] || GRUPOS_CRM[0];
+            ULTIMA_G[gActual.id] = S.tab;
+            var fila = el("div", { class: "co-grupos", role: "group", "aria-label": "Temas" });
+            GRUPOS_CRM.forEach(function (g) {
+                var propias = g.tabs.filter(function (k) { return deTab[k]; });
+                if (!propias.length && !g.link) return;
+                var on = g === gActual;
+                fila.appendChild(el("button", { type: "button", class: "co-grupo" + (on ? " is-on" : ""), "aria-pressed": on ? "true" : "false", text: g.nombre, onclick: function () {
+                    if (on) return; var d = ULTIMA_G[g.id] && deTab[ULTIMA_G[g.id]] ? ULTIMA_G[g.id] : propias[0]; if (d) ir(d);
+                } }));
+            });
+            nav.appendChild(fila);
+            var sub = el("div", { class: "co-subtabs", role: "tablist" });
+            gActual.tabs.filter(function (k) { return deTab[k]; }).forEach(function (k) {
+                var t = deTab[k];
+                sub.appendChild(el("button", { type: "button", role: "tab", class: "co-tab" + (S.tab === k ? " is-on" : ""), "aria-selected": S.tab === k ? "true" : "false", text: t[1], onclick: function () { ir(k); } }));
+            });
+            if (gActual.link) sub.appendChild(el("a", { class: "co-tab co-tab-link", href: gActual.link + (window.CM_PAIS === "paraguay" ? "?pais=paraguay" : ""), text: gActual.linkTxt }));
+            nav.appendChild(sub);
+            tabs = [];
         }
         var principales = SOLO_ATENCION ? tabs : tabs.slice(0, PRINCIPALES), resto = SOLO_ATENCION ? [] : tabs.slice(PRINCIPALES);
         principales.forEach(function (t) {
