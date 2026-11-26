@@ -19,7 +19,7 @@ service cloud.firestore {
     // los cargan Administración y Dirección de cada país.
     function qrValido() {
       return soloCampos(['uso', 'nombre', 'key_sucursal', 'imagen', 'banco', 'cuenta', 'titular', 'nit', 'nota', 'activo', 'fecha_mod', 'por'])
-        && request.resource.data.uso in ['general', 'referidos', 'atc', 'app', 'sucursal']
+        && request.resource.data.uso in ['general', 'referidos', 'atc', 'sucursal']
         && request.resource.data.imagen is string && request.resource.data.imagen.size() <= 800000
         && request.resource.data.activo is bool && texto('nombre', 120) && texto('banco', 80) && texto('cuenta', 80)
         && texto('titular', 80) && texto('nit', 80) && texto('nota', 200) && texto('por', 120) && texto('key_sucursal', 80);

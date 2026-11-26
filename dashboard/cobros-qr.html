@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=15"></script>
-<script src="cobro-qr.js?v=1"></script>
+<script src="cobro-qr.js?v=2"></script>
 <script>
 /* Administración y Dirección cargan los QR de cobro (Bolivia o Paraguay); la Jefa de ATC, los de Referidos y ATC.
    Siempre con el usuario del ERP. */
@@ -58,7 +58,7 @@
     <div>
       <span class="op-eyebrow" id="qr-eyebrow">Calistenia Company · Bolivia · Administración</span>
       <h1 class="op-titulo">Cobros QR</h1>
-      <p class="op-muted">El único lugar donde se cargan los QR de cobro. Cada sucursal puede tener el suyo; si no tiene, usa el <b>general</b>. Los canales (Referidos, Atención al Cliente, App) también pueden tener uno propio. Lo que cargues acá aparece solo en: la <b>caja</b> al elegir «QR», la <b>pantalla de caja</b> de cada sucursal, la página del <b>referido</b> y Atención al Cliente.</p>
+      <p class="op-muted">El único lugar donde se cargan los QR de cobro. Cada sucursal puede tener el suyo; si no tiene, usa el <b>general</b>. Los canales (Referidos y Atención al Cliente) también pueden tener uno propio. La app de clientes sigue con el QR automático del banco, que confirma el pago solo. Lo que cargues acá aparece solo en: la <b>caja</b> al elegir «QR», la <b>pantalla de caja</b> de cada sucursal, la página del <b>referido</b> y Atención al Cliente.</p>
     </div>
   </header>
   <p class="op-msg" id="op-estado" role="status" aria-live="polite"></p>

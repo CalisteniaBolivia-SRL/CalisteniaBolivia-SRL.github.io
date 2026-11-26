@@ -2,19 +2,21 @@
    Cobros QR · lo común: dónde están los QR y cuál corresponde. Bolivia y Paraguay, el mismo código.
    Un solo lugar para todos los QR de cobro: colección cobro_qr (Bolivia) / py_cobro_qr (Paraguay), que se
    carga en dashboard/cobros-qr.html. Documentos:
-     general · referidos · atc · app · suc_<key_sucursal>
+     general · referidos · atc · suc_<key_sucursal>
    Cada uno: { uso, nombre, key_sucursal?, imagen (foto del QR), banco, cuenta, titular, nit, nota, activo, fecha_mod, por }
    Regla para elegir el QR: el de la sucursal → el del canal → el general (solo los activos).
    Lo leen: la página del referido (r/), la pantalla de caja (qr/), Referidos y la caja de la app de administración.
+   La app de clientes sigue con el QR automático del banco.
    ===================================================================================================== */
 (function (raiz) {
     "use strict";
     var CANALES = [
         { id: "general", nombre: "General", que: "Se usa donde no haya uno propio (sucursal o canal)." },
         { id: "referidos", nombre: "Referidos", que: "Lo ve el cliente que se anota con un código y paga en el momento." },
-        { id: "atc", nombre: "Atención al Cliente", que: "Para cobrar por WhatsApp desde Atención al Cliente." },
-        { id: "app", nombre: "App de clientes", que: "Para pagos desde la app (si no se usa el QR automático del banco)." }
+        { id: "atc", nombre: "Atención al Cliente", que: "Para cobrar por WhatsApp desde Atención al Cliente." }
     ];
+    /* La app de clientes NO usa estos QR: tiene el QR del banco con monto exacto que confirma el pago y activa la
+       membresía sola (decisión del director). */
     function col(pais) { return (pais === "paraguay" ? "py_" : "") + "cobro_qr"; }
     function idSucursal(key) { return "suc_" + String(key || "").replace(/[^A-Za-z0-9_-]/g, ""); }
     /* Orden de búsqueda para un lugar. */
