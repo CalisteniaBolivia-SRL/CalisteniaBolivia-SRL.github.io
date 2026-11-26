@@ -76,15 +76,7 @@
   .jv-l b { display: block; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #5C6168; font-weight: 600; margin-bottom: 2px; }
   .jv-l.is-yo span { color: var(--gris); }
   .jv-vacio { color: #5C6168; font-size: 14px; margin: 0; }
-  .jv-rapidas { display: flex; flex-wrap: wrap; gap: 6px; }
-  .jv-rapidas button { font: inherit; font-size: 13px; color: #C4C8CE; background: none; border: 1px solid var(--linea); padding: 6px 10px; cursor: pointer; border-radius: 0; }
-  .jv-rapidas button:hover, .jv-rapidas button:focus-visible { border-color: #C4C8CE; color: #FFFFFF; outline: none; }
   .jv-pie { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  .jv-form { display: flex; width: min(720px, 100%); border: 1px solid #34373C; }
-  .jv-form input { flex: 1; font: inherit; font-size: 15px; color: #F3F4F5; background: #0B0C0E; border: 0; padding: 12px 14px; min-width: 0; }
-  .jv-form input:focus { outline: none; }
-  .jv-form:focus-within { border-color: #C4C8CE; }
-  .jv-form button { font: inherit; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: #050506; background: #F3F4F5; border: 0; padding: 0 18px; cursor: pointer; }
   .jv-botones { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
   .jv-btn { font: inherit; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: #F3F4F5; background: none; border: 1px solid #34373C; padding: 12px 22px; cursor: pointer; border-radius: 0; }
   .jv-btn:hover, .jv-btn:focus-visible { border-color: #C4C8CE; outline: none; }
@@ -118,21 +110,10 @@
     </div>
     <div class="jv-lado">
       <div class="jv-cards" id="jv-cards" aria-live="polite" aria-label="Datos consultados" hidden></div>
-      <div class="jv-log" id="jv-log" aria-live="polite" aria-label="Conversación"><p class="jv-vacio">Pregúntele por voz o por escrito: ventas, visitas, clientes por vencer, cajas abiertas, pendientes del equipo, referidos…</p></div>
-      <div class="jv-rapidas" aria-label="Preguntas rápidas">
-        <button type="button" data-pregunta="¿Cómo vamos hoy?">¿Cómo vamos hoy?</button>
-        <button type="button" data-pregunta="Ventas del mes por sucursal">Ventas del mes por sucursal</button>
-        <button type="button" data-pregunta="¿Cuántos clientes vencen esta semana?">Vencen esta semana</button>
-        <button type="button" data-pregunta="¿Qué tiene pendiente el equipo?">Pendientes del equipo</button>
-        <button type="button" data-pregunta="¿Cómo van los referidos este mes?">Referidos del mes</button>
-      </div>
+      <div class="jv-log" id="jv-log" aria-live="polite" aria-label="Conversación"><p class="jv-vacio">Pregúntele lo que quiera: ventas, visitas, clientes por vencer, cajas abiertas, pendientes del equipo, referidos…</p></div>
     </div>
   </section>
   <footer class="jv-pie">
-    <form class="jv-form" id="jv-form" autocomplete="off">
-      <input type="text" id="jv-texto" maxlength="400" placeholder="Escríbale a Capital…" aria-label="Escribir una pregunta">
-      <button type="submit">Enviar</button>
-    </form>
     <div class="jv-botones">
       <button type="button" class="jv-btn is-fuerte" id="jv-boton">Conversar</button>
       <button type="button" class="jv-btn" id="jv-mudo">Silenciar micrófono</button>
@@ -142,6 +123,6 @@
 </main>
 <p class="jv-aviso" id="jv-aviso" role="alert" hidden></p>
 <script>(function(){var a=document.getElementById("jv-volver");if(/[?&]pais=paraguay\b/.test(location.search))a.href="./?pais=paraguay";})();</script>
-<script src="jarvis.js?v=4"></script>
+<script src="jarvis.js?v=5"></script>
 </body>
 </html>
