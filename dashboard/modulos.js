@@ -45,6 +45,7 @@
         { id: "reportes", tipo: "tablero", nombre: "Reportes", quien: { bolivia: "Dirección · Administración" }, rol: "Control y auditoría", que: "Traspasos, paquetes eliminados, cambios de fecha, convenios y usuarios duplicados", permisos: ["reportes"], href: function (p) { return url("reportes.html", p); } },
         { id: "referidos", tipo: "tablero", datosPY: true, todos: true, nombre: "Mis referidos", quien: { bolivia: "Todo el equipo", paraguay: "Todo el equipo" }, rol: "Tu código, tus cierres y tu comisión", que: "Compartí tu código por WhatsApp o QR y mirá cuánto ganás por cada cliente nuevo; Dirección y Administración liquidan desde acá", permisos: [], href: function (p) { return url("referidos.html", p); } },
         { id: "ref_ventas", tipo: "tablero", datosPY: true, nombre: "Referidos nuevos", quien: { bolivia: "ATC · Jefe de ATC · Administración", paraguay: "ATC · Jefe de ATC · Administración" }, rol: "Venta en el momento", que: "Quienes se anotaron con un código de referido (15 % de descuento): llamarlos al instante, y confirmar los pagos que mandan con comprobante", permisos: ["atencion", "atc", "jefe_atc", "administracion", "direccion"], href: function (p) { return url("referidos-ventas.html", p); } },
+        { id: "snacks", tipo: "tablero", datosPY: true, nombre: "Snacks", quien: { bolivia: "Jefe de ATC · Administración · Dirección", paraguay: "Jefe de ATC · Administración · Dirección" }, rol: "Ventas, stock y compras de snacks", que: "Qué se vende más, cuánto se gana, stock por sucursal, qué comprar y consejos para mover el inventario", permisos: ["jefe_atc", "administracion", "direccion"], href: function (p) { return url("snacks.html", p); } },
         { id: "jefe_atc", datosPY: true, tipo: "tablero", nombre: "Jefe de ATC", quien: { bolivia: "Eliana Aguilera" }, rol: "Dirige al equipo de atención al cliente", que: "Asigna listas y campañas, sigue cómo vende cada ATC, lo que gana, las comisiones a pagar y el control de caja", permisos: ["jefe_atc"], href: function (p) { return url("comercial.html?vista=jefe", p); } },
         { id: "atc", datosPY: true, tipo: "tablero", nombre: "Atención al Cliente", quien: { bolivia: "ATC de cada sucursal", paraguay: "ATC" }, rol: "Llamar, escribir y cerrar ventas", que: "Tu lista del día con Llamar y WhatsApp, tus seguimientos y lo que vas ganando por cada cliente que vuelve", permisos: ["atencion", "atc"], href: function (p) { return url("comercial.html?vista=atc", p); } },
         { id: "legal", tipo: "tablero", nombre: "Legal", quien: { bolivia: "Asesoría legal · Dirección", paraguay: "Asesoría legal · Dirección" }, rol: "Contratos, permisos y casos", que: "Vencimientos de contratos y licencias, procesos con su bitácora y calendario de plazos", permisos: ["legal"], datosPY: true, href: function (p) { return url("legal.html", p); } }
@@ -97,7 +98,7 @@
         { id: "personas", nombre: "Personas" }
     ];
     var AREA_DE = { ingresos: "direccion", asistente: "direccion", direccion: "direccion", reportes: "direccion",
-        atc: "ventas", jefe_atc: "ventas", ref_ventas: "ventas", referidos: "ventas",
+        atc: "ventas", jefe_atc: "ventas", snacks: "ventas", ref_ventas: "ventas", referidos: "ventas",
         marketing: "marketing", redes: "marketing", creativo: "marketing",
         supervision: "operaciones", ruta: "operaciones", mantenimiento: "operaciones",
         administracion: "administracion", tareas: "administracion", cobros_qr: "administracion", contabilidad: "administracion", legal: "administracion",
@@ -105,10 +106,10 @@
     /* Pedido del director: cada módulo con su propia tarjeta, igual en Bolivia y Paraguay. (Antes Denuncias, Sugerencias,
        Tareas, ATC y Referidos nuevos se escondían dentro de otro tablero; siguen también como pestaña ahí adentro.) */
     var DENTRO = {};
-    var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "administracion", "tareas", "cobros_qr", "contabilidad", "legal",
+    var ORDEN = ["direccion", "ingresos", "asistente", "reportes", "atc", "jefe_atc", "ref_ventas", "snacks", "administracion", "tareas", "cobros_qr", "contabilidad", "legal",
         "supervision", "ruta", "mantenimiento", "marketing", "redes", "creativo", "rrhh", "denuncias", "sugerencias"];
     var CORTO = { ingresos: "Lo que entra, en vivo", asistente: "Preguntale lo que quieras, por voz", direccion: "Semáforo de todas las áreas", reportes: "Control y auditoría",
-        atc: "Tu lista para llamar y vender", jefe_atc: "Tu equipo, tus clientes, referidos y comisiones", ref_ventas: "Llamar y cobrar a los referidos", referidos: "Tu código y lo que ganás",
+        atc: "Tu lista para llamar y vender", jefe_atc: "Tu equipo, tus clientes, referidos y comisiones", ref_ventas: "Llamar y cobrar a los referidos", snacks: "Qué se vende, stock y qué comprar", referidos: "Tu código y lo que ganás",
         marketing: "Ventas, paquetes y campañas", redes: "Respuestas en Instagram y Facebook", creativo: "Piezas y videos con IA",
         supervision: "Sucursales, entrenadores y reemplazos", ruta: "Visitas de la semana a cada sucursal", mantenimiento: "Checklist de sucursales y fallas",
         administracion: "Cajas, ingresos y comisiones", tareas: "Pendientes por prioridad", cobros_qr: "Los QR de cada sucursal", contabilidad: "Caja contra banco y fiscalización", legal: "Contratos, permisos y casos",

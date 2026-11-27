@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Snacks · Calistenia Company</title>
+<link rel="icon" href="../images/132458707.png">
+<link rel="stylesheet" href="tablero-base.css?v=1">
+<link rel="stylesheet" href="operaciones.css?v=7">
+<script src="pais.js?v=13"></script>
+<script src="snacks-logica.js?v=1"></script>
+<script>
+/* Jefa de ATC, Administración y Dirección (Bolivia o Paraguay). Siempre con el usuario del ERP. */
+(function () {
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem("cb_centro_mando") || "null"); } catch (e) {}
+    if (!s || !(s.vence > Date.now()) || !Array.isArray(s.tableros)) { location.replace("./"); return; }
+    var py = /[?&]pais=paraguay\b/.test(location.search);
+    var t = s.tableros.concat(py ? (s.tableros_py || []) : []);
+    if (!["jefe_atc", "administracion", "direccion"].some(function (x) { return t.indexOf(x) >= 0; })) { location.replace("./?sin=jefe_atc"); return; }
+    window.CM_USUARIO = s;
+    /* El ERP de cada país: Bolivia = empresa «Calistenia Bolivia»; Paraguay = «Calistenia Paraguay». */
+    window.ERP_KEY_EMPRESA = py ? "3433c7d4-a626-44de-b825-f924334e679c" : "d4118f82-0b0a-44e3-8525-73df48be69db";
+})();
+</script>
+<script src="../accionistas-py/erp.js?v=3"></script>
+<style>
+  .sn-fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .sn-fila select { font: inherit; background: #0D0E10; color: #FFFFFF; border: 1px solid #3A3E44; padding: 6px 10px; }
+  .sn-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .sn-kpi { border: 1px solid #2B2E33; background: #121315; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .sn-kpi span { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #8D9299; }
+  .sn-kpi b { font-size: 26px; font-weight: 600; }
+  .sn-kpi small { color: #A4A8AF; }
+  .sn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+  .sn-barras { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sn-barras li { display: grid; grid-template-columns: minmax(90px, 36%) 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+  .sn-barras span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #C4C8CE; }
+  .sn-pista { height: 8px; background: #17181B; } .sn-pista i { display: block; height: 100%; background: #C4C8CE; }
+  .sn-barras li:first-child .sn-pista i { background: #E30613; }
+  .sn-horas { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; align-items: end; height: 110px; margin-top: 10px; }
+  .sn-horas i { background: #C4C8CE; display: block; min-height: 1px; }
+  .sn-horas-et { display: grid; grid-template-columns: repeat(24, 1fr); font-size: 10px; color: #8D9299; text-align: center; }
+  .sn-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sn-tabla th, .sn-tabla td { padding: 8px 10px; border-bottom: 1px solid #25272B; text-align: left; vertical-align: top; }
+  .sn-tabla th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8D9299; cursor: pointer; white-space: nowrap; }
+  .sn-tabla td.n, .sn-tabla th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .sn-clase { display: inline-block; min-width: 20px; text-align: center; font-weight: 700; border: 1px solid #3A3E44; }
+  .sn-clase.A { border-color: #E30613; color: #FFFFFF; }
+  .sn-sube { color: #6FBF95; } .sn-baja { color: #E5736B; }
+  .sn-consejo { border: 1px solid #2B2E33; border-left: 3px solid #3A3E44; padding: 10px 12px; background: #121315; }
+  .sn-consejo.p1 { border-left-color: #E30613; } .sn-consejo.p2 { border-left-color: #D9AE5B; }
+  .sn-consejo b { display: block; margin-bottom: 2px; } .sn-consejo p { margin: 0; color: #A4A8AF; font-size: 14px; }
+  .sn-consejos { display: flex; flex-direction: column; gap: 8px; }
+  .sn-wrap { overflow-x: auto; }
+</style>
+<link rel="stylesheet" href="sobrio.css?v=9">
+</head>
+<body>
+<div class="cm-barra"><a href="./">← Centro de mando</a><a href="manual.html#snacks">Manual</a><span class="cm-quien" id="cm-quien"></span></div>
+<main class="op" lang="es">
+  <header class="op-top">
+    <div>
+      <span class="op-eyebrow" id="sn-eyebrow">Calistenia Company · Bolivia · Snacks</span>
+      <h1 class="op-titulo">Snacks</h1>
+      <p class="op-muted">Lo que se vende en caja aparte de los paquetes (bebidas, proteínas, tienda), con datos en vivo del ERP: qué se vende más, cuánto se gana, cuánto stock queda en cada sucursal, qué comprar y qué hacer para que el inventario se mueva.</p>
+    </div>
+  </header>
+  <nav class="op-tabs" id="sn-tabs" role="tablist" aria-label="Secciones"></nav>
+  <p class="op-msg" id="op-estado" role="status" aria-live="polite"></p>
+  <div id="sn-vista"></div>
+</main>
+<script src="snacks.js?v=1"></script>
+</body>
+</html>
