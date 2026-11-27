@@ -18,7 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=2"></script>
 <script src="cm-firebase.js?v=15"></script>
-<script src="bo-snacks.js?v=1"></script>
+<script src="bo-snacks.js?v=2"></script>
 <script src="fb-cxp.js?v=10"></script>
 <script>
 /* Antes de cargar: hay que haber ingresado al portal, tener permiso para este tablero
@@ -741,7 +741,7 @@ dash.draw('ch_ventas_12m', (el) => {
     x: 'grupo', y: 'total', aria: 'Ingresos por mes de los últimos 12 meses', height: 280,
     fmtTick: (v) => CB.k(v), fmtX: CB.fMes, muted: (d, i) => i === rows.length - 1,
     labels: (d) => CB.k(d.total),
-    tip: (d) => [CB.fMes(d.grupo), CB.bs(d.total), CB.num(d.ventas) + ' ventas']
+    tip: (d) => [CB.fMes(d.grupo), CB.bs(d.total), d.snacks ? 'Paquetes ' + CB.bs(d.paquetes) + ' · Snacks ' + CB.bs(d.snacks) : CB.num(d.ventas) + ' ventas']
   });
 });
 dash.draw('ch_pago', (el) => {
