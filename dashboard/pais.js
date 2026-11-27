@@ -27,7 +27,7 @@
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ponerVolver); else ponerVolver();
     if (pais !== "paraguay") return;
-    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html", "asistente.html", "referidos.html", "jarvis.html", "mantenimiento.html", "calificaciones.html", "tareas.html", "denuncia.html", "denuncias.html", "sugerencias.html", "creativo.html", "referidos-ventas.html", "cobros-qr.html", "ruta.html"];
+    var LISTOS = ["legal.html", "redes.html", "reemplazos.html", "manual.html", "modulos.html", "muro.html", "comercial.html", "asistente.html", "referidos.html", "jarvis.html", "mantenimiento.html", "calificaciones.html", "tareas.html", "denuncia.html", "denuncias.html", "sugerencias.html", "creativo.html", "referidos-ventas.html", "cobros-qr.html", "ruta.html", "snacks.html"];
     var pag = location.pathname.split("/").pop() || "index.html";
     document.documentElement.classList.add("cm-py");
     function aplicar() {
