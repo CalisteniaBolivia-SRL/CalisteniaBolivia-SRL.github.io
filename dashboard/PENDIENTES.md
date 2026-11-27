@@ -56,7 +56,7 @@ Falta (necesita revisar el ERP de Paraguay con mcp_serp, que estaba caído):
 - Roles del ERP (roles.html): confirmar con el primer ingreso real que llega la lista de roles (cm_roles/bolivia y cm_roles/paraguay). Si queda vacía, revisar la forma de la respuesta de `rol getAll` / `usuarioRol getAllByUsuarios` en functions/index.js (rolesDelERP).
 
 ## Cobros QR (para retomar)
-- **Caja de Bolivia (app-administracion):** el botón «QR» ya está en `main` (PR #30), pero no se publicó. El workflow `web.yml` usa `ubuntu-20.04`, que GitHub retiró, y queda en cola. Cambiar a `ubuntu-22.04` con el OK del director.
+- **Caja de Bolivia (app-administracion):** el botón «QR» ya está en `main` (PR #30). El workflow ya usa `ubuntu-22.04` (PR #31), pero falla al copiar al servidor de Servisofts: la clave SSH del secreto está mal y `servisofts.com:2222` no responde. Pedido 3 en `docs/pedidos-servisofts.md`.
 - **Cargar el QR general** (y los de cada sucursal que cobre con otra cuenta) en `dashboard/cobros-qr.html`.
 - **Pagos QR por verificar:** tablero que cruce los cobros por QR del día (número de transacción y monto) con los movimientos del banco y marque «Llegó / Por verificar»; Administración acepta a mano los dudosos. Falta revisar la forma de los datos con el MCP.
 - **Servisofts:** pedidos en `docs/pedidos-servisofts.md`:

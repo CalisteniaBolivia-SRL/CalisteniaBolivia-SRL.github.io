@@ -31,5 +31,17 @@ En Bolivia ya lo tenemos así en nuestra caja (`app-administracion`, botón «QR
 
 En los dos casos, los permisos tienen que ser los mismos del usuario (sus sucursales y su rol), igual que hoy.
 
+## 3. Publicar la web de administración de Calistenia Bolivia (`app-administracion`)
+
+**Problema:** el workflow `CI/CD SERVISOFTS - WEB` de `CalisteniaBolivia-SRL/app-administracion` compila bien la web pero no la puede copiar al servidor:
+- Al leer los secretos, `id_rsa` y `config` dan «base64: invalid input»: la clave SSH guardada en el secreto `SECRET_KEY` está vencida o mal cargada.
+- `ssh-keyscan -p 2222 servisofts.com` falla desde GitHub: el puerto 2222 no responde a los equipos de GitHub Actions, o el servidor cambió.
+- Además, GitHub retiró `ubuntu-20.04`; ya lo cambiamos a `ubuntu-22.04`.
+
+**Lo que pedimos:**
+1. Actualizar el secreto `SECRET_KEY` del repositorio con la clave SSH vigente y su `config` (host, puerto y usuario).
+2. Confirmar que el servidor acepta SSH desde GitHub Actions (o indicarnos el host y el puerto correctos).
+3. Mientras tanto, publicar a mano la versión actual de `main` (`npm ci && npm run build` y copiar `build/` a la ruta de siempre). Trae el botón «QR» en la venta de paquetes.
+
 ---
 Contacto: Dirección de Capital Corp. Cualquier duda técnica, por este mismo repositorio.
