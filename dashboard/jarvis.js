@@ -323,6 +323,12 @@
     function filasDe(r) { return (r && (r.filas || r.clientes || r.result)) || []; }
     function totalVentas(r) { return Number((r && r.totales && r.totales.total) != null ? r.totales.total : filasDe(r).reduce(function (s, f) { return s + (Number(f.total) || 0); }, 0)); }
     function cantVentas(r) { return Number((r && r.totales && r.totales.ventas) != null ? r.totales.ventas : filasDe(r).reduce(function (s, f) { return s + (Number(f.ventas) || 0); }, 0)); }
+    /* Bolivia: snacks y alquileres del ERP (empresa «Calistenia Bolivia»), aparte de los paquetes del sistema. */
+    function snacks(desde, hasta) {
+        if (PY || !window.BO_SNACKS) return Promise.resolve(null);
+        var espera = new Promise(function (ok) { setTimeout(ok, 8000); });
+        return Promise.race([BO_SNACKS.arrancar(), espera]).then(function () { return BO_SNACKS.totales(desde, hasta); }, function () { return BO_SNACKS.totales(desde, hasta); });
+    }
     var GRUPO = { dia: "por día", mes: "por mes", sucursal: "por sucursal", paquete: "por paquete", tipo_pago: "por tipo de pago", cajero: "por cajero" };
 
     var HERR = {
@@ -332,9 +338,18 @@
                 if (sinPY(r)) { tarjeta(SIN_PY); return r; }
                 var f = filasDe(r).slice();
                 if (g !== "dia" && g !== "mes") f.sort(function (x, y) { return (Number(y.total) || 0) - (Number(x.total) || 0); });
-                tarjeta({ titulo: "Ventas " + (GRUPO[g] || ""), sub: rangoTxt(desde, hasta), grande: plata(totalVentas(r)), kpis: [["Ventas", num(cantVentas(r))]],
-                    barras: f.length > 1 ? barras(f, function (x) { return Number(x.total) || 0; }, function (x) { return g === "dia" ? fechaCorta(x.grupo) : String(x.grupo || "—").trim(); }, plata) : null });
-                return recortar({ desde: desde, hasta: hasta, moneda: MON, total: totalVentas(r), ventas: cantVentas(r), filas: f.map(function (x) { return { grupo: x.grupo, total: x.total, ventas: x.ventas }; }) });
+                return snacks(desde, hasta).then(function (sn) {
+                    var paq = totalVentas(r), extra = sn ? sn.snacks + sn.alquileres : 0;
+                    var k = [["Ventas de paquetes", num(cantVentas(r))]];
+                    if (sn) { k.push(["Paquetes", plata(paq)]); k.push(["Snacks", plata(sn.snacks), sn.completo ? "" : "desde " + fechaCorta(BO_SNACKS.INICIO)]); if (sn.alquileres) k.push(["Alquileres", plata(sn.alquileres)]); }
+                    tarjeta({ titulo: "Ventas " + (GRUPO[g] || ""), sub: rangoTxt(desde, hasta), grande: plata(paq + extra), kpis: k,
+                        barras: f.length > 1 ? barras(f, function (x) { return Number(x.total) || 0; }, function (x) { return g === "dia" ? fechaCorta(x.grupo) : String(x.grupo || "—").trim(); }, plata) : null,
+                        nota: sn && f.length > 1 ? "Las barras son solo paquetes." : null });
+                    var o = { desde: desde, hasta: hasta, moneda: MON, total_paquetes: paq, ventas_paquetes: cantVentas(r), filas_paquetes: f.map(function (x) { return { grupo: x.grupo, total: x.total, ventas: x.ventas }; }) };
+                    if (sn) { o.snacks = sn.snacks; o.alquileres = sn.alquileres; o.total_con_snacks = paq + extra; if (!sn.completo) o.nota_snacks = "Los snacks están cargados desde el " + BO_SNACKS.INICIO + "; antes de esa fecha no se cuentan."; }
+                    else o.total = paq;
+                    return recortar(o);
+                });
             });
         },
         resumen: function (a, hoy) {
@@ -342,17 +357,23 @@
             var cuida = function (p) { return p.then(function (r) { return r; }, function () { return null; }); };
             return Promise.all([cuida(llamar("reporte_ventas", { desde: hoy, hasta: hoy, agrupar_por: "dia" })), cuida(llamar("reporte_ventas", { desde: ini, hasta: hoy, agrupar_por: "dia" })),
                 cuida(llamar("reporte_ventas", { desde: ant.desde, hasta: ant.hasta, agrupar_por: "dia" })), cuida(llamar("asistencia_del_dia", { fecha: hoy })), cuida(llamar("listar_clientes_activos", { limite: 1 }))])
+                .then(function (x) { return Promise.all([snacks(hoy, hoy), snacks(ini, hoy)]).then(function (s) { x.push(s[0], s[1]); return x; }); })
                 .then(function (x) {
+                    var snH = x[5], snM = x[6];
                     var vh = x[0] && !sinPY(x[0]) ? totalVentas(x[0]) : null, vm = x[1] && !sinPY(x[1]) ? totalVentas(x[1]) : null, va = x[2] && !sinPY(x[2]) ? totalVentas(x[2]) : null;
                     var as = x[3] && !sinPY(x[3]) ? x[3] : null, act = x[4] && !sinPY(x[4]) ? x[4] : null;
                     var cm = vm != null && va ? (vm - va) / va * 100 : null;
                     var k = [];
-                    if (vh != null) k.push(["Ventas de hoy", plata(vh), x[0] ? num(cantVentas(x[0])) + " ventas" : ""]);
-                    if (vm != null) k.push(["Ventas del mes", plata(vm), cm != null ? pct(cm) + " vs mes pasado" : ""]);
+                    if (vh != null) k.push(["Paquetes hoy", plata(vh), x[0] ? num(cantVentas(x[0])) + " ventas" : ""]);
+                    if (snH) k.push(["Snacks hoy", plata(snH.snacks + snH.alquileres), "Total " + plata((vh || 0) + snH.snacks + snH.alquileres)]);
+                    if (vm != null) k.push(["Paquetes del mes", plata(vm), cm != null ? pct(cm) + " vs mes pasado" : ""]);
+                    if (snM) k.push(["Snacks del mes", plata(snM.snacks + snM.alquileres), "Total " + plata((vm || 0) + snM.snacks + snM.alquileres)]);
                     if (as) k.push(["Visitas de hoy", num(as.visitas), as.variacion_pct != null && as.visitas_semana_anterior ? pct(as.variacion_pct) + " vs semana pasada" : ""]);
                     if (act) k.push(["Clientes activos", num(act.total), ""]);
                     tarjeta({ titulo: "Resumen", sub: fechaCorta(hoy) + (PY ? " · Paraguay" : " · Bolivia"), kpis: k, nota: k.length ? null : "No se pudieron leer los datos ahora." });
-                    return { hoy: hoy, moneda: MON, ventas_hoy: vh, ventas_mes: vm, ventas_mismo_tramo_mes_anterior: va, variacion_mes_pct: cm != null ? Math.round(cm) : null,
+                    return { hoy: hoy, moneda: MON, ventas_paquetes_hoy: vh, ventas_paquetes_mes: vm,
+                        snacks_hoy: snH ? snH.snacks + snH.alquileres : undefined, snacks_mes: snM ? snM.snacks + snM.alquileres : undefined,
+                        total_hoy_con_snacks: snH ? (vh || 0) + snH.snacks + snH.alquileres : undefined, total_mes_con_snacks: snM ? (vm || 0) + snM.snacks + snM.alquileres : undefined, ventas_mismo_tramo_mes_anterior: va, variacion_mes_pct: cm != null ? Math.round(cm) : null,
                         visitas_hoy: as ? as.visitas : null, visitas_mismo_dia_semana_pasada: as ? as.visitas_semana_anterior : null, clientes_activos: act ? act.total : null,
                         nota: PY && !as ? "En Paraguay las visitas todavía no están conectadas." : undefined };
                 });
