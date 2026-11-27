@@ -14,13 +14,18 @@ service cloud.firestore {
     function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
     function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
 
+    // ---------- Snacks: ventas del ERP por mes, las escribe solo el servidor (snacksSync) ----------
+    function veSnacks() { return permiso('jefe_atc') || permiso('administracion') || permiso('direccion') || permiso('muro') || permiso('accionistas') || permiso('contabilidad') || permiso('marketing'); }
+    function veSnacksPY() { return permisoPY('jefe_atc') || permisoPY('administracion') || permisoPY('direccion') || permisoPY('muro') || permisoPY('accionistas'); }
+    match /snk_bo/{mes} { allow read: if veSnacks(); allow write: if false; }
+    match /snk_py/{mes} { allow read: if veSnacksPY(); allow write: if false; }
+    match /snk_estado/{pais} { allow read: if veSnacks() || veSnacksPY(); allow write: if false; }
+
     // ---------- Snacks de Bolivia por mes (bo-snacks.js): total de snacks y alquileres del ERP de cada mes cerrado ----------
     // Lo lee cualquiera con sesión del centro de mando; lo escribe la pantalla que lo suma (muro, Dirección, Administración…).
     match /bo_snack_mes/{mes} {
       allow read: if sesion();
-      allow write: if (permiso('muro') || permiso('direccion') || permiso('administracion') || permiso('contabilidad') || permiso('marketing'))
-        && mes.matches('^[0-9]{4}-[0-9]{2}$') && soloCampos(['snacks', 'alquileres', 'ventas', 'fecha'])
-        && request.resource.data.snacks is number && request.resource.data.alquileres is number && request.resource.data.ventas is number;
+      allow write: if false;   // lo escribe el servidor (snacksSync)
     }
 
     // ---------- Hoja de ruta de supervisores (ruta.html) ----------

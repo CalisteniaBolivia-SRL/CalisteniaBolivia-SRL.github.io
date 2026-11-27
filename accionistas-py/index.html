@@ -240,6 +240,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="../dashboard/py-datos.js?v=3"></script>
 <script>if (/[?&]pais=bolivia\b/.test(location.search)) window.ERP_KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";   // Calistenia Bolivia en el ERP (snacks)</script>
 <script src="erp.js?v=3"></script>
+<script>if (/[?&]pais=bolivia\b/.test(location.search)) document.write('<script src="../dashboard/bo-snacks.js?v=3"><\/script>');</script>
 <script>
 (function () {
   /* ================= País =================
@@ -534,27 +535,21 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     if (v.state !== "vendido" || v.estado === 0 || (previo && previo.anul)) r.anul = 1;
     return r;
   }
-  /* Pone al día los snacks: hoy en cada vuelta y un repaso completo cada 10 minutos (anulaciones). */
-  function snacksBO(completo, progreso) {
-    if (snOcupado) return Promise.resolve(); snOcupado = true;
-    var h = hoyPY();
-    return (modelos ? Promise.resolve(modelos) : ERP.modelos((sesion && sesion.key) || "").then(function (m) { modelos = m; return m; }))
-      .then(function () { return ERP.movimientos(completo ? INICIO_SN : h, h); })
-      .then(function (movs) { if (completo) snUltimo = Date.now(); return leerVentas(revisar(movs), progreso); })
-      .then(function () { snOcupado = false; }, function (e) { snOcupado = false; throw e; });
+  /* Snacks de Bolivia: los lee el servidor del ERP y los guarda por mes; acá solo se leen de la base (bo-snacks.js). */
+  function snacksBO() {
+    if (!window.BO_SNACKS) return Promise.resolve();
+    return BO_SNACKS.pedirSync().then(function () { return BO_SNACKS.arrancar(INICIO, hoyPY()); });
   }
   if (BO) {
-    K_CACHE = "bo_acc_snack_v1"; ventas = leer(K_CACHE) || {};
-    resumenVenta = resumenSnack;
     guardarCompartida = function () {};   // la memoria compartida es de Paraguay
     CATS_BASE = [{ k: "membresias", n: "Paquetes", c: "--s-memb" }, { k: "snacks", n: "Snacks", c: "--s-snack" }, { k: "alquileres", n: "Alquileres", c: "--s-alq" }];
     construirDias = function () {
       var porDia = {}, hayAlq = false;
       Object.keys(diasBO).forEach(function (d) { if (d >= INICIO) porDia[d] = { fecha: d, membresias: diasBO[d].membresias || 0, snacks: 0, alquileres: 0, otros: 0, ventas: diasBO[d].ventas || 0 }; });
-      Object.keys(ventas).forEach(function (k) {
-        var v = ventas[k]; if (!v || !v.f || v.anul || v.f < INICIO) return;
-        var d = porDia[v.f] || (porDia[v.f] = { fecha: v.f, membresias: 0, snacks: 0, alquileres: 0, otros: 0, ventas: 0 });
-        d.snacks += v.snacks || 0; d.alquileres += v.alquileres || 0; d.ventas++; if (v.alquileres) hayAlq = true;
+      var sn = window.BO_SNACKS ? BO_SNACKS.porDia(INICIO, hoyPY()) : {};
+      Object.keys(sn).forEach(function (f) {
+        var v = sn[f], d = porDia[f] || (porDia[f] = { fecha: f, membresias: 0, snacks: 0, alquileres: 0, otros: 0, ventas: 0 });
+        d.snacks += v.snacks || 0; d.alquileres += v.alquileres || 0; d.ventas += v.ventas || 0; if (v.alquileres) hayAlq = true;
       });
       CATS = hayAlq ? CATS_BASE.slice() : CATS_BASE.slice(0, 2);
       return Object.keys(porDia).sort().map(function (d) { return porDia[d]; });
@@ -563,7 +558,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       if (ocupado || document.hidden) return; ocupado = true;
       var h = hoyPY(), completo = Date.now() - ultimoResync > RESYNC_MS;
       var snCompleto = Date.now() - snUltimo > RESYNC_MS;
-      leerBO(completo ? INICIO : h, h).then(function () { return snacksBO(snCompleto).catch(function () {}); }).then(function () { if (completo) ultimoResync = Date.now(); pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); },
+      leerBO(completo ? INICIO : h, h).then(function () { return snacksBO().catch(function () {}); }).then(function () { if (completo) ultimoResync = Date.now(); pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); },
         function () { estadoVivo(false, "Sin conexión con los datos de Calistenia · reintentando…"); }).then(function () { ocupado = false; });
     };
     arrancar = function () {
@@ -576,7 +571,8 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
         try { sessionStorage.removeItem("bo_acc_conectando"); } catch (e) {}
         ultimoResync = Date.now(); vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "En vivo · actualizado " + horaPY());
         /* Snacks del ERP: la primera vez se leen venta por venta (se ve el avance); después quedan guardados en el equipo. */
-        snacksBO(true, function (hh, t) { if (hh % 20 === 0 || hh === t) { pintarSiCambio(false); estadoVivo(true, "Sumando snacks del ERP · " + hh + " de " + t + " ventas"); } })
+        estadoVivo(true, "Sumando snacks del ERP…");
+        snacksBO()
           .then(function () { pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); }, function () { estadoVivo(false, "Sin conexión con el ERP (snacks) · reintentando…"); })
           .then(function () { detener(); reloj = setInterval(vuelta, CADA_MS); });
       }, function (x) {

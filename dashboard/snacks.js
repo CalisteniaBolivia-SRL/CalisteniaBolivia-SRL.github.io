@@ -2,13 +2,14 @@
    Snacks · pantalla. Bolivia y Paraguay (?pais=paraguay), el mismo módulo; cada país lee su ERP S-ERP
    (Bolivia: empresa «Calistenia Bolivia»; Paraguay: «Calistenia Paraguay»). Solo lectura: no escribe en el ERP.
    - Catálogo con precio de venta y de compra y stock de cada almacén (inventario/modelo getAllStock).
-   - Ventas de los últimos 45 días, producto por producto (movimientos de caja + cada venta), guardadas en el equipo.
+   - Ventas producto por producto: las lee el SERVIDOR del ERP (snacksSync) y las guarda por mes en la base
+     (snk_bo / snk_py); acá solo se leen (rápido) y se le pide al servidor que se ponga al día.
    - Productos de snack = los de clase «inventario» del ERP (bebidas, proteínas, snacks, tienda).
    ===================================================================================================== */
 (function () {
     "use strict";
     var PY = window.CM_PAIS === "paraguay", L = window.SNACKS_LOGICA, MON = PY ? "Gs" : "Bs", LOC = PY ? "es-PY" : "es-BO";
-    var DIAS_DATOS = 45, K_CACHE = "snk_" + (PY ? "py" : "bo") + "_v1", K_CAT = "snk_cat_" + (PY ? "py" : "bo") + "_v1";
+    var DIAS_DATOS = 90, COL = PY ? "snk_py" : "snk_bo", K_CAT = "snk_cat_" + (PY ? "py" : "bo") + "_v1";
     var $ = function (id) { return document.getElementById(id); };
     function el(tag, attrs, hijos) {
         var e = document.createElement(tag);
@@ -30,7 +31,7 @@
     function valores(d) { if (!d) return []; return Array.isArray(d) ? d : Object.keys(d).map(function (k) { return d[k]; }); }
     function claveUsuario() { return (window.CM_USUARIO && CM_USUARIO.key_usuario) || ""; }
 
-    var D = { productos: {}, sucursales: {}, almacenes: {}, stock: {}, ventas: leer(K_CACHE) || {}, vista: "resumen", periodo: 30, sucursal: "", diasCompra: 14, orden: "bs" };
+    var D = { productos: {}, sucursales: {}, almacenes: {}, stock: {}, ventas: {}, vista: "resumen", periodo: 30, sucursal: "", diasCompra: 14, orden: "bs" };
     (function () { var c = leer(K_CAT); if (c) { D.productos = c.productos || {}; D.sucursales = c.sucursales || {}; D.almacenes = c.almacenes || {}; D.stock = c.stock || {}; } })();
 
     /* ---------- datos del ERP ---------- */
@@ -65,35 +66,30 @@
             });
         });
     }
-    /* Ventas: las nuevas (y las anulaciones) desde el último día guardado; la primera vez, los últimos 45 días. */
-    function cargarVentas(progreso) {
-        var E = window.ERP, h = hoy(), desde = L.sumarDias(h, -(DIAS_DATOS - 1));
-        var hay = Object.keys(D.ventas).length > 0;
-        var ini = hay ? L.sumarDias(h, -2) : desde;
-        return E.movimientos(ini, h).then(function (movs) {
-            var nuevas = {};
-            movs.forEach(function (mv) {
-                var k = mv.key_compra_venta, t = String(mv.tipo || ""); if (!k) return;
-                if (t.indexOf("anulacion") === 0) { if (D.ventas[k]) D.ventas[k].anul = 1; else D.ventas[k] = { anul: 1 }; }
-                else if ((t === "venta" || t === "amortizacion") && !(D.ventas[k] && D.ventas[k].f)) nuevas[k] = 1;
+    /* Ventas: meses guardados por el servidor (los de los últimos 90 días). */
+    var CFGF = window.CM_FIREBASE_CONFIG || {};
+    var SYNC = window.CM_SNACKS_SYNC || ("https://southamerica-east1-" + (CFGF.projectId || "centro-de-comando-a57cf") + ".cloudfunctions.net/snacksSync");
+    function mesAnt(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + String(mm).padStart(2, "0"); }
+    function cargarVentas(soloActual) {
+        var h = hoy(), ini = L.sumarDias(h, -(DIAS_DATOS - 1)).slice(0, 7), meses = [], m = h.slice(0, 7);
+        while (m >= ini) { meses.push(m); m = mesAnt(m); if (soloActual) break; }
+        return CMFB.listo.then(function () {
+            if (!firebase.auth().currentUser) throw new Error("Falta la sesión del centro de mando: salí y volvé a entrar.");
+            var db = firebase.firestore();
+            return Promise.all(meses.map(function (mm) { return db.collection(COL).doc(mm).get(); }));
+        }).then(function (snaps) {
+            snaps.forEach(function (x) {
+                var vs = x.exists ? (x.data().ventas || {}) : {};
+                Object.keys(vs).forEach(function (k) { var v = vs[k]; D.ventas[k] = { f: v.f, s: v.s, it: lineas(v.it), anul: v.a ? 1 : 0 }; });
             });
-            var keys = Object.keys(nuevas), i = 0, hechas = 0;
-            function una() {
-                if (i >= keys.length) return Promise.resolve();
-                var k = keys[i++];
-                return E.venta(k).then(function (v) {
-                    if (!v || !v.key) return;
-                    var it = (v.detalle || v.detalles || []).filter(function (d) { return d.estado !== 0; }).map(function (d) { return [d.key_modelo, Number(d.cantidad) || 0, Number(d.precio_unitario) || 0]; });
-                    D.ventas[k] = { f: String(v.fecha_on || "").slice(0, 16), s: v.key_sucursal || "", it: it, anul: (v.state !== "vendido" || v.estado === 0 || (D.ventas[k] && D.ventas[k].anul)) ? 1 : 0 };
-                }, function () {}).then(function () { hechas++; if (progreso && (hechas % 25 === 0 || hechas === keys.length)) progreso(hechas, keys.length); if (hechas % 200 === 0) limpiarYGuardar(); return una(); });
-            }
-            return Promise.all([una(), una(), una(), una()]).then(limpiarYGuardar);
         });
     }
-    function limpiarYGuardar() {
-        var limite = L.sumarDias(hoy(), -(DIAS_DATOS + 5));
-        Object.keys(D.ventas).forEach(function (k) { var v = D.ventas[k]; if (v.f && v.f.slice(0, 10) < limite) delete D.ventas[k]; });
-        guardar(K_CACHE, D.ventas);
+    /* Productos de una venta: el servidor los guarda como texto "key_modelo,cantidad,precio[,1 si es alquiler];…". */
+    function lineas(it) { if (Array.isArray(it)) return it; return String(it || "").split(";").filter(Boolean).map(function (x) { var p = x.split(","); return [p[0], Number(p[1]) || 0, Number(p[2]) || 0, p[3] ? 1 : 0]; }); }
+    var ultimoSync = 0;
+    function pedirSync() {
+        if (Date.now() - ultimoSync < 180000) return Promise.resolve(null); ultimoSync = Date.now();
+        return fetch(SYNC + "?pais=" + (PY ? "paraguay" : "bolivia"), { method: "POST" }).then(function (r) { return r.json(); }).catch(function () { return null; });
     }
     function listaVentas() { return Object.keys(D.ventas).map(function (k) { return D.ventas[k]; }).filter(function (v) { return v.f; }); }
     function nombreSuc(k) { return D.sucursales[k] || "Sin sucursal"; }
@@ -240,15 +236,13 @@
     var h0 = location.hash.slice(1); if (["resumen", "productos", "inventario", "comprar", "consejos"].indexOf(h0) >= 0) D.vista = h0;
     pintar();
     if (!window.ERP) { msg("No se pudo cargar la conexión con el ERP.", "bad"); return; }
-    msg(Object.keys(D.ventas).length ? "Actualizando con el ERP…" : "Leyendo el catálogo y el stock del ERP…");
-    cargarCatalogo().then(function () {
-        pintar();
-        var primera = !Object.keys(D.ventas).length;
-        if (primera) msg("Leyendo las ventas de los últimos " + DIAS_DATOS + " días (la primera vez tarda unos minutos; después queda guardado)…");
-        return cargarVentas(function (h, t) { msg("Leyendo ventas: " + h + " de " + t + "…"); if (h % 200 === 0) pintar(); });
-    }).then(function () {
+    ["snk_bo_v1", "snk_py_v1", "bo_acc_snack_v1", "bo_snack_modelos_v1"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });   // memorias viejas que llenaban el navegador
+    msg("Cargando…");
+    Promise.all([cargarCatalogo().catch(function () { msg("No se pudo leer el catálogo del ERP: se muestra el último guardado.", "warn"); }), cargarVentas()]).then(function () {
         msg(""); pintar();
-        setInterval(function () { if (document.hidden) return; cargarVentas().then(pintar, function () {}); }, 120000);
-        setInterval(function () { if (document.hidden) return; cargarCatalogo().then(pintar, function () {}); }, 15 * 60000);
-    }, function (e) { msg("No se pudo leer el ERP (" + ((e && e.message) || "sin conexión") + "). Se muestra lo último guardado.", "warn"); pintar(); });
+        /* El servidor lee del ERP lo nuevo; al terminar se vuelve a leer el mes en curso. */
+        return pedirSync().then(function (r) { if (r && r.meses) return cargarVentas(true).then(pintar); });
+    }, function (e) { msg((e && e.message) || "No se pudieron leer las ventas.", "bad"); pintar(); });
+    setInterval(function () { if (document.hidden) return; pedirSync().then(function () { return cargarVentas(true); }).then(pintar, function () {}); }, 120000);
+    setInterval(function () { if (document.hidden) return; cargarCatalogo().then(pintar, function () {}); }, 15 * 60000);
 })();
