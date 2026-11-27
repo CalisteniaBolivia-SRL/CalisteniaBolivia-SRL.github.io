@@ -113,14 +113,78 @@
         });
     }
     function enTablero() {
-        if (!document.querySelector(".cb-kpi")) return;
+        if (!document.querySelector(".cb-kpi")) { if (window.dash) { enGraficos(); arrancar(); } return; }
         var css = document.createElement("style"); css.textContent = ".bo-snack{color:#C4C8CE;margin-top:4px}"; document.head.appendChild(css);
         oyentes.push(function () { leerPaquetes().then(pintar); });
+        enGraficos();
         leerPaquetes().then(pintar); arrancar();
         setInterval(function () { if (!document.hidden) leerPaquetes().then(pintar); }, 60000);
     }
 
-    window.BO_SNACKS = { arrancar: arrancar, actualizar: actualizar, totales: totales, porDia: porDia, alCambiar: function (fn) { oyentes.push(fn); }, INICIO: INICIO };
+    /* ---------- Totales por mes (para los gráficos de 12 meses) ----------
+       Leer un año venta por venta en cada equipo es demasiado: cada mes cerrado se suma UNA vez (lo hace la pantalla
+       que esté abierta, de a un mes, en segundo plano) y se guarda en la base del centro de mando (bo_snack_mes/AAAA-MM).
+       Los meses desde INICIO salen de lo leído en el equipo. */
+    var meses = {}, mesesLeidos = false, rellenando = false;
+    function db() { return window.firebase && firebase.apps.length && firebase.auth().currentUser ? firebase.firestore() : null; }
+    function leerMeses() {
+        var d = db(); if (!d) return Promise.resolve(meses);
+        return d.collection("bo_snack_mes").get().then(function (q) { q.forEach(function (x) { meses[x.id] = x.data(); }); mesesLeidos = true; return meses; }, function () { return meses; });
+    }
+    function mesDe(f) { return String(f).slice(0, 7); }
+    function finDeMes(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7); return new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10); }
+    function mesAnterior(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + String(mm).padStart(2, "0"); }
+    /* Snacks + alquileres de un mes: lo leído en el equipo (desde INICIO) o el total guardado. */
+    function delMes(m) {
+        if (m + "-01" >= INICIO) { var t = totales(m + "-01", finDeMes(m)); if (t.ventas) return t.snacks + t.alquileres; }
+        var g = meses[m]; return g ? (Number(g.snacks) || 0) + (Number(g.alquileres) || 0) : null;
+    }
+    /* Suma un mes cerrado leyendo sus ventas una por una (sin guardarlas en el equipo) y guarda el total. */
+    function sumarMes(m) {
+        var erp, r = { snacks: 0, alquileres: 0, ventas: 0 };
+        return cargarERP().then(function (e) { erp = e; return modelos || erp.modelos(claveUsuario()).then(function (x) { modelos = x; return x; }); })
+            .then(function () { return erp.movimientos(m + "-01", finDeMes(m)); }).then(function (movs) {
+                var anul = {}, ks = {};
+                movs.forEach(function (mv) { var k = mv.key_compra_venta, t = String(mv.tipo || ""); if (!k) return; if (t.indexOf("anulacion") === 0) anul[k] = 1; else if (t === "venta" || t === "amortizacion") ks[k] = 1; });
+                var keys = Object.keys(ks).filter(function (k) { return !anul[k]; }), i = 0;
+                function una() {
+                    if (i >= keys.length) return Promise.resolve();
+                    var k = keys[i++];
+                    return erp.venta(k).then(function (v) { if (v && v.key) { var x = resumen(v, null); if (!x.anul && mesDe(x.f) === m) { r.snacks += x.snacks; r.alquileres += x.alquileres; r.ventas++; } } }, function () {}).then(una);
+                }
+                return Promise.all([una(), una(), una(), una()]);
+            }).then(function () {
+                var doc = { snacks: Math.round(r.snacks), alquileres: Math.round(r.alquileres), ventas: r.ventas, fecha: new Date().toISOString() };
+                meses[m] = doc; var d = db();
+                return d ? d.collection("bo_snack_mes").doc(m).set(doc).catch(function () {}) : null;
+            });
+    }
+    /* En segundo plano, de a un mes y del más nuevo al más viejo: los 12 meses anteriores a INICIO que falten. */
+    function rellenar() {
+        if (rellenando || !mesesLeidos || document.hidden) return;
+        var m = mesAnterior(INICIO.slice(0, 7)), falta = null;
+        for (var n = 0; n < 12; n++) { if (!meses[m]) { falta = m; break; } m = mesAnterior(m); }
+        if (!falta) return;
+        rellenando = true;
+        sumarMes(falta).then(function () { rellenando = false; avisar(); setTimeout(rellenar, 2000); }, function () { rellenando = false; });
+    }
+    /* Gráficos «Ingresos por mes»: a cada mes se le suman los snacks (el detalle queda en el globo). */
+    function enGraficos() {
+        if (!window.dash || !dash.loader) return;
+        dash.loader("ventas_12m", { fn: function (o) {
+            var a = o && o.answer; if (a && a.error) throw new Error(typeof a.error === "string" ? a.error : a.error.message);
+            return ((a && a.filas) || []).map(function (f) {
+                var m = String(f.grupo).slice(0, 7), sn = delMes(m), paq = Number(f.total) || 0;
+                return Object.assign({}, f, { paquetes: paq, snacks: sn || 0, total: paq + (sn || 0) });
+            });
+        } });
+        var refrescar = function () { try { dash.refresh("ventas_12m"); } catch (e) {} };
+        oyentes.push(refrescar);
+        var listo = window.CMFB && CMFB.listo ? CMFB.listo : Promise.resolve();
+        listo.then(leerMeses).then(function () { refrescar(); rellenar(); setInterval(rellenar, 5 * 60000); });
+    }
+
+    window.BO_SNACKS = { arrancar: arrancar, actualizar: actualizar, totales: totales, porDia: porDia, delMes: delMes, meses: function () { return meses; }, alCambiar: function (fn) { oyentes.push(fn); }, INICIO: INICIO };
     if (!/accionistas-py\//.test(location.pathname)) {
         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enTablero); else enTablero();
     }

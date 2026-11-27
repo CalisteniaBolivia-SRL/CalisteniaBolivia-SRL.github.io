@@ -14,6 +14,15 @@ service cloud.firestore {
     function soloCampos(campos) { return request.resource.data.keys().hasOnly(campos); }
     function texto(c, max) { return !(c in request.resource.data) || request.resource.data[c] == null || (request.resource.data[c] is string && request.resource.data[c].size() <= max); }
 
+    // ---------- Snacks de Bolivia por mes (bo-snacks.js): total de snacks y alquileres del ERP de cada mes cerrado ----------
+    // Lo lee cualquiera con sesión del centro de mando; lo escribe la pantalla que lo suma (muro, Dirección, Administración…).
+    match /bo_snack_mes/{mes} {
+      allow read: if sesion();
+      allow write: if (permiso('muro') || permiso('direccion') || permiso('administracion') || permiso('contabilidad') || permiso('marketing'))
+        && mes.matches('^[0-9]{4}-[0-9]{2}$') && soloCampos(['snacks', 'alquileres', 'ventas', 'fecha'])
+        && request.resource.data.snacks is number && request.resource.data.alquileres is number && request.resource.data.ventas is number;
+    }
+
     // ---------- Hoja de ruta de supervisores (ruta.html) ----------
     // Ven la ruta Supervisión, Dirección y Administración. Cada supervisor se anota solo (su propia ficha) y registra
     // sus visitas; arman la ruta y configuran Supervisión y Dirección.
