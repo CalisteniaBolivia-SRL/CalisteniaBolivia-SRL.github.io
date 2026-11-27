@@ -5,7 +5,8 @@
 (function () {
     var WS_URL = "wss://serp.servisofts.com/ws/";
     var MARCA = "---SSofts---";
-    var KEY_EMPRESA = "3433c7d4-a626-44de-b825-f924334e679c";   // Calistenia Paraguay en el ERP
+    /* Calistenia Paraguay por defecto; la página de Bolivia elige la empresa «Calistenia Bolivia» (snacks y alquileres). */
+    var KEY_EMPRESA = window.ERP_KEY_EMPRESA || "3433c7d4-a626-44de-b825-f924334e679c";
     var PAGINA = "/accionistas";                                   // página de permisos en el ERP
 
     var ws = null, listo = null, buffer = "", pendientes = {};
