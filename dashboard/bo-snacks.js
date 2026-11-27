@@ -1,92 +1,76 @@
 /* =====================================================================================================
-   Snacks de Bolivia · lo común. En Bolivia, los paquetes se venden en el sistema de Calistenia y los snacks
-   (bebidas, proteínas, tienda) y alquileres en el ERP S-ERP, empresa «Calistenia Bolivia». Este módulo lee esas
-   ventas del ERP venta por venta (como «Ingresos en vivo») y las guarda en el equipo; comparte la misma memoria
-   que «Ingresos en vivo» (bo_acc_snack_v1), así lo que una pantalla ya leyó no se vuelve a leer.
-   - Muro, Dirección y Administración: suma una línea «+ Snacks» y el total en las tarjetas «Ingresos del mes» y
-     «Ingresos de hoy».
-   - El asistente Capital lo usa para responder con paquetes + snacks.
-   En Paraguay no hace nada: allí el ERP ya trae paquetes, snacks y alquileres juntos.
+   Snacks de Bolivia · lo común para el muro, Dirección, Administración, Contabilidad, Marketing, el asistente e
+   «Ingresos en vivo». En Bolivia los paquetes se venden en el sistema de Calistenia y los snacks (bebidas,
+   proteínas, tienda) y alquileres en el ERP S-ERP, empresa «Calistenia Bolivia» (desde el 7 de abril de 2026).
+   Las ventas las lee el SERVIDOR (función snacksSync) y las guarda por mes en la base:
+     snk_bo/AAAA-MM (cada venta) · bo_snack_mes/AAAA-MM (totales del mes)
+   Acá solo se leen esos documentos (rápido, nada se guarda en el navegador) y se le pide al servidor que se ponga al
+   día (como mucho cada 3 minutos). En Paraguay no hace nada: allí el ERP ya trae paquetes y snacks juntos.
    ===================================================================================================== */
 (function () {
     "use strict";
     if (window.CM_PAIS === "paraguay") return;
-    var KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";   // Calistenia Bolivia en el ERP
-    var K_CACHE = "bo_acc_snack_v1", K_MOD = "bo_snack_modelos_v1";
-    var ALQ = { "e98fbe7f-96d2-4e30-b734-b672783eaa9f": 1, "636e04ae-4600-4def-a3f3-ec7e053f67ce": 1, "04f24377-8dd9-464a-900c-714dc7f206d8": 1, "23bd81e3-ba2a-4fd2-91a4-a1ba9687925f": 1, "1074a23a-41d3-466b-b9f5-79627eef118c": 1 };
+    var INICIO = "2026-04-07";   // primera venta de snacks en el ERP de Bolivia
+    /* Limpieza: las memorias viejas de snacks llenaban el navegador. */
+    ["bo_acc_snack_v1", "bo_snack_modelos_v1", "snk_bo_v1", "snk_py_v1"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     function hoy() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/La_Paz", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()).slice(0, 10); }
-    var INICIO = (function () { var h = hoy(), y = +h.slice(0, 4), m = +h.slice(5, 7); var p = m === 1 ? (y - 1) + "-12" : y + "-" + String(m - 1).padStart(2, "0"); return p + "-01"; })();
-    function leer(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
-    function guardar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-    var ventas = leer(K_CACHE) || {}, modelos = (leer(K_MOD) || {}).m || null, oyentes = [], ocupado = false, ultimoCompleto = 0, primera = null;
+    function mesAnterior(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + String(mm).padStart(2, "0"); }
+    function mesesEntre(desde, hasta) { var l = [], m = hasta.slice(0, 7), ini = desde.slice(0, 7); while (m >= ini && l.length < 24) { l.push(m); m = mesAnterior(m); } return l; }
+    var CFG = window.CM_FIREBASE_CONFIG || {};
+    var SYNC = window.CM_SNACKS_SYNC || ("https://southamerica-east1-" + (CFG.projectId || "centro-de-comando-a57cf") + ".cloudfunctions.net/snacksSync");
+    var docs = {}, cargando = {}, totalesMes = {}, oyentes = [];
 
-    /* ---------- conexión con el ERP (la misma de «Ingresos en vivo», con la empresa de Bolivia) ---------- */
-    function cargarERP() {
-        if (window.ERP && window.ERP.KEY_EMPRESA === KEY_EMPRESA) return Promise.resolve(window.ERP);
-        if (window.ERP) return Promise.reject(new Error("otra_empresa"));
-        window.ERP_KEY_EMPRESA = KEY_EMPRESA;
-        var base = /accionistas-py\//.test(location.pathname) ? "" : "../accionistas-py/";
-        return new Promise(function (ok, mal) { var s = document.createElement("script"); s.src = base + "erp.js?v=3"; s.onload = function () { ok(window.ERP); }; s.onerror = mal; document.head.appendChild(s); });
-    }
-    function claveUsuario() { try { return (JSON.parse(localStorage.getItem("cb_centro_mando") || "{}").key_usuario) || ""; } catch (e) { return ""; } }
-    function resumen(v, previo) {
-        var r = { v: 3, f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0 };
-        (v.detalle || v.detalles || []).forEach(function (d) {
-            if (d.estado === 0) return;
-            r[ALQ[(modelos || {})[d.key_modelo]] ? "alquileres" : "snacks"] += (Number(d.precio_unitario) || 0) * (Number(d.cantidad) || 0);
-        });
-        var desc = Number(v.descuento) || 0, t = r.snacks + r.alquileres;
-        if (desc > 0 && t > 0) { r.snacks -= r.snacks / t * desc; r.alquileres -= r.alquileres / t * desc; }
-        if (v.state !== "vendido" || v.estado === 0 || (previo && previo.anul)) r.anul = 1;
-        return r;
-    }
+    function db() { return window.firebase && firebase.apps.length && firebase.auth().currentUser ? firebase.firestore() : null; }
+    function listo() { return window.CMFB && CMFB.listo ? CMFB.listo : Promise.resolve(); }
     function avisar() { oyentes.forEach(function (fn) { try { fn(); } catch (e) {} }); }
-    /* Pone al día: hoy en cada vuelta; todo desde el mes anterior la primera vez y cada 10 minutos (anulaciones). */
-    function actualizar(completo) {
-        if (ocupado) return Promise.resolve(); ocupado = true;
-        var h = hoy(), erp;
-        return cargarERP().then(function (e) {
-            erp = e;
-            if (modelos) return modelos;
-            return erp.modelos(claveUsuario()).then(function (m) { modelos = m; guardar(K_MOD, { m: m, f: Date.now() }); return m; });
-        }).then(function () { return erp.movimientos(completo ? INICIO : h, h); }).then(function (movs) {
-            var nuevas = {};
-            movs.forEach(function (mv) {
-                var k = mv.key_compra_venta, t = String(mv.tipo || ""); if (!k) return;
-                if (t.indexOf("anulacion") === 0) { ventas[k] = ventas[k] || {}; ventas[k].anul = 1; }
-                else if ((t === "venta" || t === "amortizacion") && !(ventas[k] && ventas[k].f && ventas[k].v === 3)) nuevas[k] = 1;
-            });
-            var keys = Object.keys(nuevas), i = 0, hechas = 0;
-            function una() {
-                if (i >= keys.length) return Promise.resolve();
-                var k = keys[i++];
-                return erp.venta(k).then(function (v) { if (v && v.key) { ventas[k] = resumen(v, ventas[k]); hechas++; } }, function () {})
-                    .then(function () { if (hechas && hechas % 50 === 0) { guardar(K_CACHE, ventas); avisar(); } return una(); });
-            }
-            return Promise.all([una(), una(), una(), una()]);
-        }).then(function () {
-            if (completo) ultimoCompleto = Date.now();
-            guardar(K_CACHE, ventas); ocupado = false; avisar();
-        }, function (e) { ocupado = false; throw e; });
+    /* Lee los meses pedidos (los del mes en curso se vuelven a leer si pasaron 2 minutos). */
+    function cargarMeses(meses, forzar) {
+        return listo().then(function () {
+            var d = db(); if (!d) return;
+            return Promise.all(meses.map(function (m) {
+                if (!forzar && docs[m] && (m < hoy().slice(0, 7) || Date.now() - docs[m].t < 120000)) return null;
+                if (cargando[m]) return cargando[m];
+                return (cargando[m] = d.collection("snk_bo").doc(m).get().then(function (x) { docs[m] = { t: Date.now(), ventas: x.exists ? (x.data().ventas || {}) : {} }; }, function () {}).then(function () { delete cargando[m]; }));
+            }));
+        });
     }
-    /* Totales de un rango (fechas AAAA-MM-DD, inclusive). */
+    function leerTotalesMes() {
+        return listo().then(function () { var d = db(); if (!d) return; return d.collection("bo_snack_mes").get().then(function (q) { q.forEach(function (x) { totalesMes[x.id] = x.data(); }); }, function () {}); });
+    }
+    /* Le pide al servidor que lea lo nuevo del ERP (no espera: si ya está al día, no hace nada). */
+    var ultimoPedido = 0;
+    function pedirSync() {
+        if (Date.now() - ultimoPedido < 180000) return Promise.resolve(); ultimoPedido = Date.now();
+        return fetch(SYNC + "?pais=bolivia", { method: "POST" }).then(function (r) { return r.json(); }).catch(function () { return null; });
+    }
+    /* Productos de una venta: el servidor los guarda como texto "key_modelo,cantidad,precio[,1 si es alquiler];…". */
+    function lineas(it) { if (Array.isArray(it)) return it; return String(it || "").split(";").filter(Boolean).map(function (x) { var p = x.split(","); return [p[0], Number(p[1]) || 0, Number(p[2]) || 0, p[3] ? 1 : 0]; }); }
+    function esAlquiler(l) { return l[3] === 1; }   // el servidor marca las líneas de alquiler
+    function recorrer(desde, hasta, fn) {
+        Object.keys(docs).forEach(function (m) {
+            var vs = docs[m].ventas;
+            Object.keys(vs).forEach(function (k) { var v = vs[k]; if (!v || v.a || !v.f) return; var d = v.f.slice(0, 10); if (d >= desde && d <= hasta) fn(v, d); });
+        });
+    }
+    /* Totales de un rango (fechas AAAA-MM-DD, inclusive), con lo leído. */
     function totales(desde, hasta) {
-        var r = { snacks: 0, alquileres: 0, ventas: 0, desde_datos: INICIO };
-        Object.keys(ventas).forEach(function (k) { var v = ventas[k]; if (!v || !v.f || v.anul || v.f < desde || v.f > hasta) return; r.snacks += v.snacks || 0; r.alquileres += v.alquileres || 0; r.ventas++; });
-        r.snacks = Math.round(r.snacks); r.alquileres = Math.round(r.alquileres);
-        r.completo = desde >= INICIO;   // antes de INICIO no hay snacks leídos
+        var r = { snacks: 0, alquileres: 0, ventas: 0 };
+        recorrer(desde, hasta, function (v) { r.ventas++; lineas(v.it).forEach(function (l) { var m = l[1] * l[2]; if (esAlquiler(l)) r.alquileres += m; else r.snacks += m; }); });
+        r.snacks = Math.round(r.snacks); r.alquileres = Math.round(r.alquileres); r.completo = desde >= INICIO;
         return r;
     }
     function porDia(desde, hasta) {
         var m = {};
-        Object.keys(ventas).forEach(function (k) { var v = ventas[k]; if (!v || !v.f || v.anul || v.f < desde || v.f > hasta) return; var d = m[v.f] || (m[v.f] = { snacks: 0, alquileres: 0, ventas: 0 }); d.snacks += v.snacks || 0; d.alquileres += v.alquileres || 0; d.ventas++; });
+        recorrer(desde, hasta, function (v, d) { var x = m[d] || (m[d] = { snacks: 0, alquileres: 0, ventas: 0 }); x.ventas++; lineas(v.it).forEach(function (l) { var s = l[1] * l[2]; if (esAlquiler(l)) x.alquileres += s; else x.snacks += s; }); });
         return m;
     }
-    function arrancar() {
-        if (primera) return primera;
-        primera = actualizar(true).catch(function () {});
-        setInterval(function () { if (document.hidden) return; actualizar(Date.now() - ultimoCompleto > 10 * 60000).catch(function () {}); }, 60000);
-        return primera;
+    /* Snacks + alquileres de un mes completo (totales que guarda el servidor). */
+    function delMes(m) { var g = totalesMes[m]; return g ? (Number(g.snacks) || 0) + (Number(g.alquileres) || 0) : null; }
+    /* Deja listos los meses de un rango (por defecto, el mes en curso y el anterior). */
+    function arrancar(desde, hasta) {
+        var h = hoy(); hasta = hasta || h; desde = desde || mesAnterior(h.slice(0, 7)) + "-01";
+        if (desde < INICIO) desde = INICIO;
+        return cargarMeses(mesesEntre(desde, hasta)).then(function () { avisar(); });
     }
 
     /* ---------- tarjetas «Ingresos del mes» / «Ingresos de hoy» ---------- */
@@ -107,68 +91,12 @@
     function pintar() {
         var h = hoy(), ini = h.slice(0, 8) + "01", mes = totales(ini, h), dia = totales(h, h);
         Array.prototype.forEach.call(document.querySelectorAll(".cb-kpi"), function (card) {
-            var t = (card.querySelector(".cb-kpi-l") || {}).textContent || "";
-            if (/^Ingresos del mes$/i.test(t.trim())) linea(card, mes, paquetes.mes);
-            else if (/^Ingresos de hoy$/i.test(t.trim())) linea(card, dia, paquetes.hoy);
+            var t = ((card.querySelector(".cb-kpi-l") || {}).textContent || "").trim();
+            if (/^Ingresos del mes$/i.test(t)) linea(card, mes, paquetes.mes);
+            else if (/^Ingresos de hoy$/i.test(t)) linea(card, dia, paquetes.hoy);
         });
     }
-    function enTablero() {
-        if (!document.querySelector(".cb-kpi")) { if (window.dash) { enGraficos(); arrancar(); } return; }
-        var css = document.createElement("style"); css.textContent = ".bo-snack{color:#C4C8CE;margin-top:4px}"; document.head.appendChild(css);
-        oyentes.push(function () { leerPaquetes().then(pintar); });
-        enGraficos();
-        leerPaquetes().then(pintar); arrancar();
-        setInterval(function () { if (!document.hidden) leerPaquetes().then(pintar); }, 60000);
-    }
-
-    /* ---------- Totales por mes (para los gráficos de 12 meses) ----------
-       Leer un año venta por venta en cada equipo es demasiado: cada mes cerrado se suma UNA vez (lo hace la pantalla
-       que esté abierta, de a un mes, en segundo plano) y se guarda en la base del centro de mando (bo_snack_mes/AAAA-MM).
-       Los meses desde INICIO salen de lo leído en el equipo. */
-    var meses = {}, mesesLeidos = false, rellenando = false;
-    function db() { return window.firebase && firebase.apps.length && firebase.auth().currentUser ? firebase.firestore() : null; }
-    function leerMeses() {
-        var d = db(); if (!d) return Promise.resolve(meses);
-        return d.collection("bo_snack_mes").get().then(function (q) { q.forEach(function (x) { meses[x.id] = x.data(); }); mesesLeidos = true; return meses; }, function () { return meses; });
-    }
-    function mesDe(f) { return String(f).slice(0, 7); }
-    function finDeMes(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7); return new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10); }
-    function mesAnterior(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + String(mm).padStart(2, "0"); }
-    /* Snacks + alquileres de un mes: lo leído en el equipo (desde INICIO) o el total guardado. */
-    function delMes(m) {
-        if (m + "-01" >= INICIO) { var t = totales(m + "-01", finDeMes(m)); if (t.ventas) return t.snacks + t.alquileres; }
-        var g = meses[m]; return g ? (Number(g.snacks) || 0) + (Number(g.alquileres) || 0) : null;
-    }
-    /* Suma un mes cerrado leyendo sus ventas una por una (sin guardarlas en el equipo) y guarda el total. */
-    function sumarMes(m) {
-        var erp, r = { snacks: 0, alquileres: 0, ventas: 0 };
-        return cargarERP().then(function (e) { erp = e; return modelos || erp.modelos(claveUsuario()).then(function (x) { modelos = x; return x; }); })
-            .then(function () { return erp.movimientos(m + "-01", finDeMes(m)); }).then(function (movs) {
-                var anul = {}, ks = {};
-                movs.forEach(function (mv) { var k = mv.key_compra_venta, t = String(mv.tipo || ""); if (!k) return; if (t.indexOf("anulacion") === 0) anul[k] = 1; else if (t === "venta" || t === "amortizacion") ks[k] = 1; });
-                var keys = Object.keys(ks).filter(function (k) { return !anul[k]; }), i = 0;
-                function una() {
-                    if (i >= keys.length) return Promise.resolve();
-                    var k = keys[i++];
-                    return erp.venta(k).then(function (v) { if (v && v.key) { var x = resumen(v, null); if (!x.anul && mesDe(x.f) === m) { r.snacks += x.snacks; r.alquileres += x.alquileres; r.ventas++; } } }, function () {}).then(una);
-                }
-                return Promise.all([una(), una(), una(), una()]);
-            }).then(function () {
-                var doc = { snacks: Math.round(r.snacks), alquileres: Math.round(r.alquileres), ventas: r.ventas, fecha: new Date().toISOString() };
-                meses[m] = doc; var d = db();
-                return d ? d.collection("bo_snack_mes").doc(m).set(doc).catch(function () {}) : null;
-            });
-    }
-    /* En segundo plano, de a un mes y del más nuevo al más viejo: los 12 meses anteriores a INICIO que falten. */
-    function rellenar() {
-        if (rellenando || !mesesLeidos || document.hidden) return;
-        var m = mesAnterior(INICIO.slice(0, 7)), falta = null;
-        for (var n = 0; n < 12; n++) { if (!meses[m]) { falta = m; break; } m = mesAnterior(m); }
-        if (!falta) return;
-        rellenando = true;
-        sumarMes(falta).then(function () { rellenando = false; avisar(); setTimeout(rellenar, 2000); }, function () { rellenando = false; });
-    }
-    /* Gráficos «Ingresos por mes»: a cada mes se le suman los snacks (el detalle queda en el globo). */
+    /* Gráficos «Ingresos por mes»: a cada mes se le suman los snacks del servidor (el detalle queda en el globo). */
     function enGraficos() {
         if (!window.dash || !dash.loader) return;
         dash.loader("ventas_12m", { fn: function (o) {
@@ -179,12 +107,26 @@
             });
         } });
         var refrescar = function () { try { dash.refresh("ventas_12m"); } catch (e) {} };
-        oyentes.push(refrescar);
-        var listo = window.CMFB && CMFB.listo ? CMFB.listo : Promise.resolve();
-        listo.then(leerMeses).then(function () { refrescar(); rellenar(); setInterval(rellenar, 5 * 60000); });
+        leerTotalesMes().then(refrescar);
+        setInterval(function () { if (!document.hidden) leerTotalesMes().then(refrescar); }, 10 * 60000);
+    }
+    function vuelta() {
+        if (document.hidden) return;
+        pedirSync().then(function () { return Promise.all([cargarMeses([hoy().slice(0, 7)], true), leerPaquetes()]); }).then(function () { avisar(); });
+    }
+    function enTablero() {
+        var hayKpi = !!document.querySelector(".cb-kpi");
+        if (hayKpi) {
+            var css = document.createElement("style"); css.textContent = ".bo-snack{color:#C4C8CE;margin-top:4px}"; document.head.appendChild(css);
+            oyentes.push(pintar);
+        }
+        enGraficos();
+        if (!hayKpi && !window.dash) return;
+        Promise.all([arrancar(), leerPaquetes()]).then(function () { avisar(); vuelta(); });
+        setInterval(vuelta, 120000);
     }
 
-    window.BO_SNACKS = { arrancar: arrancar, actualizar: actualizar, totales: totales, porDia: porDia, delMes: delMes, meses: function () { return meses; }, alCambiar: function (fn) { oyentes.push(fn); }, INICIO: INICIO };
+    window.BO_SNACKS = { arrancar: arrancar, totales: totales, porDia: porDia, delMes: delMes, pedirSync: pedirSync, alCambiar: function (fn) { oyentes.push(fn); }, INICIO: INICIO };
     if (!/accionistas-py\//.test(location.pathname)) {
         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enTablero); else enTablero();
     }

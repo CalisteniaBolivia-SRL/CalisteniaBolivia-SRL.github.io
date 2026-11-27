@@ -327,7 +327,7 @@
     function snacks(desde, hasta) {
         if (PY || !window.BO_SNACKS) return Promise.resolve(null);
         var espera = new Promise(function (ok) { setTimeout(ok, 8000); });
-        return Promise.race([BO_SNACKS.arrancar(), espera]).then(function () { return BO_SNACKS.totales(desde, hasta); }, function () { return BO_SNACKS.totales(desde, hasta); });
+        return Promise.race([BO_SNACKS.arrancar(desde, hasta), espera]).then(function () { return BO_SNACKS.totales(desde, hasta); }, function () { return BO_SNACKS.totales(desde, hasta); });
     }
     var GRUPO = { dia: "por día", mes: "por mes", sucursal: "por sucursal", paquete: "por paquete", tipo_pago: "por tipo de pago", cajero: "por cajero" };
 

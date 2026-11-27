@@ -248,5 +248,8 @@ exports.creativo = require("./creativo").creativo;
 /* Producción del contenido del Estudio creativo (imágenes, voz, música, video y reel), paso a paso. */
 exports.creativoProduccion = require("./creativo-produccion").creativoProduccion;
 
+/* Snacks: el servidor lee las ventas del ERP (Bolivia y Paraguay) y las guarda por mes (snacks-sync.js). */
+exports.snacksSync = require("./snacks-sync").snacksSync;
+
 /* Asistente de voz en tiempo real (Gemini Live): entrega el token temporal. */
 exports.liveToken = require("./live").liveToken;
