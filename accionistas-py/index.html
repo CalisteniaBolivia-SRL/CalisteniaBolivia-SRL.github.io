@@ -70,6 +70,8 @@ header.top { background: #000; color: #fff; border-bottom: 1px solid rgba(255,25
 @keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(12,163,12,.55); } 70% { box-shadow: 0 0 0 7px rgba(12,163,12,0); } 100% { box-shadow: 0 0 0 0 rgba(12,163,12,0); } }
 @media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
 main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
+.ver-anio { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
+.ver-anio select { font: inherit; padding: 6px 10px; min-height: 36px; border-radius: 0; border: 1px solid var(--grid, #3A3E44); background: var(--surface, #fff); color: inherit; }
 .estado-barra { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: center; margin-bottom: 14px; }
 
 /* Ingreso */
@@ -199,6 +201,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   <div class="estado-barra">
     <span class="vivo" id="vivo"><i></i><span id="vivo-txt">En vivo</span></span>
     <span class="nota" style="margin:0" id="datos-al"></span>
+    <label class="ver-anio">Ver <select id="ver-anio" aria-label="Período de los gráficos"></select></label>
   </div>
   <div class="kpis" id="kpis"></div>
 
@@ -240,7 +243,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="../dashboard/py-datos.js?v=3"></script>
 <script>if (/[?&]pais=bolivia\b/.test(location.search)) window.ERP_KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";   // Calistenia Bolivia en el ERP (snacks)</script>
 <script src="erp.js?v=3"></script>
-<script>if (/[?&]pais=bolivia\b/.test(location.search)) document.write('<script src="../dashboard/bo-snacks.js?v=3"><\/script>');</script>
+<script>if (/[?&]pais=bolivia\b/.test(location.search)) document.write('<script src="../dashboard/bo-snacks.js?v=4"><\/script>');</script>
 <script>
 (function () {
   /* ================= País =================
@@ -250,7 +253,9 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
   var PAIS = /[?&]pais=bolivia\b/.test(location.search) ? "bolivia" : "paraguay", BO = PAIS === "bolivia";
   var TZ = BO ? "America/La_Paz" : TZ, LOC = BO ? "es-BO" : LOC, MON = BO ? "Bs" : "Gs";
   /* ================= Configuración ================= */
-  var INICIO = BO ? (function () { var d = new Date(); return new Date(d.getFullYear() - 1, d.getMonth(), 1).toISOString().slice(0, 10); })() : "2026-04-01";   // inicio del gráfico
+  var INICIO = BO ? "2021-08-01" : "2026-04-01";   // primer dato de cada país: se ve todo el histórico (selector de año)
+  /* Qué se ve en los gráficos: "12m" (últimos 12 meses), un año ("2024") o "todo". Se recuerda en el equipo. */
+  var VER = (function () { try { return localStorage.getItem("acc_ver_" + (BO ? "bo" : "py")) || "12m"; } catch (e) { return "12m"; } })();
   var CADA_MS = 8000;                     // actualización en vivo
   var RESYNC_MS = 10 * 60000;             // repaso completo (anulaciones de días anteriores)
   var SESION_DIAS = 7;
@@ -558,7 +563,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       if (ocupado || document.hidden) return; ocupado = true;
       var h = hoyPY(), completo = Date.now() - ultimoResync > RESYNC_MS;
       var snCompleto = Date.now() - snUltimo > RESYNC_MS;
-      leerBO(completo ? INICIO : h, h).then(function () { return snacksBO().catch(function () {}); }).then(function () { if (completo) ultimoResync = Date.now(); pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); },
+      leerBO(completo ? sumarDias(h, -60) : h, h).then(function () { return snacksBO().catch(function () {}); }).then(function () { if (completo) ultimoResync = Date.now(); pintarSiCambio(false); estadoVivo(true, "En vivo · actualizado " + horaPY()); },
         function () { estadoVivo(false, "Sin conexión con los datos de Calistenia · reintentando…"); }).then(function () { ocupado = false; });
     };
     arrancar = function () {
@@ -567,7 +572,9 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       else { vista("v-carga"); $("c-texto").textContent = "Leyendo las ventas de Calistenia Bolivia…"; $("c-barra").style.width = "30%"; }
       if (window.CM && CM.conSesion && !CM.conSesion() && conectarBO()) return;
       if (!window.CM || !CM.conSesion || !CM.conSesion()) { $("a-titulo").textContent = "Falta la sesión de datos de Calistenia"; $("a-texto").textContent = "Abrí el centro de mando (por ejemplo, el muro) para conectar los datos de Calistenia Bolivia y volvé a esta página."; if (!hay) vista("v-aviso"); return; }
-      leerBO(INICIO, hoyPY()).then(function () {
+      /* Con el histórico ya guardado en el equipo, alcanza con releer el último año; si no, todo desde el inicio. */
+      var desdeBO = Object.keys(diasBO).some(function (d) { return d < sumarDias(hoyPY(), -400); }) ? sumarDias(hoyPY(), -400) : INICIO;
+      leerBO(desdeBO, hoyPY()).then(function () {
         try { sessionStorage.removeItem("bo_acc_conectando"); } catch (e) {}
         ultimoResync = Date.now(); vista("v-tablero"); pintarSiCambio(true); estadoVivo(true, "En vivo · actualizado " + horaPY());
         /* Snacks del ERP: la primera vez se leen venta por venta (se ve el avance); después quedan guardados en el equipo. */
@@ -647,6 +654,18 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
       sumar(acum, x);
     });
     while (semanas.length > 1 && total(semanas[0]) === 0) semanas.shift();
+    while (meses.length > 1 && total(meses[0]) === 0) meses.shift();
+    /* Selector de año: últimos 12 meses, un año o todo el histórico. */
+    selectorVer(meses);
+    if (VER !== "todo") {
+      var vd, vh;
+      if (VER === "12m") { vd = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1); vh = hoy; }
+      else { vd = new Date(+VER, 0, 1); vh = new Date(+VER, 11, 31); }
+      var fs = semanas.filter(function (s) { return s.fin >= vd && s.ini <= vh; }), fm = meses.filter(function (x) { var d = new Date(x.y, x.m, 1); return d >= new Date(vd.getFullYear(), vd.getMonth(), 1) && d <= vh; });
+      if (fs.length) { if (semanas.length !== fs.length && !selManual) sel = -1; semanas = fs; }
+      if (fm.length) meses = fm;
+    }
+    if (meses.length) meses[0].label = MES3[meses[0].m] + " " + String(meses[0].y).slice(2);
 
     var cerradas = semanas.filter(function (s) { return !s.enCurso; });
     var ultCerrada = cerradas[cerradas.length - 1] || semanas[semanas.length - 1];
@@ -671,6 +690,19 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     dibujarSem(); dibujarMes();
   }
 
+  function selectorVer(todos) {
+    var sv = $("ver-anio"); if (!sv) return;
+    var anios = {}; todos.forEach(function (x) { anios[x.y] = 1; });
+    var ops = [["12m", "Últimos 12 meses"]].concat(Object.keys(anios).sort().reverse().map(function (y) { return [y, "Año " + y]; }), [["todo", "Todo el histórico"]]);
+    var firmaOps = ops.map(function (o) { return o[0]; }).join(",");
+    if (sv.getAttribute("data-f") !== firmaOps) {
+      sv.innerHTML = ops.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + "</option>"; }).join("");
+      sv.setAttribute("data-f", firmaOps);
+      sv.onchange = function () { VER = sv.value; try { localStorage.setItem("acc_ver_" + (BO ? "bo" : "py"), VER); } catch (e) {} selManual = false; sel = -1; render(construirDias()); };
+    }
+    if (ops.every(function (o) { return o[0] !== VER; })) VER = "12m";
+    sv.value = VER;
+  }
   function nice(max) {
     if (max <= 0) return { top: 1, step: 1 };
     var raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
@@ -711,7 +743,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
         if (o.enCurso) svg += forma + "url(#" + patId + ')"/>';
         base += v;
       });
-      if (opt.totales && total(o) > 0) svg += '<text x="' + cx + '" y="' + (y(total(o)) - 6) + '" text-anchor="middle" font-size="11" font-weight="500" fill="' + css("--ink-2") + '">' + corto(total(o)) + "</text>";
+      if (opt.totales && total(o) > 0 && slot >= 40) svg += '<text x="' + cx + '" y="' + (y(total(o)) - 6) + '" text-anchor="middle" font-size="11" font-weight="500" fill="' + css("--ink-2") + '">' + corto(total(o)) + "</text>";
       if (i % cada === 0)
         svg += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="' + (opt.sel === i ? css("--ink") : css("--muted")) + '">' + o.label + "</text>";
       svg += '<rect class="bar-hit" data-i="' + i + '" x="' + (ml + slot * i) + '" y="' + mt + '" width="' + slot + '" height="' + (ih + mb) + '" fill="transparent"/>';
