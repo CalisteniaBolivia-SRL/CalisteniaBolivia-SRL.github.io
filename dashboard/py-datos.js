@@ -23,7 +23,7 @@
     /* Resumen de una venta del ERP (lo usan este adaptador y «Ingresos en vivo»). */
     function resumenVenta(v, modelos, previo) {
         var r = { v: 3, pg: {}, f: String(v.fecha_on || "").slice(0, 10), membresias: 0, snacks: 0, alquileres: 0, otros: 0, p: {}, dm: 0,
-            u: v.key_usuario || null, cl: v.key_cliente || null, cn: (v.cliente && v.cliente.razon_social) || null };
+            u: v.key_usuario || null, s: v.key_sucursal || null, cl: v.key_cliente || null, cn: (v.cliente && v.cliente.razon_social) || null };
         (v.detalle || v.detalles || []).forEach(function (d) {
             if (d.estado === 0) return;
             var c = TIPOS[(modelos || {})[d.key_modelo]] || "otros", m = (Number(d.precio_unitario) || 0) * (Number(d.cantidad) || 0), nom = String(d.descripcion || "Otro").trim();
