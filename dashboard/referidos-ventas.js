@@ -268,16 +268,17 @@
         var irQR = el("a", { class: "op-btn", href: "cobros-qr.html" + (PY ? "?pais=paraguay" : ""), text: "Cargar o cambiar el QR en Cobros QR" });
         var desc = el("input", { type: "number", min: "0", max: "50", value: String(DESC) });
         var estado = el("p", { class: "op-muted", "aria-live": "polite" });
-        var publicar = el("button", { type: "submit", class: "op-btn is-fuerte", text: "Publicar descuento y paquetes elegidos" });
+        var publicar = el("button", { type: "submit", class: "op-btn is-fuerte", text: "Guardar descuento" });
         var previa = null, paquetes = [], elegidos = {};
         /* Paquetes que se ofrecen al referido: se eligen acá (no salen todos los del ERP). */
         var cajaPaq = el("div", { class: "rv-paqs" }), cuenta = el("p", { class: "op-muted" });
         function contar() { var n = Object.keys(elegidos).length; cuenta.textContent = n ? n + (n === 1 ? " paquete elegido." : " paquetes elegidos.") : "Ningún paquete elegido: marcá los que querés ofrecer."; }
         function pintarPaquetes() {
             cajaPaq.textContent = "";
-            paquetes.slice().sort(function (x, y) { return String(x.nombre).localeCompare(String(y.nombre)); }).forEach(function (p) {
+            /* Los elegidos van primero; después el resto, por nombre. */
+            paquetes.slice().sort(function (x, y) { return ((elegidos[y.nombre] ? 1 : 0) - (elegidos[x.nombre] ? 1 : 0)) || String(x.nombre).localeCompare(String(y.nombre)); }).forEach(function (p) {
                 var i = el("input", { type: "checkbox" }); i.checked = !!elegidos[p.nombre];
-                i.addEventListener("change", function () { if (i.checked) elegidos[p.nombre] = 1; else delete elegidos[p.nombre]; contar(); estado.textContent = "Sin publicar."; });
+                i.addEventListener("change", function () { if (i.checked) elegidos[p.nombre] = 1; else delete elegidos[p.nombre]; contar(); guardarSolo(); });
                 var conD = Math.floor(Number(p.precio) * (100 - (Number(desc.value) || 0)) / 100);
                 cajaPaq.appendChild(el("label", { class: "rv-paq" }, [i, el("span", { text: p.nombre }), el("small", { text: plata(Number(p.precio)) + " → " + plata(PY ? Math.floor(conD / 1000) * 1000 : conD) })]));
             });
@@ -285,9 +286,11 @@
         }
         Promise.all([col("ref_publico").doc("oferta").get(), col("ref_config").doc("paquetes").get(), window.COBRO_QR ? COBRO_QR.buscar(db(), PY ? "paraguay" : "bolivia", { canal: "referidos" }) : Promise.resolve(null)]).then(function (a) {
             previa = a[0].exists ? a[0].data() : null;
-            paquetes = (a[1].exists && a[1].data().lista) || (previa && previa.paquetes) || [];
-            /* Los que ya estaban publicados vienen marcados; la primera vez, ninguno (se eligen a mano). */
-            var pub = {}; ((previa && previa.paquetes) || []).forEach(function (p) { pub[String(p.nombre).trim().toLowerCase()] = 1; });
+            paquetes = ((a[1].exists && a[1].data().lista) || []).slice();
+            /* Los que ya estaban publicados vienen marcados y nunca desaparecen, aunque la lista del ERP cambie. */
+            var pub = {}, hay = {};
+            paquetes.forEach(function (p) { hay[String(p.nombre).trim().toLowerCase()] = 1; });
+            ((previa && previa.paquetes) || []).forEach(function (p) { var k = String(p.nombre).trim().toLowerCase(); pub[k] = 1; if (!hay[k]) { hay[k] = 1; paquetes.push({ nombre: p.nombre, precio: Number(p.precio) }); } });
             elegidos = {}; paquetes.forEach(function (p) { if (pub[String(p.nombre).trim().toLowerCase()]) elegidos[p.nombre] = 1; });
             pintarPaquetes();
             var q = a[2]; qrBox.textContent = "";
@@ -301,22 +304,28 @@
         var form = el("form", { class: "rv-cobro-form" }, [
             qrBox, el("div", { class: "op-acc" }, [irQR]),
             el("label", { class: "op-campo" }, ["Descuento para el cliente (%)", desc]),
-            el("div", { class: "op-campo" }, ["Paquetes que se ofrecen al referido", cuenta, el("div", { class: "op-acc" }, [
-                el("button", { type: "button", class: "op-btn", text: "Marcar todos", onclick: function () { paquetes.forEach(function (p) { elegidos[p.nombre] = 1; }); pintarPaquetes(); } }),
-                el("button", { type: "button", class: "op-btn", text: "Ninguno", onclick: function () { elegidos = {}; pintarPaquetes(); } })]), cajaPaq]),
+            el("div", { class: "op-campo" }, ["Paquetes que se ofrecen al referido (se guarda solo al marcar)", cuenta, el("div", { class: "op-acc" }, [
+                el("button", { type: "button", class: "op-btn", text: "Marcar todos", onclick: function () { paquetes.forEach(function (p) { elegidos[p.nombre] = 1; }); pintarPaquetes(); guardarSolo(); } }),
+                el("button", { type: "button", class: "op-btn", text: "Ninguno", onclick: function () { elegidos = {}; pintarPaquetes(); guardarSolo(); } })]), cajaPaq]),
             el("div", { class: "op-acc" }, [publicar]), estado
         ]);
+        /* Guarda lo elegido (lo ven al instante los clientes y los referidores). */
+        function guardar() {
+            var d = Number(desc.value);
+            if (!(d >= 0 && d <= 50)) { estado.textContent = "El descuento va de 0 a 50 %."; return Promise.resolve(false); }
+            if (!paquetes.length) { estado.textContent = "Falta la lista de paquetes: pedile a Administración que toque «Actualizar ahora» en Mis referidos → Administración."; return Promise.resolve(false); }
+            var lista = paquetes.filter(function (p) { return p && p.nombre && Number(p.precio) > 0 && elegidos[p.nombre]; }).slice(0, 150).map(function (p) { return { nombre: String(p.nombre).slice(0, 120), precio: Number(p.precio) }; });
+            estado.textContent = "Guardando…";
+            return col("ref_publico").doc("oferta").set({ desc: d, paquetes: lista, pago_texto: "", pago_qr: "", fecha_on: ahoraISO(), editado_por: M.uid })
+                .then(function () { estado.textContent = lista.length ? "Guardado: los clientes y los referidores ven solo estos " + lista.length + " paquetes." : "Guardado: ningún paquete elegido, los clientes no ven paquetes."; return true; }, function (er) { estado.textContent = errTxt(er); return false; });
+        }
+        var tGuardar = null;
+        function guardarSolo() { clearTimeout(tGuardar); estado.textContent = "Guardando…"; tGuardar = setTimeout(guardar, 700); }
         form.addEventListener("submit", function (e) {
             e.preventDefault();
-            var d = Number(desc.value);
-            if (!(d >= 0 && d <= 50)) { estado.textContent = "El descuento va de 0 a 50 %."; return; }
-            if (!paquetes.length) { estado.textContent = "Falta la lista de paquetes: pedile a Administración que toque «Actualizar ahora» en Mis referidos → Administración."; return; }
             if (!Object.keys(elegidos).length) { estado.textContent = "Elegí al menos un paquete para ofrecer."; return; }
-            publicar.disabled = true; estado.textContent = "Publicando…";
-            var lista = paquetes.filter(function (p) { return p && p.nombre && Number(p.precio) > 0 && elegidos[p.nombre]; }).slice(0, 60).map(function (p) { return { nombre: String(p.nombre).slice(0, 120), precio: Number(p.precio) }; });
-            col("ref_publico").doc("oferta").set({ desc: d, paquetes: lista, pago_texto: "", pago_qr: "", fecha_on: ahoraISO(), editado_por: M.uid })
-                .then(function () { estado.textContent = "Publicado: ya lo ven los clientes al anotarse."; msg("Cobro publicado.", "ok"); }, function (er) { estado.textContent = errTxt(er); })
-                .then(function () { publicar.disabled = false; });
+            publicar.disabled = true; clearTimeout(tGuardar);
+            guardar().then(function (ok) { if (ok) msg("Cobro publicado.", "ok"); publicar.disabled = false; });
         });
         wrap.appendChild(form);
         return wrap;

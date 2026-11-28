@@ -242,7 +242,7 @@
                 if (!n || !(Number(p.precio) > 0) || !(Number(p.dias) > 0) || p.vendible_en_caja === false || p.usa_molinete === false || vis[n.toLowerCase()]) return;
                 vis[n.toLowerCase()] = 1; out.push({ nombre: n, precio: Number(p.precio) });
             });
-            return db().collection(col("ref_config")).doc("paquetes").set({ lista: out.slice(0, 80), fecha_on: ahora() });
+            return db().collection(col("ref_config")).doc("paquetes").set({ lista: out.slice(0, 300), fecha_on: ahora() });
         }).catch(function () { return null; });
     }
 

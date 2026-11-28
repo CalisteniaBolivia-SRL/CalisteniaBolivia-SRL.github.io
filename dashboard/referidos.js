@@ -100,8 +100,10 @@
             $("cm-quien").textContent = c.nombre ? "Hola, " + String(c.nombre).split(" ")[0] : "";
             $("rf-salir").hidden = false;
             est.admin = esAdmin(c);
-            return Promise.all([D.miCodigo(), D.config()]).then(function (a) {
-                est.codigo = a[0]; est.cfg = a[1].cfg; est.paquetes = a[1].paquetes;
+            return Promise.all([D.miCodigo(), D.config(), D.oferta().catch(function () { return null; })]).then(function (a) {
+                est.codigo = a[0]; est.cfg = a[1].cfg; est.todos = a[1].paquetes;
+                /* Solo los paquetes que Dirección / la Jefa de ATC eligieron para referidos. */
+                est.paquetes = (a[2] && a[2].paquetes) || [];
                 if (!est.codigo) { msg(""); return mostrarAlta(c); }
                 return abrirPanel();
             });
@@ -220,7 +222,7 @@
         var filas = R.tablaPaquetes(est.paquetes, est.cfg);
         $("rf-paquetes").textContent = "";
         $("rf-paquetes").appendChild(tabla([{ t: "Paquete", v: function (f) { return f.nombre; } }, { t: "Precio", num: 1, v: function (f) { return plata(f.precio); } },
-            { t: "Ganás", num: 1, v: function (f) { return el("b", "", plata(f.gana)); } }], filas, "La lista de paquetes se carga cuando Administración actualiza el cruce con el ERP."));
+            { t: "Ganás", num: 1, v: function (f) { return el("b", "", plata(f.gana)); } }], filas, "Todavía no hay paquetes elegidos para referidos: los elige Dirección o la Jefa de ATC en Referidos nuevos → Cobro."));
     }
     function pintarVentas() {
         var filas = est.comisiones.slice().sort(function (a, b) { return String(b.fecha_venta).localeCompare(String(a.fecha_venta)); });
@@ -359,7 +361,7 @@
         var mb = el("button", "rf-btn", "+ Agregar bono"); mb.type = "button"; mb.onclick = function () { filaBono(); }; fb.appendChild(mb); f.appendChild(fb);
         var fp = el("fieldset", "rf-fam"); fp.appendChild(el("legend", "", "Porcentaje por paquete (opcional)"));
         var pps = el("div"); fp.appendChild(pps);
-        var dl = el("datalist"); dl.id = "rf-dl-paq"; est.paquetes.forEach(function (p) { var o = el("option"); o.value = p.nombre; dl.appendChild(o); }); fp.appendChild(dl);
+        var dl = el("datalist"); dl.id = "rf-dl-paq"; (est.todos || est.paquetes).forEach(function (p) { var o = el("option"); o.value = p.nombre; dl.appendChild(o); }); fp.appendChild(dl);
         var filaPP = function (n, v) { var d = el("div", "rf-fam-fila"); var x = el("input"); x.placeholder = "Paquete"; x.setAttribute("list", "rf-dl-paq"); x.value = n || ""; var y = el("input"); y.type = "number"; y.step = "0.1"; y.min = "0"; y.placeholder = "%"; y.value = v != null ? v : ""; var q = el("button", "rf-btn rf-quitar", "Quitar"); q.type = "button"; q.onclick = function () { d.remove(); }; d.appendChild(x); d.appendChild(y); d.appendChild(q); pps.appendChild(d); };
         Object.keys(c.pct_paquete || {}).forEach(function (k) { filaPP(k, c.pct_paquete[k]); });
         var mp = el("button", "rf-btn", "+ Agregar paquete"); mp.type = "button"; mp.onclick = function () { filaPP(); }; fp.appendChild(mp); f.appendChild(fp);
