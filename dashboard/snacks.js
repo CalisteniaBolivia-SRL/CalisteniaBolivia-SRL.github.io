@@ -9,7 +9,7 @@
 (function () {
     "use strict";
     var PY = window.CM_PAIS === "paraguay", L = window.SNACKS_LOGICA, MON = PY ? "Gs" : "Bs", LOC = PY ? "es-PY" : "es-BO";
-    var DIAS_DATOS = 90, COL = PY ? "snk_py" : "snk_bo", K_CAT = "snk_cat_" + (PY ? "py" : "bo") + "_v1";
+    var INICIO_SN = "2026-04-01", COL = PY ? "snk_py" : "snk_bo", K_CAT = "snk_cat_" + (PY ? "py" : "bo") + "_v1";
     var $ = function (id) { return document.getElementById(id); };
     function el(tag, attrs, hijos) {
         var e = document.createElement(tag);
@@ -66,12 +66,14 @@
             });
         });
     }
-    /* Ventas: meses guardados por el servidor (los de los últimos 90 días). */
+    /* Ventas: meses guardados por el servidor (todos, desde abril de 2026). */
     var CFGF = window.CM_FIREBASE_CONFIG || {};
     var SYNC = window.CM_SNACKS_SYNC || ("https://southamerica-east1-" + (CFGF.projectId || "centro-de-comando-a57cf") + ".cloudfunctions.net/snacksSync");
     function mesAnt(m) { var y = +m.slice(0, 4), mm = +m.slice(5, 7) - 1; if (mm < 1) { mm = 12; y--; } return y + "-" + String(mm).padStart(2, "0"); }
+    /* Todo lo que hay en el ERP (snacks desde abril de 2026): días desde el inicio hasta hoy. */
+    function diasDatos() { return Math.round((Date.parse(hoy()) - Date.parse(INICIO_SN)) / 864e5) + 1; }
     function cargarVentas(soloActual) {
-        var h = hoy(), ini = L.sumarDias(h, -(DIAS_DATOS - 1)).slice(0, 7), meses = [], m = h.slice(0, 7);
+        var h = hoy(), ini = INICIO_SN.slice(0, 7), meses = [], m = h.slice(0, 7);
         while (m >= ini) { meses.push(m); m = mesAnt(m); if (soloActual) break; }
         return CMFB.listo.then(function () {
             if (!firebase.auth().currentUser) throw new Error("Falta la sesión del centro de mando: salí y volvé a entrar.");
@@ -104,7 +106,7 @@
         }));
     }
     function selPeriodo() {
-        var s = el("select", { "aria-label": "Período" }, [[7, "Últimos 7 días"], [30, "Últimos 30 días"], [DIAS_DATOS, "Últimos " + DIAS_DATOS + " días"]].map(function (p) { return el("option", { value: p[0], text: p[1], selected: D.periodo === p[0] }); }));
+        var s = el("select", { "aria-label": "Período" }, [[7, "Últimos 7 días"], [30, "Últimos 30 días"], [90, "Últimos 90 días"], [180, "Últimos 180 días"], [diasDatos(), "Desde el inicio (abril 2026)"]].filter(function (p, i, a) { return p[0] <= diasDatos() || i === a.length - 1; }).map(function (p) { return el("option", { value: p[0], text: p[1], selected: D.periodo === p[0] }); }));
         s.addEventListener("change", function () { D.periodo = Number(s.value); pintar(); }); return s;
     }
     function selSucursal(conTodas) {
@@ -121,7 +123,7 @@
         var h = hoy(), V = listaVentas(), P = D.productos, d = D.periodo, desde = L.sumarDias(h, -(d - 1));
         var tHoy = L.totales(V, P, h, h), tPer = L.totales(V, P, desde, h), tAnt = L.totales(V, P, L.sumarDias(desde, -d), L.sumarDias(desde, -1));
         /* Solo se compara si el período anterior entra completo en lo leído (45 días). */
-        var cambio = tAnt.bs && d * 2 <= DIAS_DATOS ? Math.round((tPer.bs - tAnt.bs) / tAnt.bs * 100) : null;
+        var cambio = tAnt.bs && d * 2 <= diasDatos() ? Math.round((tPer.bs - tAnt.bs) / tAnt.bs * 100) : null;
         var w = el("div", {}, [el("div", { class: "sn-fila" }, [selPeriodo()])]);
         w.appendChild(el("div", { class: "sn-kpis" }, [
             kpi("Hoy", plata(tHoy.bs), num(tHoy.unidades) + " unidades · " + num(tHoy.tickets) + " tickets"),

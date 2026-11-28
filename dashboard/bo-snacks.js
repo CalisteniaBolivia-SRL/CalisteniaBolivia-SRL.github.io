@@ -75,12 +75,16 @@
 
     /* ---------- tarjetas «Ingresos del mes» / «Ingresos de hoy» ---------- */
     function plata(n) { return "Bs " + Math.round(n).toLocaleString("es-BO"); }
-    var paquetes = { mes: null, hoy: null, leido: 0 };
+    var paquetes = { mes: null, hoy: null, leido: 0, clave: "" };
+    /* Período del tablero (selector de año/mes); en vivo: hoy y el mes en curso. */
+    function rango() { var p = window.dash && dash.params ? dash.params() : {}; var h = p.hoy || hoy(); return { hoy: h, ini: p.ini_mes || h.slice(0, 8) + "01" }; }
     function leerPaquetes() {
-        if (!window.CM || !CM.llamar || (Date.now() - paquetes.leido < 60000)) return Promise.resolve();
-        var h = hoy(), ini = h.slice(0, 8) + "01";
+        var r = rango(), clave = r.ini + r.hoy;
+        if (!window.CM || !CM.llamar || (clave === paquetes.clave && Date.now() - paquetes.leido < 60000)) return Promise.resolve();
+        var h = r.hoy, ini = r.ini; paquetes.clave = clave;
+        var llamar = window.dash && dash.llamar ? dash.llamar : function (t, x) { return CM.llamar(t, x); };
         var tot = function (r) { if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { return null; } } r = r && r.result && !r.totales ? r.result : r; return r && r.totales ? Number(r.totales.total) || 0 : null; };
-        return Promise.all([CM.llamar("reporte_ventas", { desde: ini, hasta: h, agrupar_por: "dia" }).then(tot, function () { return null; }), CM.llamar("reporte_ventas", { desde: h, hasta: h, agrupar_por: "dia" }).then(tot, function () { return null; })])
+        return Promise.all([llamar("reporte_ventas", { desde: ini, hasta: h, agrupar_por: "dia" }).then(tot, function () { return null; }), llamar("reporte_ventas", { desde: h, hasta: h, agrupar_por: "dia" }).then(tot, function () { return null; })])
             .then(function (a) { paquetes.mes = a[0]; paquetes.hoy = a[1]; paquetes.leido = Date.now(); });
     }
     function linea(card, t, paq) {
@@ -89,7 +93,7 @@
         p.textContent = "+ " + (t.alquileres ? "Snacks y alquileres " : "Snacks ") + plata(sn) + (paq != null ? " · Total " + plata(paq + sn) : "");
     }
     function pintar() {
-        var h = hoy(), ini = h.slice(0, 8) + "01", mes = totales(ini, h), dia = totales(h, h);
+        var r = rango(), h = r.hoy, ini = r.ini, mes = totales(ini, h), dia = totales(h, h);
         Array.prototype.forEach.call(document.querySelectorAll(".cb-kpi"), function (card) {
             var t = ((card.querySelector(".cb-kpi-l") || {}).textContent || "").trim();
             if (/^Ingresos del mes$/i.test(t)) linea(card, mes, paquetes.mes);
@@ -122,8 +126,11 @@
         }
         enGraficos();
         if (!hayKpi && !window.dash) return;
-        Promise.all([arrancar(), leerPaquetes()]).then(function () { avisar(); vuelta(); });
+        var r0 = rango(), conPeriodo = window.CM_PERIODO && CM_PERIODO.elegido();
+        Promise.all([conPeriodo ? arrancar(r0.ini, r0.hoy) : arrancar(), leerPaquetes()]).then(function () { avisar(); vuelta(); });
         setInterval(vuelta, 120000);
+        /* Al cambiar el período: se leen los meses de ese período (los snacks están desde el 7 de abril de 2026). */
+        window.addEventListener("cm-periodo", function () { var r = rango(); Promise.all([arrancar(r.ini, r.hoy), leerPaquetes()]).then(function () { avisar(); }); });
     }
 
     window.BO_SNACKS = { arrancar: arrancar, totales: totales, porDia: porDia, delMes: delMes, pedirSync: pedirSync, alCambiar: function (fn) { oyentes.push(fn); }, INICIO: INICIO };
