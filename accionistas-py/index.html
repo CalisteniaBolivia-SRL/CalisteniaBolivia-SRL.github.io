@@ -137,6 +137,13 @@ section.card { background: var(--surface); border: 1px solid var(--border); bord
 details { margin-top: 12px; }
 summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
 .tbl-wrap { overflow-x: auto; margin-top: 8px; }
+.suc-ctl { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 6px; font-size: 14px; }
+.suc-ctl label { display: inline-flex; gap: 8px; align-items: center; }
+.suc-ctl select { font: inherit; padding: 6px 10px; min-height: 36px; border-radius: 0; border: 1px solid var(--grid, #3A3E44); background: var(--surface, #fff); color: inherit; }
+.suc-h3 { font-size: 15px; margin: 18px 0 4px; }
+#suc-meses th button { font: inherit; background: none; border: 0; color: inherit; cursor: pointer; text-decoration: underline; padding: 0; }
+#suc-meses th.is-sel { box-shadow: inset 0 -2px 0 var(--accent, #E30613); }
+#suc-meses td small { display: block; font-size: 11px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; font-variant-numeric: tabular-nums; }
 th:first-child, td:first-child { text-align: left; }
@@ -229,6 +236,23 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     <div class="tbl-wrap" id="tb-mes"></div>
   </section>
 
+  <section class="card" aria-labelledby="t-suc">
+    <div class="card__h">
+      <h2 id="t-suc">Comparativa de sucursales</h2>
+      <p id="suc-sub">Un año contra otro y, después, mes a mes</p>
+    </div>
+    <div class="suc-ctl">
+      <label>Año <select id="suc-a" aria-label="Año a analizar"></select></label>
+      <label>contra <select id="suc-b" aria-label="Año con el que se compara"></select></label>
+      <label>Período <select id="suc-m" aria-label="Año completo o un mes"></select></label>
+    </div>
+    <p class="nota" id="suc-nota" style="margin:8px 0 0"></p>
+    <div class="tbl-wrap" id="suc-tabla"></div>
+    <h3 class="suc-h3">Mes a mes</h3>
+    <p class="nota" style="margin:0">Cada mes del año elegido contra el mismo mes del año con el que se compara. Toca un mes para verlo arriba.</p>
+    <div class="tbl-wrap" id="suc-meses"></div>
+  </section>
+
   <p class="nota">Fuente: ERP S-ERP de Calistenia Paraguay, en vivo. Ventas vigentes (sin anuladas) por fecha de venta, clasificadas por el tipo de producto del ERP. Montos en guaraníes. La semana y el mes en curso se muestran rayados porque aún no cerraron.</p>
 </main>
 <footer>Calistenia Paraguay · Información confidencial para accionistas</footer>
@@ -240,7 +264,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 <script src="../dashboard/firebase-config.js?v=2"></script>
 <script>window.CM_FB_SIN_BARRA = true;</script>
 <script src="../dashboard/cm-firebase.js?v=13"></script>
-<script src="../dashboard/py-datos.js?v=3"></script>
+<script src="../dashboard/py-datos.js?v=5"></script>
 <script>if (/[?&]pais=bolivia\b/.test(location.search)) window.ERP_KEY_EMPRESA = "d4118f82-0b0a-44e3-8525-73df48be69db";   // Calistenia Bolivia en el ERP (snacks)</script>
 <script src="erp.js?v=3"></script>
 <script>if (/[?&]pais=bolivia\b/.test(location.search)) document.write('<script src="../dashboard/bo-snacks.js?v=4"><\/script>');</script>
@@ -669,14 +693,16 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
 
     var cerradas = semanas.filter(function (s) { return !s.enCurso; });
     var ultCerrada = cerradas[cerradas.length - 1] || semanas[semanas.length - 1];
-    if (!selManual || sel < 0 || sel >= semanas.length) sel = semanas.indexOf(ultCerrada);
+    /* Al abrir se muestra la semana que se está viviendo (la última del gráfico); las anteriores, con las flechas. */
+    var semAct = semanas[semanas.length - 1];
+    if (!selManual || sel < 0 || sel >= semanas.length) sel = semanas.length - 1;
 
     var mesAct = meses[meses.length - 1], mesAnt = meses[meses.length - 2];
     var primer = dias.length ? fechaLocal(dias[0].fecha) : hoy;
     $("datos-al").textContent = "Datos al " + hoy.getDate() + " de " + MESES[hoy.getMonth()] + " de " + hoy.getFullYear();
     $("kpis").innerHTML = [
       ["Total desde el inicio", gs(total(acum)), "Desde " + diaCorto(primer) + " " + primer.getFullYear() + " · " + acum.ventas.toLocaleString(LOC) + " ventas"],
-      ["Última semana cerrada", gs(total(ultCerrada)), ultCerrada.titulo],
+      [semAct.enCurso ? "Semana actual (en curso)" : "Última semana", gs(total(semAct)), semAct.titulo + (semanas.length > 1 ? " · anterior: " + gs(total(semanas[semanas.length - 2])) : "")],
       [cap(mesAct.titulo) + (mesAct.enCurso ? " (en curso)" : ""), gs(total(mesAct)), mesAnt ? cap(mesAnt.titulo) + ": " + gs(total(mesAnt)) : ""]
     ].map(function (k) { return '<div class="kpi"><div class="kpi__l">' + k[0] + '</div><div class="kpi__v">' + k[1] + '</div><div class="kpi__s">' + k[2] + "</div></div>"; }).join("");
 
@@ -688,6 +714,7 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     tabla("tb-mes", meses, "Mes");
     $("mes-rango").textContent = "De " + meses[0].titulo + " a " + meses[meses.length - 1].titulo;
     dibujarSem(); dibujarMes();
+    compIniciar();
   }
 
   function selectorVer(todos) {
@@ -799,6 +826,128 @@ footer { max-width: 1120px; margin: 0 auto; padding: 0 16px 32px; font-size: 12p
     h += filas.slice().reverse().map(function (f) { return "<tr><td>" + cap(f.titulo) + (f.enCurso ? " (en curso)" : "") + "</td>" + CATS.map(function (c) { return "<td>" + gs(f[c.k]) + "</td>"; }).join("") + "<td><b>" + gs(total(f)) + "</b></td><td>" + f.ventas + "</td></tr>"; }).join("");
     h += "</tbody><tfoot><tr><td>Total</td>" + CATS.map(function (c) { return "<td>" + gs(tot[c.k]) + "</td>"; }).join("") + "<td>" + gs(total(tot)) + "</td><td>" + tot.ventas + "</td></tr></tfoot></table>";
     $(id).innerHTML = h;
+  }
+
+  /* ================= Comparativa de sucursales (año contra año, después mes a mes) =================
+     Bolivia: ventas de paquetes por sucursal del sistema de Calistenia (reporte_ventas por sucursal).
+     Paraguay: ventas del ERP por sucursal (todas las ventas: paquetes, snacks y alquileres).
+     Para que la comparación sea justa, si el año o el mes están en curso se compara hasta la misma fecha. */
+  var COMP = { cache: {}, a: null, b: null, m: "", listo: false, nombresPY: null };
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function rangoComp(y, m) {   // m: "" (año) o 0-11
+    var h = hoyPY(), hy = +h.slice(0, 4), hm = +h.slice(5, 7) - 1, hd = +h.slice(8, 10);
+    var ini = m === "" ? y + "-01-01" : y + "-" + pad2(m + 1) + "-01";
+    var finM = m === "" ? 11 : m, dFin = new Date(y, finM + 1, 0).getDate(), fin = y + "-" + pad2(finM + 1) + "-" + pad2(dFin);
+    return { ini: ini, fin: fin };
+  }
+  /* Mismo tramo en los dos años: si el período del año más nuevo está en curso, ambos se cortan en la misma fecha. */
+  function tramos(ya, yb, m) {
+    var h = hoyPY(), ra = rangoComp(ya, m), rb = rangoComp(yb, m), corte = null;
+    [ra, rb].forEach(function (r) { if (r.ini <= h && r.fin >= h) corte = h.slice(5); });
+    function cortar(r, y) { if (!corte) return r; var mm = +corte.slice(0, 2), dd = +corte.slice(3, 5), dim = new Date(y, mm, 0).getDate(); var f = y + "-" + corte.slice(0, 2) + "-" + pad2(Math.min(dd, dim)); return { ini: r.ini, fin: f < r.fin ? f : r.fin, cortado: true }; }
+    return { a: cortar(ra, ya), b: cortar(rb, yb), corte: corte };
+  }
+  function nombresPY() {
+    if (COMP.nombresPY) return Promise.resolve(COMP.nombresPY);
+    if (!window.ERP) return Promise.resolve({});
+    return ERP.pedir({ version: "1.0", service: "empresa", component: "sucursal", type: "getAll", key_empresa: ERP.KEY_EMPRESA }, 30000).then(function (r) {
+      var d = (r && r.data) || {}, l = Array.isArray(d) ? d : Object.keys(d).map(function (k) { return d[k]; }), n = {};
+      l.forEach(function (x) { if (x && x.key) n[x.key] = String(x.descripcion || "").trim(); });
+      COMP.nombresPY = n; return n;
+    }).catch(function () { return {}; });
+  }
+  /* Total por sucursal de un tramo: { nombre: { total, ventas } } */
+  function porSucursal(r) {
+    var k = r.ini + "|" + r.fin; if (COMP.cache[k]) return COMP.cache[k];
+    var p;
+    if (BO) {
+      p = window.CM.llamar("reporte_ventas", { desde: r.ini, hasta: r.fin, agrupar_por: "sucursal" }).then(function (x) {
+        if (typeof x === "string") x = JSON.parse(x);
+        if (x && x.result && !x.filas) x = x.result;
+        if (!x || x.error) throw new Error((x && x.error) || "sin_datos");
+        var o = {}; (x.filas || []).forEach(function (f) { var n = String(f.grupo || "Sin sucursal").trim(); o[n] = { total: Number(f.total) || 0, ventas: Number(f.ventas) || 0 }; });
+        return o;
+      });
+    } else {
+      p = nombresPY().then(function (nom) {
+        var o = {};
+        Object.keys(ventas).forEach(function (kk) {
+          var v = ventas[kk]; if (!v || !v.f || v.anul || v.f < r.ini || v.f > r.fin) return;
+          var n = (v.s && nom[v.s]) || "Multiplaza";   // las ventas guardadas antes no tienen sucursal: Paraguay tenía solo Multiplaza
+          var x = o[n] || (o[n] = { total: 0, ventas: 0 }); x.total += Number(v.t != null ? v.t : (v.membresias + v.snacks + v.alquileres + (v.otros || 0))) || 0; x.ventas++;
+        });
+        return o;
+      });
+    }
+    COMP.cache[k] = p.catch(function (e) { delete COMP.cache[k]; throw e; });
+    return COMP.cache[k];
+  }
+  function varTxt(a, b) {
+    if (!b) return a ? '<span class="delta-up">nuevo</span>' : "—";
+    var v = (a - b) / b * 100, up = v >= 0;
+    return '<span class="' + (up ? "delta-up" : "delta-down") + '">' + (up ? "▲ +" : "▼ ") + Math.round(v) + "%</span>";
+  }
+  function compAnios() {
+    var ini = +INICIO.slice(0, 4), h = +hoyPY().slice(0, 4), l = []; for (var y = h; y >= ini; y--) l.push(y); return l;
+  }
+  function compOpciones() {
+    var anios = compAnios();
+    if (COMP.a == null) { COMP.a = anios[0]; COMP.b = anios[1] != null ? anios[1] : anios[0] - 1; }
+    $("suc-a").innerHTML = anios.map(function (y) { return "<option>" + y + "</option>"; }).join("");
+    $("suc-b").innerHTML = anios.concat([anios[anios.length - 1] - 1]).filter(function (y, i, l) { return l.indexOf(y) === i; }).map(function (y) { return "<option>" + y + "</option>"; }).join("");
+    $("suc-a").value = String(COMP.a); $("suc-b").value = String(COMP.b);
+    var ultimoMes = COMP.a === +hoyPY().slice(0, 4) ? +hoyPY().slice(5, 7) - 1 : 11;
+    $("suc-m").innerHTML = '<option value="">Año completo</option>' + MESES.slice(0, ultimoMes + 1).map(function (n, i) { return '<option value="' + i + '">' + cap(n) + "</option>"; }).join("");
+    if (COMP.m !== "" && +COMP.m > ultimoMes) COMP.m = "";
+    $("suc-m").value = String(COMP.m);
+  }
+  function compTabla() {
+    var ya = COMP.a, yb = COMP.b, m = COMP.m === "" ? "" : +COMP.m, t = tramos(ya, yb, m);
+    var titulo = m === "" ? "Año " + ya + " contra " + yb : cap(MESES[m]) + " " + ya + " contra " + cap(MESES[m]) + " " + yb;
+    $("suc-nota").textContent = titulo + (t.corte ? " · hasta el " + (+t.corte.slice(3)) + " de " + MESES[+t.corte.slice(0, 2) - 1] + " en los dos años, para comparar lo mismo" : "") +
+      (BO ? " · Bolivia: ventas de paquetes por sucursal (los snacks se venden en el ERP)." : " · Paraguay: todas las ventas del ERP; hay datos desde abril de 2026.");
+    $("suc-tabla").innerHTML = '<p class="nota">Cargando…</p>';
+    var pedido = ya + "|" + yb + "|" + m;
+    Promise.all([porSucursal(t.a), porSucursal(t.b)]).then(function (r) {
+      if (pedido !== COMP.a + "|" + COMP.b + "|" + (COMP.m === "" ? "" : +COMP.m)) return;
+      var A = r[0], B = r[1], nombres = Object.keys(A).concat(Object.keys(B)).filter(function (n, i, l) { return l.indexOf(n) === i; });
+      nombres.sort(function (x, y) { return ((A[y] || {}).total || 0) - ((A[x] || {}).total || 0); });
+      var ta = 0, tb = 0;
+      var filas = nombres.map(function (n) {
+        var a = (A[n] || {}).total || 0, b = (B[n] || {}).total || 0; ta += a; tb += b;
+        return "<tr><td>" + n + "</td><td>" + gs(b) + "</td><td><b>" + gs(a) + "</b></td><td>" + (a - b >= 0 ? "+" : "−") + gs(Math.abs(a - b)) + "</td><td>" + varTxt(a, b) + "</td></tr>";
+      });
+      if (!nombres.length) { $("suc-tabla").innerHTML = '<p class="nota">Sin ventas en ese período.</p>'; return; }
+      $("suc-tabla").innerHTML = "<table><thead><tr><th>Sucursal</th><th>" + yb + "</th><th>" + ya + "</th><th>Diferencia</th><th>Variación</th></tr></thead><tbody>" + filas.join("") +
+        "</tbody><tfoot><tr><td>Total</td><td>" + gs(tb) + "</td><td>" + gs(ta) + "</td><td>" + (ta - tb >= 0 ? "+" : "−") + gs(Math.abs(ta - tb)) + "</td><td>" + varTxt(ta, tb) + "</td></tr></tfoot></table>";
+    }, function (e) { $("suc-tabla").innerHTML = '<p class="nota">No se pudo leer: ' + ((e && e.message) || "error") + "</p>"; });
+  }
+  function compMeses() {
+    var ya = COMP.a, yb = COMP.b, h = hoyPY(), ultimo = ya === +h.slice(0, 4) ? +h.slice(5, 7) - 1 : 11, ms = [];
+    for (var m = 0; m <= ultimo; m++) ms.push(m);
+    $("suc-meses").innerHTML = '<p class="nota">Cargando mes a mes…</p>';
+    var pedido = ya + "|" + yb;
+    Promise.all(ms.map(function (m) { var t = tramos(ya, yb, m); return Promise.all([porSucursal(t.a), porSucursal(t.b)]); })).then(function (rs) {
+      if (pedido !== COMP.a + "|" + COMP.b) return;
+      var nombres = {}; rs.forEach(function (r) { [r[0], r[1]].forEach(function (o) { Object.keys(o).forEach(function (n) { nombres[n] = (nombres[n] || 0) + ((r[0][n] || {}).total || 0); }); }); });
+      var lista = Object.keys(nombres).sort(function (x, y) { return nombres[y] - nombres[x]; });
+      if (!lista.length) { $("suc-meses").innerHTML = '<p class="nota">Sin ventas en esos años.</p>'; return; }
+      var cab = "<tr><th>Sucursal</th>" + ms.map(function (m) { return '<th class="' + (String(COMP.m) === String(m) ? "is-sel" : "") + '"><button type="button" data-m="' + m + '">' + MES3[m] + "</button></th>"; }).join("") + "</tr>";
+      var cuerpo = lista.map(function (n) {
+        return "<tr><td>" + n + "</td>" + rs.map(function (r) { var a = (r[0][n] || {}).total || 0, b = (r[1][n] || {}).total || 0; return "<td>" + corto(a) + "<small>" + varTxt(a, b) + "</small></td>"; }).join("") + "</tr>";
+      }).join("");
+      var tot = "<tr><td><b>Total</b></td>" + rs.map(function (r) { var a = 0, b = 0; Object.keys(r[0]).forEach(function (n) { a += r[0][n].total; }); Object.keys(r[1]).forEach(function (n) { b += r[1][n].total; }); return "<td><b>" + corto(a) + "</b><small>" + varTxt(a, b) + "</small></td>"; }).join("") + "</tr>";
+      $("suc-meses").innerHTML = "<table><thead>" + cab + "</thead><tbody>" + cuerpo + "</tbody><tfoot>" + tot + "</tfoot></table>";
+      $("suc-meses").querySelectorAll("th button").forEach(function (bt) { bt.onclick = function () { COMP.m = bt.getAttribute("data-m"); $("suc-m").value = COMP.m; compTabla(); $("suc-meses").querySelectorAll("th").forEach(function (th) { th.classList.toggle("is-sel", th.querySelector("button") === bt); }); $("t-suc").scrollIntoView({ behavior: "smooth", block: "start" }); }; });
+    }, function (e) { $("suc-meses").innerHTML = '<p class="nota">No se pudo leer: ' + ((e && e.message) || "error") + "</p>"; });
+  }
+  function compIniciar() {
+    if (COMP.listo || !$("suc-a")) return; COMP.listo = true;
+    compOpciones();
+    $("suc-a").onchange = function () { COMP.a = +this.value; compOpciones(); compTabla(); compMeses(); };
+    $("suc-b").onchange = function () { COMP.b = +this.value; compTabla(); compMeses(); };
+    $("suc-m").onchange = function () { COMP.m = this.value; compTabla(); compMeses(); };
+    compTabla(); compMeses();
   }
 
   var tr; window.addEventListener("resize", function () { clearTimeout(tr); tr = setTimeout(function () { if (semanas.length) { dibujarSem(); dibujarMes(); } }, 120); });
